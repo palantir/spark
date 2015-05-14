@@ -329,6 +329,66 @@ class ParquetIOSuiteBase extends QueryTest with ParquetTest {
       checkAnswer(parquetFile(file), (data ++ newData).map(Row.fromTuple))
     }
   }
+
+  test("SPARK-6315 regression test") {
+    // Spark 1.1 and prior versions write Spark schema as case class string into Parquet metadata.
+    // This has been deprecated by JSON format since 1.2.  Notice that, 1.3 further refactored data
+    // types API, and made StructType.fields an array.  This makes the result of StructType.toString
+    // different from prior versions: there's no "Seq" wrapping the fields part in the string now.
+    val sparkSchema =
+      "StructType(Seq(StructField(a,BooleanType,false),StructField(b,IntegerType,false)))"
+
+    // The Parquet schema is intentionally made different from the Spark schema.  Because the new
+    // Parquet data source simply falls back to the Parquet schema once it fails to parse the Spark
+    // schema.  By making these two different, we are able to assert the old style case class string
+    // is parsed successfully.
+    val parquetSchema = MessageTypeParser.parseMessageType(
+      """message root {
+        |  required int32 c;
+        |}
+      """.stripMargin)
+
+    withTempPath { location =>
+      val extraMetadata = Map(RowReadSupport.SPARK_METADATA_KEY -> sparkSchema.toString)
+      val fileMetadata = new FileMetaData(parquetSchema, extraMetadata, "Spark")
+      val path = new Path(location.getCanonicalPath)
+
+      ParquetFileWriter.writeMetadataFile(
+        sparkContext.hadoopConfiguration,
+        path,
+        new Footer(path, new ParquetMetadata(fileMetadata, Nil)) :: Nil)
+
+      assertResult(parquetFile(path.toString).schema) {
+        StructType(
+          StructField("a", BooleanType, nullable = false) ::
+          StructField("b", IntegerType, nullable = false) ::
+          Nil)
+      }
+    }
+  }
+
+  test("SPARK-6352 DirectParquetOutputCommitter") {
+    // Write to a parquet file and let it fail.
+    // _temporary should be missing if direct output committer works.
+    try {
+      configuration.set("spark.sql.parquet.output.committer.class",
+        "org.apache.spark.sql.parquet.DirectParquetOutputCommitter")
+      sqlContext.udf.register("div0", (x: Int) => x / 0)
+      withTempPath { dir =>
+        intercept[org.apache.spark.SparkException] {
+          sqlContext.sql("select div0(1)").saveAsParquetFile(dir.getCanonicalPath)
+        }
+        val path = new Path(dir.getCanonicalPath, "_temporary")
+        val fs = path.getFileSystem(configuration)
+        assert(!fs.exists(path))
+      }
+    }
+    finally {
+      configuration.set("spark.sql.parquet.output.committer.class",
+        "parquet.hadoop.ParquetOutputCommitter")
+    }
+  }
+>>>>>>> e13cd86... [SPARK-6352] [SQL] Custom parquet output committer
 }
 
 class ParquetDataSourceOnIOSuite extends ParquetIOSuiteBase with BeforeAndAfterAll {
