@@ -40,11 +40,11 @@ private[spark] trait Spillable[C] extends Logging {
   protected def addElementsRead(): Unit = { _elementsRead += 1 }
 
   // Memory manager that can be used to acquire/release memory
-  private[this] val shuffleMemoryManager = SparkEnv.get.shuffleMemoryManager
+  private[this] def shuffleMemoryManager = SparkEnv.get.shuffleMemoryManager
 
   // Initial threshold for the size of a collection before we start tracking its memory usage
   // Exposed for testing
-  private[this] val initialMemoryThreshold: Long =
+  private[this] def initialMemoryThreshold: Long =
     SparkEnv.get.conf.getLong("spark.shuffle.spill.initialMemoryThreshold", 5 * 1024 * 1024)
 
   // Threshold for this collection's size in bytes before we start tracking its memory usage

@@ -58,6 +58,7 @@ private[spark] abstract class BlockObjectWriter(val blockId: BlockId) extends Ou
    */
   def write(key: Any, value: Any)
 
+
   /**
    * Notify the writer that a record worth of bytes has been written with OutputStream#write.
    */
@@ -253,4 +254,5 @@ private[spark] class DiskBlockObjectWriter(
     objOut.flush()
     bs.flush()
   }
+
 }

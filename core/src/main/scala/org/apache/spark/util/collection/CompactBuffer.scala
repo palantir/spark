@@ -141,6 +141,7 @@ private[spark] class CompactBuffer[T: ClassTag] extends Seq[T] with Serializable
           newArrayLen = Int.MaxValue - 2
         }
       }
+      require(newArrayLen != null)
       val newArray = new Array[T](newArrayLen)
       if (otherElements != null) {
         System.arraycopy(otherElements, 0, newArray, 0, otherElements.length)
