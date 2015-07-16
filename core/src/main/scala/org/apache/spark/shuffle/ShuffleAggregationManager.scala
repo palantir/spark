@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.spark.shuffle
 
 import java.util
@@ -13,38 +30,17 @@ import scala.collection.Iterator
  * Created by vladio on 7/14/15.
  */
 private[spark] class ShuffleAggregationManager[K, V](
+  val conf: SparkConf,
   iterator: Iterator[Product2[K, V]]) {
 
-  private[this] var isSpillEnabled = true
-  private[this] var partialAggCheckInterval = 10000
-  private[this] var partialAggReduction = 0.5
-  private[this] var partialAggEnabled = true
+  private val isSpillEnabled = conf.getBoolean("spark.shuffle.spill", true)
+  private val partialAggCheckInterval = conf.getInt("spark.partialAgg.interval", 10000)
+  private val partialAggReduction = conf.getDouble("spark.partialAgg.reduction", 0.5)
+  private var partialAggEnabled = true
 
-  private[this] var uniqueKeysMap = createNormalMap[K, Boolean]
-  private[this] var iteratedElements = MutableList[Product2[K, V]]()
-  private[this] var numIteratedRecords = 0
-
-  private[spark] def withConf(conf: SparkConf): this.type = {
-    isSpillEnabled = conf.getBoolean("spark.shuffle.spill", true)
-    partialAggCheckInterval = conf.getInt("spark.partialAgg.interval", 10000)
-    partialAggReduction = conf.getDouble("spark.partialAgg.reduction", 0.5)
-    this
-  }
-
-  // Functions for creating an ExternalAppendOnlyMap
-  def createCombiner[T](i: T) = ArrayBuffer[T](i)
-  def mergeValue[T](buffer: ArrayBuffer[T], i: T): ArrayBuffer[T] = buffer += i
-  def mergeCombiners[T](buf1: ArrayBuffer[T], buf2: ArrayBuffer[T]): ArrayBuffer[T] =
-    buf1 ++= buf2
-
-  def createExternalMap[K, T] = new ExternalAppendOnlyMap[K, T, ArrayBuffer[T]](
-    createCombiner[T], mergeValue[T], mergeCombiners[T])
-
-  def createNormalMap[K, T] = new AppendOnlyMap[K, T]()
-
-  if (SparkEnv.get != null) {
-    withConf(SparkEnv.get.conf)
-  }
+  private val uniqueKeysMap = new AppendOnlyMap[K, Boolean]
+  private var iteratedElements = MutableList[Product2[K, V]]()
+  private var numIteratedRecords = 0
 
   def getRestoredIterator(): Iterator[Product2[K, V]] = {
     if (iterator.hasNext)

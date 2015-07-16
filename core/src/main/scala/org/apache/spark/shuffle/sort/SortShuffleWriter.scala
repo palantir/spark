@@ -51,11 +51,11 @@ private[spark] class SortShuffleWriter[K, V, C](
   /** Write a bunch of records to this task's output */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
     // Decide if it's optimal to do the pre-aggregation.
-    val aggManager = new ShuffleAggregationManager[K, V](records)
+    val aggManager = new ShuffleAggregationManager[K, V](SparkEnv.get.conf, records)
     val enableAggregation = aggManager.enableAggregation()
-    val enableMapSideCombine = (dep.mapSideCombine & enableAggregation)
+    val enableMapSideCombine = (dep.mapSideCombine && enableAggregation)
 
-    System.out.println("SortShuffleWriter - Enable Pre-Aggregation: " + enableMapSideCombine)
+    logInfo("SortShuffleWriter - Enable Pre-Aggregation: " + enableMapSideCombine)
 
     sorter = if (enableMapSideCombine) {
       require(dep.aggregator.isDefined, "Map-side combine without Aggregator specified!")

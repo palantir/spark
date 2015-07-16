@@ -988,6 +988,20 @@ class RDDSuite extends SparkFunSuite with SharedSparkContext {
     assert(thrown.getMessage.contains("SPARK-5063"))
   }
 
+  test("combineByKey with pre-aggregation") {
+    val records = sc.parallelize(Seq(("Vlad", 3), ("Marius", 4), ("Vlad", 2), ("Marius", 6), ("Georgeta", 4), ("Vlad", 5)))
+
+    val combined = records.combineByKey((value:Int) => (value, 1),
+      (x:(Int,Int), value) => (x._1 + value, x._2 + 1),
+      (x:(Int,Int), y:(Int,Int)) => (x._1 + y._1, x._2 + y._2))
+    val combinedMap = combined.collectAsMap()
+
+    assert(combinedMap.size == 3)
+    assert(combinedMap.exists(x => x._1 == "Vlad" && x._2._1 == 10 && x._2._2 == 3))
+    assert(combinedMap.exists(x => x._1 == "Marius" && x._2._1 == 10 && x._2._2 == 2))
+    assert(combinedMap.exists(x => x._1 == "Georgeta" && x._2._1 == 4 && x._2._2 == 1))
+  }
+
   test("cannot run actions after SparkContext has been stopped (SPARK-5063)") {
     val existingRDD = sc.parallelize(1 to 100)
     sc.stop()
