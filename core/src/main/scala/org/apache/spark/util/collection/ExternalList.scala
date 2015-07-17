@@ -283,7 +283,6 @@ private[spark] class ExternalList[T](implicit private var tag: ClassTag[T])
  * Java-serializing
  */
 private[spark] object ExternalList {
-  // Defs so that they're not simply erased upon Java serialization
   private val sparkConf = SparkEnv.get.conf
   private val blockManager: BlockManager = SparkEnv.get.blockManager
   private val diskBlockManager = blockManager.diskBlockManager
