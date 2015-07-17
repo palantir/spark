@@ -21,6 +21,7 @@ import java.io._
 import com.esotericsoftware.kryo.io.{Output, Input}
 import com.esotericsoftware.kryo.{Kryo, Serializer => KSerializer}
 import com.google.common.io.ByteStreams
+import org.apache.spark.util.collection.ExternalList._
 import org.apache.spark.SparkEnv
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.serializer.{DeserializationStream, Serializer}
@@ -35,27 +36,21 @@ import scala.reflect.ClassTag
  * Implementation is based heavily on `org.apache.spark.util.collection.ExternalAppendOnlyMap}`
  */
 @SerialVersionUID(1L)
-private[spark] class ExternalList[T: ClassTag]
+private[spark] class ExternalList[T](implicit private var tag: ClassTag[T])
     extends Growable[T]
     with Iterable[T]
     with Spillable[SizeTrackingCompactBuffer[T]]
     with Serializable {
 
-  private val sparkConf = SparkEnv.get.conf
-  private val blockManager: BlockManager = SparkEnv.get.blockManager
-  private val diskBlockManager = blockManager.diskBlockManager
-  private val fileBufferSize =
-  // Use getSizeAsKb (not bytes) to maintain backwards compatibility if no units are provided
-    sparkConf.getSizeAsKb("spark.shuffle.file.buffer", "32k").toInt * 1024
-  private val serializerBatchSize = sparkConf.getLong("spark.shuffle.spill.batchSize", 10000)
-  private val serializer: Serializer = SparkEnv.get.serializer
-  private val ser = serializer.newInstance()
-  private val spilledLists = new ArrayBuffer[Iterable[T]]
+  // Lazy vals so that this isn't created multiple times but still can be re-instantiated properly
+  // after serialization
+  private lazy val ser = serializer.newInstance()
+  private lazy val spilledLists = new ArrayBuffer[Iterable[T]]
 
+  // Write metrics for current spill
   private var curWriteMetrics: ShuffleWriteMetrics = _
   // Number of bytes spilled in total
   private var _diskBytesSpilled = 0L
-  // Write metrics for current spill
   private var list = new SizeTrackingCompactBuffer[T]()
   private var numItems = 0
 
@@ -86,7 +81,8 @@ private[spark] class ExternalList[T: ClassTag]
   override protected def spill(collection: SizeTrackingCompactBuffer[T]): Unit = {
     val (blockId, file) = diskBlockManager.createTempLocalBlock()
     curWriteMetrics = new ShuffleWriteMetrics()
-    var writer = blockManager.getDiskWriter(blockId, file, ser, fileBufferSize, curWriteMetrics)
+    var writer = blockManager.getDiskWriter(blockId, file, ser,
+      fileBufferSize, curWriteMetrics)
     var objectsWritten = 0
 
     // List of batch sizes (bytes) in the order they are written to disk
@@ -113,7 +109,8 @@ private[spark] class ExternalList[T: ClassTag]
         if (objectsWritten == serializerBatchSize) {
           flush()
           curWriteMetrics = new ShuffleWriteMetrics()
-          writer = blockManager.getDiskWriter(blockId, file, ser, fileBufferSize, curWriteMetrics)
+          writer = blockManager.getDiskWriter(blockId, file, ser,
+            fileBufferSize, curWriteMetrics)
         }
       }
       if (objectsWritten > 0) {
@@ -261,6 +258,7 @@ private[spark] class ExternalList[T: ClassTag]
 
   @throws(classOf[IOException])
   private def writeObject(stream: ObjectOutputStream): Unit = {
+    stream.writeObject(tag)
     stream.writeInt(this.size)
     val it = this.iterator
     while (it.hasNext) {
@@ -270,17 +268,31 @@ private[spark] class ExternalList[T: ClassTag]
 
   @throws(classOf[IOException])
   private def readObject(stream: ObjectInputStream): Unit = {
+    tag = stream.readObject().asInstanceOf[ClassTag[T]]
     val listSize = stream.readInt()
     list = new SizeTrackingCompactBuffer[T]
     for(i <- 0L until listSize) {
       val newItem = stream.readObject().asInstanceOf[T]
-      require(newItem != null)
       this.+=(newItem)
     }
   }
 }
 
+/**
+ * Companion object for constants and singleton-references that we don't want to lose when
+ * Java-serializing
+ */
 private[spark] object ExternalList {
+  // Defs so that they're not simply erased upon Java serialization
+  private val sparkConf = SparkEnv.get.conf
+  private val blockManager: BlockManager = SparkEnv.get.blockManager
+  private val diskBlockManager = blockManager.diskBlockManager
+  private val fileBufferSize =
+  // Use getSizeAsKb (not bytes) to maintain backwards compatibility if no units are provided
+    sparkConf.getSizeAsKb("spark.shuffle.file.buffer", "32k").toInt * 1024
+  private val serializerBatchSize = sparkConf.getLong("spark.shuffle.spill.batchSize", 10000)
+  private val serializer: Serializer = SparkEnv.get.serializer
+
   def apply[T: ClassTag](): ExternalList[T] = new ExternalList[T]
 
   def apply[T: ClassTag](value: T): ExternalList[T] = {
