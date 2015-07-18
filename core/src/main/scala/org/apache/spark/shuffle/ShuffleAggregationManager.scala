@@ -17,12 +17,9 @@
 
 package org.apache.spark.shuffle
 
-import java.util
 
-import org.apache.spark.SparkEnv
 import org.apache.spark.SparkConf
-import org.apache.spark.util.collection.{AppendOnlyMap, ExternalAppendOnlyMap}
-import scala.collection.mutable.ArrayBuffer
+import org.apache.spark.util.collection.AppendOnlyMap
 import scala.collection.mutable.MutableList
 import scala.collection.Iterator
 
@@ -31,9 +28,8 @@ import scala.collection.Iterator
  */
 private[spark] class ShuffleAggregationManager[K, V](
   val conf: SparkConf,
-  iterator: Iterator[Product2[K, V]]) {
+  records: Iterator[Product2[K, V]]) {
 
-  private val isSpillEnabled = conf.getBoolean("spark.shuffle.spill", true)
   private val partialAggCheckInterval = conf.getInt("spark.partialAgg.interval", 10000)
   private val partialAggReduction = conf.getDouble("spark.partialAgg.reduction", 0.5)
   private var partialAggEnabled = true
@@ -43,16 +39,17 @@ private[spark] class ShuffleAggregationManager[K, V](
   private var numIteratedRecords = 0
 
   def getRestoredIterator(): Iterator[Product2[K, V]] = {
-    if (iterator.hasNext)
-      iteratedElements.toIterator ++ iterator
+    if (records.hasNext)
+      iteratedElements.toIterator ++ records
     else
       iteratedElements.toIterator
   }
 
   def enableAggregation(): Boolean = {
-    var ok : Boolean = true
-    while (iterator.hasNext && partialAggEnabled && ok) {
-      val kv = iterator.next()
+    while (records.hasNext
+        && numIteratedRecords < partialAggCheckInterval
+        && partialAggEnabled) {
+      val kv = records.next()
 
       iteratedElements += kv
       numIteratedRecords += 1
@@ -64,8 +61,6 @@ private[spark] class ShuffleAggregationManager[K, V](
         if (partialAggSize > numIteratedRecords * partialAggReduction) {
           partialAggEnabled = false
         }
-
-        ok = false
       }
     }
 
