@@ -24,7 +24,7 @@ import scala.reflect.ClassTag
 class ExternalListSuite extends SparkFunSuite {
 
   val conf = new SparkConf(false)
-  conf.set("spark.kryoserializer.buffer.max", "2048m")
+  conf.set("spark.kryoserializer.buffer.max", "2046m")
   conf.set("spark.shuffle.spill.initialMemoryThreshold", "1")
   conf.set("spark.shuffle.memoryFraction", "0.035")
   conf.setMaster("local[8]")
@@ -32,7 +32,7 @@ class ExternalListSuite extends SparkFunSuite {
   val sparkContext = new SparkContext(conf)
 
   test("Serializing and deserializing a spilled list should produce the same values") {
-    var serializer = new KryoSerializer(new SparkConf()).newInstance()
+    var serializer = new KryoSerializer(conf).newInstance()
     var list = new ExternalList[Int]
     // Test big list for Kryo because it's fast enough to handle it
     // and we want to test the case where the list would spill to disk
@@ -44,7 +44,7 @@ class ExternalListSuite extends SparkFunSuite {
     list = new ExternalList[Int]
     // Test smaller list for Java serialization since serializing with Java is
     // really slow, and we already test serialization causing spilling in the Kryo case
-    for (i <- 0 to 100) {
+    for (i <- 0 to 1000) {
       list += i
     }
     testSerialization(serializer, list)
