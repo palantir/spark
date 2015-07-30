@@ -17,17 +17,20 @@
 
 package org.apache.spark.util.collection
 
+import java.io.{EOFException, BufferedInputStream, FileInputStream, File}
+
+import scala.collection.mutable.ArrayBuffer
+
 import com.google.common.io.ByteStreams
-import org.apache.spark.util.collection.SpillableCollection._
+
 import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.serializer.{DeserializationStream, Serializer}
 import org.apache.spark.storage.{DiskBlockManager, BlockId, BlockObjectWriter, BlockManager}
-
-import java.io.{EOFException, BufferedInputStream, FileInputStream, File}
-import scala.collection.mutable.ArrayBuffer
+import org.apache.spark.util.collection.SpillableCollection._
 
 /**
+ *
  * Collection that can spill to disk. Takes type parameters T, the iterable type, and
  * C, the type of the elements returned by T's iterator.
  */
@@ -180,12 +183,20 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
     }
 
     private def cleanup() {
-      batchIndex = batchOffsets.length  // Prevent reading any other batch
+      batchIndex = batchOffsets.length // Prevent reading any other batch
       val ds = deserializeStream
       deserializeStream = null
+      if (ds != null) {
+        ds.close()
+      }
+      val fs = fileStream
       fileStream = null
-      ds.close()
-      file.delete()
+      if (fs != null) {
+        fs.close()
+      }
+      if (shouldCleanupFileAfterOneIteration()) {
+        file.delete()
+      }
     }
 
     override def hasNext: Boolean = {
@@ -214,6 +225,7 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
     }
 
     protected def readNextItemFromStream(deserializeStream: DeserializationStream): C
+    protected def shouldCleanupFileAfterOneIteration(): Boolean
   }
 }
 

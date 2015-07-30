@@ -45,7 +45,7 @@ import org.apache.spark.mapreduce.SparkHadoopMapReduceUtil
 import org.apache.spark.partial.{BoundedDouble, PartialResult}
 import org.apache.spark.serializer.Serializer
 import org.apache.spark.util.{SerializableConfiguration, Utils}
-import org.apache.spark.util.collection.{ExternalList, SizeTrackingCompactBuffer, CompactBuffer}
+import org.apache.spark.util.collection.{ExternalSorter, ExternalList, SizeTrackingCompactBuffer, CompactBuffer}
 import org.apache.spark.util.random.StratifiedSamplingUtils
 
 /**
@@ -469,9 +469,22 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
       c2.foreach(c => c1 += c)
       c1
     }
-    val bufs = combineByKey[ExternalList[V]](
-      createCombiner, mergeValue, mergeCombiners, partitioner, mapSideCombine = false)
-    bufs.asInstanceOf[RDD[(K, Iterable[V])]]
+    val aggregator = new Aggregator[K, V, ExternalList[V]](createCombiner, mergeValue, mergeCombiners)
+    val shuffledRdd = if (self.partitioner != partitioner) {
+      self.partitionBy(partitioner)
+    } else {
+      self
+    }
+    def groupOnPartition(iterator: Iterator[(K, V)]): Iterator[(K, Iterable[V])] = {
+      val sorter = new ExternalSorter[K, V, ExternalList[V]](aggregator = Some(aggregator))
+      sorter.insertAll(iterator)
+      sorter.iterator.map(keyAndGroup => (keyAndGroup._1, keyAndGroup._2.asInstanceOf[Iterable[V]]))
+    }
+
+    shuffledRdd.mapPartitions(groupOnPartition(_), preservesPartitioning = true)
+    //val bufs = combineByKey[ExternalList[V]](
+    //  createCombiner, mergeValue, mergeCombiners, partitioner, mapSideCombine = false)
+    //bufs.asInstanceOf[RDD[(K, Iterable[V])]]
   }
 
   /**

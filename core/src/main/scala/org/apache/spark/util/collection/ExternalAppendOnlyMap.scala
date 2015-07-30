@@ -24,14 +24,11 @@ import scala.collection.BufferedIterator
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import com.google.common.io.ByteStreams
-
 import org.apache.spark.{Logging, SparkEnv}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.serializer.{DeserializationStream, Serializer}
 import org.apache.spark.storage.{BlockObjectWriter, BlockId, BlockManager}
 import org.apache.spark.util.collection.ExternalAppendOnlyMap.HashComparator
-import org.apache.spark.executor.ShuffleWriteMetrics
 
 /**
  * :: DeveloperApi ::
@@ -296,6 +293,8 @@ class ExternalAppendOnlyMap[K, V, C](
       val v = deserializeStream.readValue().asInstanceOf[C]
       (k, v)
     }
+
+    override protected def shouldCleanupFileAfterOneIteration(): Boolean = true
   }
 
   /** Convenience function to hash the given (K, C) pair by the key. */

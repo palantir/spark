@@ -18,14 +18,16 @@ package org.apache.spark.util.collection
 
 import java.io._
 
+import scala.reflect.ClassTag
+import scala.collection.generic.Growable
+import scala.collection.mutable.ArrayBuffer
+
 import com.esotericsoftware.kryo.io.{Output, Input}
 import com.esotericsoftware.kryo.{Kryo, Serializer => KSerializer}
+
 import org.apache.spark.serializer.DeserializationStream
 import org.apache.spark.storage.{BlockObjectWriter, BlockId}
 
-import scala.collection.generic.Growable
-import scala.collection.mutable.ArrayBuffer
-import scala.reflect.ClassTag
 
 /**
  * List that can spill some of its contents to disk if its contents cannot be held in memory.
@@ -80,6 +82,9 @@ private[spark] class ExternalList[T](implicit private var tag: ClassTag[T])
       deserializeStream.readKey[Int]()
       deserializeStream.readValue[T]()
     }
+
+    // Need to be able to iterate multiple times, so don't clean up the file every time
+    override protected def shouldCleanupFileAfterOneIteration(): Boolean = false
   }
 
   @throws(classOf[IOException])
