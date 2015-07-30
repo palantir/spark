@@ -302,8 +302,28 @@ class ExternalAppendOnlyMap[K, V, C](
 
   override protected def getIteratorForCurrentSpillable(): Iterator[(K, C)] = currentMap.destructiveSortedIterator(keyComparator)
 
-  override protected def recordNextSpilledPart(file: File, blockId: BlockId, batchSizes: ArrayBuffer[Long]): Unit = {
-    spilledMaps.append(new DiskMapIterator(file, blockId, batchSizes))
+    private def cleanup() {
+      batchIndex = batchOffsets.length  // Prevent reading any other batch
+      val ds = deserializeStream
+      if (ds != null) {
+        ds.close()
+        deserializeStream = null
+      }
+      if (fileStream != null) {
+        fileStream.close()
+        fileStream = null
+      }
+      if (file.exists()) {
+        file.delete()
+      }
+    }
+
+    val context = TaskContext.get()
+    // context is null in some tests of ExternalAppendOnlyMapSuite because these tests don't run in
+    // a TaskContext.
+    if (context != null) {
+      context.addTaskCompletionListener(context => cleanup())
+    }
   }
 
   override protected def writeNextObject(c: (K, C), writer: BlockObjectWriter): Unit = {
