@@ -27,7 +27,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.{Logging, SparkEnv}
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.serializer.{DeserializationStream, Serializer}
-import org.apache.spark.storage.{BlockObjectWriter, BlockId, BlockManager}
+import org.apache.spark.storage.{DiskBlockObjectWriter, BlockId, BlockManager}
 import org.apache.spark.util.collection.ExternalAppendOnlyMap.HashComparator
 
 /**
@@ -297,37 +297,18 @@ class ExternalAppendOnlyMap[K, V, C](
     override protected def shouldCleanupFileAfterOneIteration(): Boolean = true
   }
 
+
   /** Convenience function to hash the given (K, C) pair by the key. */
   private def hashKey(kc: (K, C)): Int = ExternalAppendOnlyMap.hash(kc._1)
 
   override protected def getIteratorForCurrentSpillable(): Iterator[(K, C)] = currentMap.destructiveSortedIterator(keyComparator)
 
-    private def cleanup() {
-      batchIndex = batchOffsets.length  // Prevent reading any other batch
-      val ds = deserializeStream
-      if (ds != null) {
-        ds.close()
-        deserializeStream = null
-      }
-      if (fileStream != null) {
-        fileStream.close()
-        fileStream = null
-      }
-      if (file.exists()) {
-        file.delete()
-      }
-    }
-
-    val context = TaskContext.get()
-    // context is null in some tests of ExternalAppendOnlyMapSuite because these tests don't run in
-    // a TaskContext.
-    if (context != null) {
-      context.addTaskCompletionListener(context => cleanup())
-    }
+  override protected def writeNextObject(c: (K, C), writer: DiskBlockObjectWriter): Unit = {
+    writer.write(c._1, c._2)
   }
 
-  override protected def writeNextObject(c: (K, C), writer: BlockObjectWriter): Unit = {
-    writer.write(c._1, c._2)
+  override protected def recordNextSpilledPart(file: File, blockId: BlockId, batchSizes: ArrayBuffer[Long]): Unit = {
+    spilledMaps.append(new DiskMapIterator(file, blockId, batchSizes))
   }
 }
 

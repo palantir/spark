@@ -26,7 +26,7 @@ import com.google.common.io.ByteStreams
 import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.serializer.{DeserializationStream, Serializer}
-import org.apache.spark.storage.{DiskBlockManager, BlockId, BlockObjectWriter, BlockManager}
+import org.apache.spark.storage.{DiskBlockManager, BlockId, DiskBlockObjectWriter, BlockManager}
 import org.apache.spark.util.collection.SpillableCollection._
 
 /**
@@ -101,7 +101,7 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
   }
 
   protected def getIteratorForCurrentSpillable(): Iterator[C]
-  protected def writeNextObject(c: C, writer: BlockObjectWriter): Unit
+  protected def writeNextObject(c: C, writer: DiskBlockObjectWriter): Unit
   protected def recordNextSpilledPart(file: File, blockId: BlockId, batchSizes: ArrayBuffer[Long])
 
   /**

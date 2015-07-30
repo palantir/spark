@@ -26,7 +26,7 @@ import com.esotericsoftware.kryo.io.{Output, Input}
 import com.esotericsoftware.kryo.{Kryo, Serializer => KSerializer}
 
 import org.apache.spark.serializer.DeserializationStream
-import org.apache.spark.storage.{BlockObjectWriter, BlockId}
+import org.apache.spark.storage.{DiskBlockObjectWriter, BlockId}
 
 
 /**
@@ -112,7 +112,7 @@ private[spark] class ExternalList[T](implicit private var tag: ClassTag[T])
   override protected def recordNextSpilledPart(file: File, blockId: BlockId, batchSizes: ArrayBuffer[Long]): Unit = {
     spilledLists += new DiskListIterable(file, blockId, batchSizes)
   }
-  override protected def writeNextObject(c: T, writer: BlockObjectWriter): Unit = {
+  override protected def writeNextObject(c: T, writer: DiskBlockObjectWriter): Unit = {
     writer.write(0, c)
   }
 }
