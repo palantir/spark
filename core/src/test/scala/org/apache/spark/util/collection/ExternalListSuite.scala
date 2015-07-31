@@ -16,11 +16,19 @@
  */
 package org.apache.spark.util.collection
 
+import java.io.File
+import java.lang.ref.WeakReference
+
+import scala.language.existentials
 import scala.reflect.ClassTag
 
-import org.apache.spark.{SparkContext, SparkConf, SparkFunSuite}
+import org.apache.spark.{SparkEnv, SparkContext, SparkConf, SparkFunSuite}
+import org.apache.spark.util.collection.ExternalListSuite._
 import org.apache.spark.serializer.{KryoSerializer, JavaSerializer, SerializerInstance}
-import org.junit.Assert.assertEquals
+
+import org.junit.Assert.{assertEquals, assertTrue, assertFalse}
+import org.scalatest.concurrent.Eventually._
+import org.scalatest.time.SpanSugar._
 
 class ExternalListSuite extends SparkFunSuite with Serializable {
 
@@ -49,40 +57,91 @@ class ExternalListSuite extends SparkFunSuite with Serializable {
     list = new ExternalList[Int]
     // Test smaller list for Java serialization since serializing with Java is
     // really slow, and we already test serialization causing spilling in the Kryo case
-    for (i <- 0 to 1000) {
+    for (i <- 0 to 1000000) {
       list += i
     }
     testSerialization(serializer, list)
   }
 
-  test("Group by key with spilling list") {
-    val totalRddSize = 7200000
-    val numBuckets = 5
-    val rawLargeRdd = sparkContext.parallelize(1 to totalRddSize)
+  val totalRddSize = 7200000
+  val numBuckets = 5
+  val rawLargeRdd = sparkContext.parallelize(1 to totalRddSize)
+  test("Lists that are cached should be accessible twice, but when unpersisted are cleaned up.") {
     val groupedRdd = rawLargeRdd.map(x => (x % numBuckets, x)).groupByKey
-    def validateList(kv: (Int, Iterable[Int])): Unit = {
-      var numItems = 0
-      for (valsInBucket <- kv._2) {
-        numItems += 1
-        // Can't use scala assertions because including assert statements makes closures not serializable.
-        assertEquals(s"Value $valsInBucket should not be in bucket ${kv._1}", kv._1, valsInBucket % numBuckets)
-      }
-      assertEquals(s"Number of items in bucket ${kv._1} is incorrect.", totalRddSize / numBuckets, numItems)
+    val cachedRdd = groupedRdd.cache()
+    cachedRdd.foreach(validateList(totalRddSize, numBuckets, _))
+    runGC()
+    // GC on the Cached RDD shouldn't trigger the cleanup
+    cachedRdd.foreach(validateList(totalRddSize, numBuckets, _))
+    val filePaths = cachedRdd.map(_._2.asInstanceOf[ExternalList[Int]].getBackingFileLocations()).collect
+    filePaths.foreach(paths => {
+      paths.foreach(f => assertTrue(new File(f).exists()))
+    })
+    cachedRdd.unpersist(true)
+    runGC()
+    checkFilesEventuallyRemoved(filePaths)
+    cachedRdd.foreach(validateList(totalRddSize, numBuckets, _))
+  }
+
+  test("List that is created in a task and released immediately should eventually clean up") {
+    val filePaths = rawLargeRdd
+      .map(x => (x % numBuckets, x))
+      .groupByKey
+      .map(x => x._2.asInstanceOf[ExternalList[Int]].getBackingFileLocations()).collect
+    runGC()
+    checkFilesEventuallyRemoved(filePaths)
+  }
+
+  private def checkFilesEventuallyRemoved(filePaths: Array[Iterable[String]]) {
+    eventually(timeout(15000 millis), interval(100 millis)) {
+      filePaths.foreach(paths => {
+        paths.foreach(f => assertFalse(new File(f).exists()))
+      })
     }
-    groupedRdd.foreach(validateList(_))
+  }
+
+  /** Run GC and make sure it actually has run */
+  private def runGC() {
+    val weakRef = new WeakReference(new Object())
+    val startTime = System.currentTimeMillis
+    System.gc() // Make a best effort to run the garbage collection. It *usually* runs GC.
+    // Wait until a weak reference object has been GCed
+    while (System.currentTimeMillis - startTime < 10000 && weakRef.get != null) {
+      System.gc()
+      Thread.sleep(200)
+    }
   }
 
   private def testSerialization[T: ClassTag](
       serializer: SerializerInstance,
       list: ExternalList[T]): Unit = {
     val bytes = serializer.serialize(list)
-    val readList = serializer.deserialize(bytes).asInstanceOf[ExternalList[Int]]
+    var readList = serializer.deserialize(bytes).asInstanceOf[ExternalList[Int]]
     val originalIt = list.iterator
-    val readIt = readList.iterator
+    var readIt = readList.iterator
     while (originalIt.hasNext) {
       assert (originalIt.next == readIt.next)
     }
     assert (!readIt.hasNext)
+    val filePaths = readList.getBackingFileLocations()
+    readList = null
+    readIt = null
+    runGC()
+    eventually(timeout(15000 millis), interval(100 millis)) {
+      filePaths.foreach(path => assertFalse(new File(path).exists()))
+    }
   }
 
+}
+
+object ExternalListSuite {
+  def validateList(totalRddSize: Int, numBuckets: Int, kv: (Int, Iterable[Int])): Unit = {
+    var numItems = 0
+    for (valsInBucket <- kv._2) {
+      numItems += 1
+      // Can't use scala assertions because including assert statements makes closures not serializable.
+      assertEquals(s"Value $valsInBucket should not be in bucket ${kv._1}", kv._1, valsInBucket % numBuckets)
+    }
+    assertEquals(s"Number of items in bucket ${kv._1} is incorrect.", totalRddSize / numBuckets, numItems)
+  }
 }

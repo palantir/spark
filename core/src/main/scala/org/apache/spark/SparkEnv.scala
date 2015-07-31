@@ -73,6 +73,7 @@ class SparkEnv (
     val shuffleMemoryManager: ShuffleMemoryManager,
     val executorMemoryManager: ExecutorMemoryManager,
     val outputCommitCoordinator: OutputCommitCoordinator,
+    val executorCleaner: ExecutorCleaner,
     val conf: SparkConf) extends Logging {
 
   // TODO Remove actorSystem
@@ -101,6 +102,7 @@ class SparkEnv (
       blockManager.master.stop()
       metricsSystem.stop()
       outputCommitCoordinator.stop()
+      executorCleaner.stop()
       rpcEnv.shutdown()
 
       // Unfortunately Akka's awaitTermination doesn't actually wait for the Netty server to shut
@@ -398,6 +400,8 @@ object SparkEnv extends Logging {
       }
       new ExecutorMemoryManager(allocator)
     }
+    val executorCleaner = new ExecutorCleaner
+    executorCleaner.start()
 
     val envInstance = new SparkEnv(
       executorId,
@@ -417,6 +421,7 @@ object SparkEnv extends Logging {
       shuffleMemoryManager,
       executorMemoryManager,
       outputCommitCoordinator,
+      executorCleaner,
       conf)
 
     // Add a reference to tmp dir created by driver, we will delete this tmp dir when stop() is

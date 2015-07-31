@@ -229,8 +229,7 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
   }
 }
 
-// Visible and modifiable only for testing
-private[collection] object SpillableCollection {
+private object SpillableCollection {
   private def sparkConf(): SparkConf = SparkEnv.get.conf
   private def blockManager(): BlockManager = SparkEnv.get.blockManager
   private def diskBlockManager(): DiskBlockManager = blockManager.diskBlockManager
