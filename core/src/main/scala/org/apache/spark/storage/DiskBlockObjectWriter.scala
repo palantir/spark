@@ -231,5 +231,4 @@ private[spark] class DiskBlockObjectWriter(
     objOut.flush()
     bs.flush()
   }
-
 }

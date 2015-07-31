@@ -482,9 +482,6 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
     }
 
     shuffledRdd.mapPartitions(groupOnPartition(_), preservesPartitioning = true)
-    //val bufs = combineByKey[ExternalList[V]](
-    //  createCombiner, mergeValue, mergeCombiners, partitioner, mapSideCombine = false)
-    //bufs.asInstanceOf[RDD[(K, Iterable[V])]]
   }
 
   /**
