@@ -220,6 +220,7 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
       nextItem = None
       item match {
         case Some(value) => value
+        // Should never get here because of the throwing above
         case None => null.asInstanceOf[C]
       }
     }
