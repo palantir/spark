@@ -21,6 +21,8 @@ import java.util.Collections
 import java.util.concurrent._
 import java.util.regex.Pattern
 
+import org.apache.spark.scheduler.{ExecutorExitedAbnormally, ExecutorExitedNormally, ExecutorLossReason}
+
 import scala.collection.JavaConversions._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
@@ -37,7 +39,6 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.{Logging, SecurityManager, SparkConf}
 import org.apache.spark.deploy.yarn.YarnSparkHadoopUtil._
 import org.apache.spark.rpc.RpcEndpointRef
-import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 
 /**
@@ -65,6 +66,9 @@ private[yarn] class YarnAllocator(
   extends Logging {
 
   import YarnAllocator._
+
+  private val UNKNOWN_CONTAINER_EXIT_STATUS =
+    ExecutorExitedAbnormally(-1, "Executor exited for an unknown reason.")
 
   // RackResolver logs an INFO message whenever it resolves a rack, which is way too often.
   if (Logger.getLogger(classOf[RackResolver]).getLevel == null) {
@@ -94,6 +98,7 @@ private[yarn] class YarnAllocator(
 
   private var numUnexpectedContainerRelease = 0L
   private val containerIdToExecutorId = new HashMap[ContainerId, String]
+  private val completedExecutorExitReasons = new HashMap[String, ExecutorLossReason]
 
   // Executor memory in MB.
   protected val executorMemory = args.executorMemory
@@ -197,6 +202,17 @@ private[yarn] class YarnAllocator(
     } else {
       logWarning(s"Attempted to kill unknown executor $executorId!")
     }
+  }
+
+  /**
+   * Gets the executor loss reason for a disconnected executor.
+   * Note that this method is expected to be called exactly once per executor ID.
+   */
+  def getExecutorLossReason(executorId: String): ExecutorLossReason = synchronized {
+    allocateResources()
+    // Expect to be asked for a loss reason once and exactly once.
+    assert(completedExecutorExitReasons.contains(executorId))
+    completedExecutorExitReasons.remove(executorId).getOrElse(UNKNOWN_CONTAINER_EXIT_STATUS)
   }
 
   /**
@@ -423,7 +439,7 @@ private[yarn] class YarnAllocator(
     for (completedContainer <- completedContainers) {
       val containerId = completedContainer.getContainerId
       val alreadyReleased = releasedContainers.remove(containerId)
-      if (!alreadyReleased) {
+      val exitReason = if (!alreadyReleased) {
         // Decrement the number of executors running. The next iteration of
         // the ApplicationMaster's reporting thread will take care of allocating.
         numExecutorsRunning -= 1
@@ -434,22 +450,44 @@ private[yarn] class YarnAllocator(
         // Hadoop 2.2.X added a ContainerExitStatus we should switch to use
         // there are some exit status' we shouldn't necessarily count against us, but for
         // now I think its ok as none of the containers are expected to exit
-        if (completedContainer.getExitStatus == ContainerExitStatus.PREEMPTED) {
-          logInfo("Container preempted: " + containerId)
-        } else if (completedContainer.getExitStatus == -103) { // vmem limit exceeded
-          logWarning(memLimitExceededLogMessage(
+        var isExecutorNonZeroExitNormal = false
+        var containerExitReason = "Container exited for an unknown reason."
+        val exitStatus = completedContainer.getExitStatus
+        if (exitStatus == ContainerExitStatus.PREEMPTED) {
+          isExecutorNonZeroExitNormal = true
+          containerExitReason = s"Container $containerId was preempted."
+          logInfo(containerExitReason)
+        } else if (exitStatus == -103) { // vmem limit exceeded
+          // Should probably still count these towards task failures
+          containerExitReason = memLimitExceededLogMessage(
             completedContainer.getDiagnostics,
-            VMEM_EXCEEDED_PATTERN))
-        } else if (completedContainer.getExitStatus == -104) { // pmem limit exceeded
-          logWarning(memLimitExceededLogMessage(
+            VMEM_EXCEEDED_PATTERN)
+          logWarning(containerExitReason)
+        } else if (exitStatus == -104) { // pmem limit exceeded
+          // Should probably still count these towards task failures
+          containerExitReason = memLimitExceededLogMessage(
             completedContainer.getDiagnostics,
-            PMEM_EXCEEDED_PATTERN))
-        } else if (completedContainer.getExitStatus != 0) {
+            PMEM_EXCEEDED_PATTERN)
+          logWarning(containerExitReason)
+        } else if (exitStatus != 0) {
           logInfo("Container marked as failed: " + containerId +
             ". Exit status: " + completedContainer.getExitStatus +
             ". Diagnostics: " + completedContainer.getDiagnostics)
           numExecutorsFailed += 1
+          containerExitReason = s"Container $containerId exited abnormally with exit" +
+            s" status $exitStatus, and was marked as failed."
         }
+
+        if (exitStatus == 0) {
+          ExecutorExitedNormally(0, s"Executor for container $containerId exited normally.")
+        } else if (isExecutorNonZeroExitNormal) {
+          ExecutorExitedNormally(completedContainer.getExitStatus, containerExitReason)
+        } else {
+          ExecutorExitedAbnormally(completedContainer.getExitStatus, containerExitReason)
+        }
+      } else {
+        ExecutorExitedNormally(completedContainer.getExitStatus,
+          s"Container $containerId exited from explicit termination request.")
       }
 
       if (allocatedContainerToHostMap.containsKey(containerId)) {
@@ -468,13 +506,13 @@ private[yarn] class YarnAllocator(
 
       containerIdToExecutorId.remove(containerId).foreach { eid =>
         executorIdToContainer.remove(eid)
+        completedExecutorExitReasons.put(eid, exitReason)
 
         if (!alreadyReleased) {
           // The executor could have gone away (like no route to host, node failure, etc)
           // Notify backend about the failure of the executor
           numUnexpectedContainerRelease += 1
-          driverRef.send(RemoveExecutor(eid,
-            s"Yarn deallocated the executor $eid (container $containerId)"))
+          driverRef.send(RemoveExecutor(eid, exitReason))
         }
       }
     }

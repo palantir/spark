@@ -18,10 +18,13 @@
 package org.apache.spark.deploy.yarn
 
 import java.util.{Arrays, List => JList}
+import org.mockito.Mockito._
+import scala.collection.JavaConversions._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.CommonConfigurationKeysPublic
 import org.apache.hadoop.net.DNSToSwitchMapping
+import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse
 import org.apache.hadoop.yarn.api.records._
 import org.apache.hadoop.yarn.client.api.AMRMClient
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
@@ -35,7 +38,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.deploy.yarn.YarnSparkHadoopUtil._
 import org.apache.spark.deploy.yarn.YarnAllocator._
 import org.apache.spark.rpc.RpcEndpointRef
-import org.apache.spark.scheduler.SplitInfo
+import org.apache.spark.scheduler.{ExecutorExitedAbnormally, ExecutorExitedNormally, SplitInfo}
 
 class MockResolver extends DNSToSwitchMapping {
 
@@ -72,7 +75,7 @@ class YarnAllocatorSuite extends SparkFunSuite with Matchers with BeforeAndAfter
   var containerNum = 0
 
   override def beforeEach() {
-    rmClient = AMRMClient.createAMRMClient()
+    rmClient = spy(AMRMClient.createAMRMClient())
     rmClient.init(conf)
     rmClient.start()
   }
