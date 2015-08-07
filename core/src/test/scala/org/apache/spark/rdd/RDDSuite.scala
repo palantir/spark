@@ -989,7 +989,8 @@ class RDDSuite extends SparkFunSuite with SharedSparkContext {
   }
 
   test("combineByKey with pre-aggregation") {
-    val records = sc.parallelize(Seq(("Vlad", 3), ("Marius", 4), ("Vlad", 2), ("Marius", 6), ("Georgeta", 4), ("Vlad", 5)))
+    val records = sc.parallelize(Seq(("Vlad", 3), ("Marius", 4), ("Vlad", 2), ("Marius", 6),
+                                      ("Georgeta", 4), ("Vlad", 5)))
     val createCombiner = ((value: Int) => (value, 1))
     val mergeValue = (x: (Int, Int), v: Int) => (x._1 + v, x._2 + 1)
     val mergeCombiners = (x: (Int, Int), y: (Int, Int)) => (x._1 + y._1, x._2 + y._2)

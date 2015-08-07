@@ -54,23 +54,26 @@ private[spark] class SortShuffleWriter[K, V, C](
   override def write(records: Iterator[Product2[K, V]]): Unit = {
     // Decide if it's optimal to do the pre-aggregation.
     val aggManager = new ShuffleAggregationManager[K, V](SparkEnv.get.conf, records)
-    // Short-circuit if dep.mapSideCombine is explicitly set to false so we don't do the aggregation check
-    // Else check if pre-aggregation would actually be beneficial via aggManager.
+    // Short-circuit if dep.mapSideCombine is explicitly set to false so we don't do the
+    // aggregation check. Else check if pre-aggregation would actually be beneficial
+    // via aggManager.
     val enableMapSideCombine = dep.mapSideCombine && aggManager.enableAggregation()
 
     sorter = (dep.mapSideCombine, enableMapSideCombine) match {
       case (_, true) =>
         assert (dep.mapSideCombine)
-        require(dep.aggregator.isDefined, "Map-side combine requested without Aggregator specified!")
+        require(dep.aggregator.isDefined, "Map-side combine requested without " +
+                                          "Aggregator specified!")
         val selectedSorter = new ExternalSorter[K, V, C](
           dep.aggregator, Some(dep.partitioner), dep.keyOrdering, dep.serializer)
         writeInternal(aggManager.getRestoredIterator(), selectedSorter)
         selectedSorter
       case (true, false) =>
-        // The user requested map-side combine, but we determined that it would be sub-optimal for here.
-        // So just write out the initial combiners (as the reducer will expect values of type "C") but
-        // don't do the aggregations itself
-        require (dep.aggregator.isDefined, "Map side combine requested with no aggregator specified!")
+        // The user requested map-side combine, but we determined that it would be sub-optimal
+        // for here. So just write out the initial combiners (as the reducer will expect values
+        //  of type "C") but don't do the aggregations itself
+        require (dep.aggregator.isDefined, "Map side combine requested with " +
+                                            "no aggregator specified!")
         val selectedSorter = if (SortShuffleWriter.shouldBypassMergeSort(SparkEnv.get.conf,
             dep.partitioner.numPartitions, aggregator = None, keyOrdering = None)) {
           new BypassMergeSortShuffleWriter[K, C](SparkEnv.get.conf, blockManager, dep.partitioner,
@@ -80,7 +83,8 @@ private[spark] class SortShuffleWriter[K, V, C](
             aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
         }
         val definedAggregator = dep.aggregator.get
-        val recordsWithAppliedCreateCombiner = aggManager.getRestoredIterator.map(kv => (kv._1, definedAggregator.createCombiner(kv._2)))
+        val recordsWithAppliedCreateCombiner = aggManager.getRestoredIterator.map(kv =>
+                                              (kv._1, definedAggregator.createCombiner(kv._2)))
         writeInternal(recordsWithAppliedCreateCombiner, selectedSorter)
         selectedSorter
       case (false, _) => {

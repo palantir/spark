@@ -58,7 +58,8 @@ private[spark] class HashShuffleWriter[K, V](
         if (aggManager.enableAggregation()) {
           dep.aggregator.get.combineValuesByKey(aggManager.getRestoredIterator(), context)
         } else {
-          aggManager.getRestoredIterator().map(kv => (kv._1, dep.aggregator.get.createCombiner(kv._2)))
+          aggManager.getRestoredIterator().map(kv =>
+                                              (kv._1, dep.aggregator.get.createCombiner(kv._2)))
         }
       } else {
         records

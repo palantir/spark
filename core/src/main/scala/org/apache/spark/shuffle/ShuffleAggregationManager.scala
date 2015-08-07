@@ -39,10 +39,11 @@ private[spark] class ShuffleAggregationManager[K, V](
   private var numIteratedRecords = 0
 
   def getRestoredIterator(): Iterator[Product2[K, V]] = {
-    if (records.hasNext)
+    if (records.hasNext) {
       iteratedElements.toIterator ++ records
-    else
+    } else {
       iteratedElements.toIterator
+    }
   }
 
   def enableAggregation(): Boolean = {

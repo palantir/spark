@@ -33,7 +33,8 @@ class ShuffleAggregationManagerSuite extends SparkFunSuite {
 
     // This test will pass if the first 4 elements of a set contains at most 2 unique keys.
     // Generate the records.
-    val records = Iterator((1, "Vlad"), (2, "Marius"), (1, "Marian"), (2, "Cornel"), (3, "Patricia"), (4, "Georgeta"))
+    val records = Iterator((1, "Vlad"), (2, "Marius"), (1, "Marian"), (2, "Cornel"),
+                            (3, "Patricia"), (4, "Georgeta"))
 
     // Test.
     val aggManager = new ShuffleAggregationManager[Int, String](conf, records)
@@ -45,7 +46,8 @@ class ShuffleAggregationManagerSuite extends SparkFunSuite {
     conf.set("spark.partialAgg.interval", "4")
     conf.set("spark.partialAgg.reduction", "0.5")
 
-    val records = Iterator((1, "Vlad"), (2, "Marius"), (3, "Marian"), (2, "Cornel"), (3, "Patricia"), (4, "Georgeta"))
+    val records = Iterator((1, "Vlad"), (2, "Marius"), (3, "Marian"), (2, "Cornel"),
+                            (3, "Patricia"), (4, "Georgeta"))
 
     val aggManager = new ShuffleAggregationManager[Int, String](conf, records)
     assert(aggManager.enableAggregation() == false)
@@ -56,7 +58,8 @@ class ShuffleAggregationManagerSuite extends SparkFunSuite {
     conf.set("spark.partialAgg.interval", "4")
     conf.set("spark.partialAgg.reduction", "0.5")
 
-    val listOfElements = List((1, "Vlad"), (2, "Marius"), (1, "Marian"), (2, "Cornel"), (3, "Patricia"), (4, "Georgeta"))
+    val listOfElements = List((1, "Vlad"), (2, "Marius"), (1, "Marian"), (2, "Cornel"),
+                              (3, "Patricia"), (4, "Georgeta"))
     val records = listOfElements.toIterator
     val recordsCopy = listOfElements.toIterator
 
