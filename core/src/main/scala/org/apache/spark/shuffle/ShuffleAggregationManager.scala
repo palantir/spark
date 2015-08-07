@@ -23,9 +23,6 @@ import org.apache.spark.util.collection.AppendOnlyMap
 import scala.collection.mutable.MutableList
 import scala.collection.Iterator
 
-/**
- * Created by vladio on 7/14/15.
- */
 private[spark] class ShuffleAggregationManager[K, V](
   val conf: SparkConf,
   records: Iterator[Product2[K, V]]) {
