@@ -570,7 +570,7 @@ teenagers = sqlContext.sql("SELECT name FROM people WHERE age >= 13 AND age <= 1
 # The results of SQL queries are RDDs and support all the normal RDD operations.
 teenNames = teenagers.map(lambda p: "Name: " + p.name)
 for teenName in teenNames.collect():
-  print teenName
+  print(teenName)
 {% endhighlight %}
 
 </div>
@@ -752,7 +752,7 @@ results = sqlContext.sql("SELECT name FROM people")
 # The results of SQL queries are RDDs and support all the normal RDD operations.
 names = results.map(lambda p: "Name: " + p.name)
 for name in names.collect():
-  print name
+  print(name)
 {% endhighlight %}
 
 </div>
@@ -828,7 +828,7 @@ using this syntax.
 
 {% highlight scala %}
 val df = sqlContext.read.format("json").load("examples/src/main/resources/people.json")
-df.select("name", "age").write.format("json").save("namesAndAges.json")
+df.select("name", "age").write.format("parquet").save("namesAndAges.parquet")
 {% endhighlight %}
 
 </div>
@@ -1006,7 +1006,7 @@ parquetFile.registerTempTable("parquetFile");
 teenagers = sqlContext.sql("SELECT name FROM parquetFile WHERE age >= 13 AND age <= 19")
 teenNames = teenagers.map(lambda p: "Name: " + p.name)
 for teenName in teenNames.collect():
-  print teenName
+  print(teenName)
 {% endhighlight %}
 
 </div>
@@ -1332,13 +1332,8 @@ Configuration of Parquet can be done using the `setConf` method on `SQLContext` 
 </tr>
 <tr>
   <td><code>spark.sql.parquet.filterPushdown</code></td>
-  <td>false</td>
-  <td>
-    Turn on Parquet filter pushdown optimization. This feature is turned off by default because of a known
-    bug in Parquet 1.6.0rc3 (<a href="https://issues.apache.org/jira/browse/PARQUET-136">PARQUET-136</a>).
-    However, if your table doesn't contain any nullable string or binary columns, it's still safe to turn
-    this feature on.
-  </td>
+  <td>true</td>
+  <td>Enables Parquet filter push-down optimization when set to true.</td>
 </tr>
 <tr>
   <td><code>spark.sql.hive.convertMetastoreParquet</code></td>
@@ -1346,6 +1341,34 @@ Configuration of Parquet can be done using the `setConf` method on `SQLContext` 
   <td>
     When set to false, Spark SQL will use the Hive SerDe for parquet tables instead of the built in
     support.
+  </td>
+</tr>
+<tr>
+  <td><code>spark.sql.parquet.output.committer.class</code></td>
+  <td><code>org.apache.parquet.hadoop.<br />ParquetOutputCommitter</code></td>
+  <td>
+    <p>
+      The output committer class used by Parquet. The specified class needs to be a subclass of
+      <code>org.apache.hadoop.<br />mapreduce.OutputCommitter</code>.  Typically, it's also a
+      subclass of <code>org.apache.parquet.hadoop.ParquetOutputCommitter</code>.
+    </p>
+    <p>
+      <b>Note:</b>
+      <ul>
+        <li>
+          This option must be set via Hadoop <code>Configuration</code> rather than Spark
+          <code>SQLConf</code>.
+        </li>
+        <li>
+          This option overrides <code>spark.sql.sources.<br />outputCommitterClass</code>.
+        </li>
+      </ul>
+    </p>
+    <p>
+      Spark SQL comes with a builtin
+      <code>org.apache.spark.sql.<br />parquet.DirectParquetOutputCommitter</code>, which can be more
+      efficient then the default Parquet output committer when writing data to S3.
+    </p>
   </td>
 </tr>
 </table>
@@ -1609,7 +1632,7 @@ sql(sqlContext, "CREATE TABLE IF NOT EXISTS src (key INT, value STRING)")
 sql(sqlContext, "LOAD DATA LOCAL INPATH 'examples/src/main/resources/kv1.txt' INTO TABLE src")
 
 # Queries can be expressed in HiveQL.
-results = sqlContext.sql("FROM src SELECT key, value").collect()
+results <- collect(sql(sqlContext, "FROM src SELECT key, value"))
 
 {% endhighlight %}
 
@@ -1745,9 +1768,9 @@ the Data Sources API.  The following options are supported:
 <div data-lang="scala"  markdown="1">
 
 {% highlight scala %}
-val jdbcDF = sqlContext.load("jdbc", Map(
-  "url" -> "jdbc:postgresql:dbserver",
-  "dbtable" -> "schema.tablename"))
+val jdbcDF = sqlContext.read.format("jdbc").options( 
+  Map("url" -> "jdbc:postgresql:dbserver",
+  "dbtable" -> "schema.tablename")).load()
 {% endhighlight %}
 
 </div>
@@ -1760,7 +1783,7 @@ Map<String, String> options = new HashMap<String, String>();
 options.put("url", "jdbc:postgresql:dbserver");
 options.put("dbtable", "schema.tablename");
 
-DataFrame jdbcDF = sqlContext.load("jdbc", options)
+DataFrame jdbcDF = sqlContext.read().format("jdbc"). options(options).load();
 {% endhighlight %}
 
 
@@ -1770,7 +1793,7 @@ DataFrame jdbcDF = sqlContext.load("jdbc", options)
 
 {% highlight python %}
 
-df = sqlContext.load(source="jdbc", url="jdbc:postgresql:dbserver", dbtable="schema.tablename")
+df = sqlContext.read.format('jdbc').options(url='jdbc:postgresql:dbserver', dbtable='schema.tablename').load()
 
 {% endhighlight %}
 
@@ -1861,12 +1884,11 @@ that these options will be deprecated in future release as more optimizations ar
     </td>
   </tr>
   <tr>
-    <td><code>spark.sql.codegen</code></td>
-    <td>false</td>
+    <td><code>spark.sql.tungsten.enabled</code></td>
+    <td>true</td>
     <td>
-      When true, code will be dynamically generated at runtime for expression evaluation in a specific
-      query.  For some queries with complicated expression this option can lead to significant speed-ups.
-      However, for simple queries this can actually slow down query execution.
+      When true, use the optimized Tungsten physical execution backend which explicitly manages memory
+      and dynamically generates bytecode for expression evaluation.
     </td>
   </tr>
   <tr>
@@ -1876,9 +1898,9 @@ that these options will be deprecated in future release as more optimizations ar
       Configures the number of partitions to use when shuffling data for joins or aggregations.
     </td>
   </tr>
-   <tr>
+  <tr>
     <td><code>spark.sql.planner.externalSort</code></td>
-    <td>false</td>
+    <td>true</td>
     <td>
       When true, performs sorts spilling to disk as needed otherwise sort each partition in memory.
     </td>
