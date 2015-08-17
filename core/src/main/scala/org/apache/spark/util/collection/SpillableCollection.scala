@@ -199,7 +199,7 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
       }
     }
 
-    override def hasNext: Boolean = {
+    override def hasNext(): Boolean = {
       if (!nextItem.isDefined) {
         if (deserializeStream == null) {
           return false
@@ -210,19 +210,12 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
     }
 
     override def next(): C = {
-      val item = nextItem match {
-        case None => readNextItem()
-        case Some(theItem) => nextItem
+      if (!hasNext()) {
+        throw new NoSuchElementException()
       }
-      if (!item.isDefined) {
-        throw new NoSuchElementException
-      }
+      val nextValue = nextItem.get
       nextItem = None
-      item match {
-        case Some(value) => value
-        // Should never get here because of the throwing above
-        case None => null.asInstanceOf[C]
-      }
+      nextValue
     }
 
     protected def readNextItemFromStream(deserializeStream: DeserializationStream): C
