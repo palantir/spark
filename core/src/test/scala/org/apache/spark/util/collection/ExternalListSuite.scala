@@ -22,51 +22,36 @@ import java.lang.ref.WeakReference
 import scala.language.existentials
 import scala.reflect.ClassTag
 
-import org.apache.spark.{SparkEnv, SparkContext, SparkConf, SparkFunSuite}
-import org.apache.spark.util.collection.ExternalListSuite._
+import org.apache.spark.{SharedSparkContext, SparkEnv, SparkFunSuite, TaskContextImpl, TaskContext}
 import org.apache.spark.serializer.{KryoSerializer, JavaSerializer, SerializerInstance}
+import org.apache.spark.util.collection.ExternalListSuite._
+import org.apache.spark.unsafe.memory.TaskMemoryManager
 
 import org.junit.Assert.{assertEquals, assertTrue, assertFalse}
+import org.mockito.Mockito.mock
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.time.SpanSugar._
 
-class ExternalListSuite extends SparkFunSuite with Serializable {
+class ExternalListSuite extends SparkFunSuite with SharedSparkContext {
 
-  val conf = new SparkConf(false)
-  conf.set("spark.kryoserializer.buffer.max", "2046m")
-  conf.set("spark.shuffle.spill.initialMemoryThreshold", "1")
-  conf.set("spark.shuffle.spill.batchSize", "10")
-  conf.set("spark.shuffle.memoryFraction", "0.035")
-  conf.set("spark.serializer", "org.apache.spark.serializer.JavaSerializer")
-  conf.set("spark.task.maxFailures", "1")
-  conf.setMaster("local[8]")
-  conf.setAppName("test")
-
-  val sparkContext = new SparkContext(conf)
-
-  test("Serializing and deserializing a spilled list should produce the same values") {
-    var serializer = new KryoSerializer(conf).newInstance()
-    var list = new ExternalList[Int]
-    // Test big list for Kryo because it's fast enough to handle it
-    // and we want to test the case where the list would spill to disk
-    for (i <- 0 to 5000000) {
-      list += i
-    }
-    testSerialization(serializer, list)
-    serializer = new JavaSerializer(conf).newInstance()
-    list = new ExternalList[Int]
-    // Test smaller list for Java serialization since serializing with Java is
-    // really slow, and we already test serialization causing spilling in the Kryo case
-    for (i <- 0 to 1000000) {
-      list += i
-    }
-    testSerialization(serializer, list)
+  override def beforeAll() {
+    conf.set("spark.kryoserializer.buffer.max", "2046m")
+    conf.set("spark.shuffle.spill.initialMemoryThreshold", "1")
+    conf.set("spark.shuffle.spill.batchSize", "10")
+    conf.set("spark.shuffle.memoryFraction", "0.035")
+    conf.set("spark.serializer", "org.apache.spark.serializer.JavaSerializer")
+    conf.set("spark.task.maxFailures", "1")
+    conf.setAppName("test")
+    super.beforeAll()
   }
 
-  val totalRddSize = 7200000
-  val numBuckets = 5
-  val rawLargeRdd = sparkContext.parallelize(1 to totalRddSize)
+  test("Serializing and deserializing a spilled list should produce the same values") {
+    testSerialization(new KryoSerializer(conf).newInstance(), 4500000)
+    testSerialization(new JavaSerializer(conf).newInstance(), 3000)
+  }
+
   test("Lists that are cached should be accessible twice, but when unpersisted are cleaned up.") {
+    val rawLargeRdd = sc.parallelize(1 to totalRddSize)
     val groupedRdd = rawLargeRdd.map(x => (x % numBuckets, x)).groupByKey
     val cachedRdd = groupedRdd.cache()
     cachedRdd.foreach(validateList(totalRddSize, numBuckets, _))
@@ -84,6 +69,7 @@ class ExternalListSuite extends SparkFunSuite with Serializable {
   }
 
   test("List that is created in a task and released immediately should eventually clean up") {
+    val rawLargeRdd = sc.parallelize(1 to totalRddSize)
     val filePaths = rawLargeRdd
       .map(x => (x % numBuckets, x))
       .groupByKey
@@ -93,7 +79,7 @@ class ExternalListSuite extends SparkFunSuite with Serializable {
   }
 
   private def checkFilesEventuallyRemoved(filePaths: Array[Iterable[String]]) {
-    eventually(timeout(15000 millis), interval(100 millis)) {
+    eventually(timeout(30000 millis), interval(100 millis)) {
       filePaths.foreach(paths => {
         paths.foreach(f => assertFalse(new File(f).exists()))
       })
@@ -114,28 +100,45 @@ class ExternalListSuite extends SparkFunSuite with Serializable {
 
   private def testSerialization[T: ClassTag](
       serializer: SerializerInstance,
-      list: ExternalList[T]): Unit = {
+      numItems: Int): Unit = {
+    val list = new ExternalList[Int]
+    // Test big list for Kryo because it's fast enough to handle it
+    // and we want to test the case where the list would spill to disk
+    for (i <- 0 to numItems) {
+      list += i
+    }
+    createAndSetFakeTaskContext()
     val bytes = serializer.serialize(list)
     var readList = serializer.deserialize(bytes).asInstanceOf[ExternalList[Int]]
     val originalIt = list.iterator
     var readIt = readList.iterator
     while (originalIt.hasNext) {
-      assert (originalIt.next == readIt.next)
+      assertTrue(originalIt.next == readIt.next)
     }
-    assert (!readIt.hasNext)
+    assertFalse (readIt.hasNext)
     val filePaths = readList.getBackingFileLocations()
     readList = null
     readIt = null
+    taskContext.markTaskCompleted()
     runGC()
-    eventually(timeout(15000 millis), interval(100 millis)) {
+    eventually(timeout(30000 millis), interval(100 millis)) {
       filePaths.foreach(path => assertFalse(new File(path).exists()))
     }
+    TaskContext.unset()
   }
-
 }
 
 object ExternalListSuite {
-  def validateList(totalRddSize: Int, numBuckets: Int, kv: (Int, Iterable[Int])): Unit = {
+  var taskContext: TaskContextImpl = null
+  val totalRddSize = 2000000
+  val numBuckets = 5
+
+  private def createAndSetFakeTaskContext(): Unit = {
+    taskContext = new TaskContextImpl(0, 0, 0L, 0, mock(classOf[TaskMemoryManager]), SparkEnv.get.metricsSystem)
+    TaskContext.setTaskContext(taskContext)
+  }
+
+  private def validateList(totalRddSize: Int, numBuckets: Int, kv: (Int, Iterable[Int])): Unit = {
     var numItems = 0
     for (valsInBucket <- kv._2) {
       numItems += 1
@@ -145,3 +148,6 @@ object ExternalListSuite {
     assertEquals(s"Number of items in bucket ${kv._1} is incorrect.", totalRddSize / numBuckets, numItems)
   }
 }
+
+
+
