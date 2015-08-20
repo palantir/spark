@@ -19,8 +19,7 @@ package org.apache.spark.shuffle
 
 
 import org.apache.spark.SparkConf
-import org.apache.spark.util.collection.AppendOnlyMap
-import scala.collection.mutable.MutableList
+import org.apache.spark.util.collection.{SizeTrackingVector, AppendOnlyMap}
 import scala.collection.Iterator
 
 private[spark] class ShuffleAggregationManager[K, V](
@@ -29,17 +28,18 @@ private[spark] class ShuffleAggregationManager[K, V](
 
   private val partialAggCheckInterval = conf.getInt("spark.partialAgg.interval", 10000)
   private val partialAggReduction = conf.getDouble("spark.partialAgg.reduction", 0.5)
+  private val partialAggInMemoryThreshold = 128 * 1024  // Set the in memory objects threshold to 128 MB
   private var partialAggEnabled = true
 
   private val uniqueKeysMap = new AppendOnlyMap[K, Boolean]
-  private var iteratedElements = MutableList[Product2[K, V]]()
+  private var iteratedElements = new SizeTrackingVector[Product2[K, V]]()
   private var numIteratedRecords = 0
 
   def getRestoredIterator(): Iterator[Product2[K, V]] = {
     if (records.hasNext) {
-      iteratedElements.toIterator ++ records
+      iteratedElements.iterator ++ records
     } else {
-      iteratedElements.toIterator
+      iteratedElements.iterator
     }
   }
 
@@ -54,7 +54,8 @@ private[spark] class ShuffleAggregationManager[K, V](
 
       uniqueKeysMap.update(kv._1, true)
 
-      if (numIteratedRecords == partialAggCheckInterval) {
+      if (iteratedElements.estimateSize() > partialAggInMemoryThreshold ||
+          numIteratedRecords == partialAggCheckInterval) {
         val partialAggSize = uniqueKeysMap.size
         if (partialAggSize > numIteratedRecords * partialAggReduction) {
           partialAggEnabled = false
