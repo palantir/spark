@@ -70,6 +70,11 @@ class ExternalAppendOnlyMap[K, V, C](
 
   private var currentMap = new SizeTrackingAppendOnlyMap[K, C]
   private val spilledMaps = new ArrayBuffer[DiskMapIterator]
+
+  // Peak size of the in-memory map observed so far, in bytes
+  private var _peakMemoryUsedBytes: Long = 0L
+  def peakMemoryUsedBytes: Long = _peakMemoryUsedBytes
+
   private val keyComparator = new HashComparator[K]
 
   /**
@@ -98,7 +103,11 @@ class ExternalAppendOnlyMap[K, V, C](
 
     while (entries.hasNext) {
       curEntry = entries.next()
-      if (maybeSpill(currentMap, currentMap.estimateSize())) {
+      val estimatedSize = currentMap.estimateSize()
+      if (estimatedSize > _peakMemoryUsedBytes) {
+        _peakMemoryUsedBytes = estimatedSize
+      }
+      if (maybeSpill(currentMap, estimatedSize)) {
         currentMap = new SizeTrackingAppendOnlyMap[K, C]
       }
       currentMap.changeValue(curEntry._1, update)
@@ -118,8 +127,6 @@ class ExternalAppendOnlyMap[K, V, C](
   def insertAll(entries: Iterable[Product2[K, V]]): Unit = {
     insertAll(entries.iterator)
   }
-
-  def diskBytesSpilled: Long = _diskBytesSpilled
 
   /**
    * Return an iterator that merges the in-memory map with the spilled maps.

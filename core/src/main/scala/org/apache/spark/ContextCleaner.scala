@@ -22,8 +22,8 @@ import org.apache.spark.util.Utils
 import scala.collection.mutable.{ArrayBuffer, SynchronizedBuffer}
 
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.rdd.{RDDCheckpointData, RDD}
-import org.apache.spark.util.cleanup._
+import org.apache.spark.rdd.{RDD, ReliableRDDCheckpointData}
+import org.apache.spark.util.Utils
 
 /**
  * An asynchronous cleaner for RDD, shuffle, and broadcast state.
@@ -165,11 +165,14 @@ private[spark] class ContextCleaner(sc: SparkContext) extends WeakReferenceClean
     }
   }
 
-  /** Perform checkpoint cleanup. */
+  /**
+   * Clean up checkpoint files written to a reliable storage.
+   * Locally checkpointed files are cleaned up separately through RDD cleanups.
+   */
   def doCleanCheckpoint(rddId: Int): Unit = {
     try {
       logDebug("Cleaning rdd checkpoint data " + rddId)
-      RDDCheckpointData.clearRDDCheckpointData(sc, rddId)
+      ReliableRDDCheckpointData.cleanCheckpoint(sc, rddId)
       listeners.foreach(_.checkpointCleaned(rddId))
       logInfo("Cleaned rdd checkpoint data " + rddId)
     }

@@ -41,11 +41,12 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
   protected var _diskBytesSpilled = 0L
   private lazy val ser = serializer.newInstance()
 
-  override protected def spill(collection: T): Unit = {
+  def diskBytesSpilled: Long = _diskBytesSpilled
+
+  override protected final def spill(collection: T): Unit = {
     val (blockId, file) = diskBlockManager.createTempLocalBlock()
     curWriteMetrics = new ShuffleWriteMetrics()
-    var writer = blockManager.getDiskWriter(blockId, file, ser,
-      fileBufferSize, curWriteMetrics)
+    var writer = blockManager.getDiskWriter(blockId, file, ser, fileBufferSize, curWriteMetrics)
     var objectsWritten = 0
 
     // List of batch sizes (bytes) in the order they are written to disk
@@ -72,8 +73,7 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
         if (objectsWritten == serializerBatchSize) {
           flush()
           curWriteMetrics = new ShuffleWriteMetrics()
-          writer = blockManager.getDiskWriter(blockId, file, ser,
-            fileBufferSize, curWriteMetrics)
+          writer = blockManager.getDiskWriter(blockId, file, ser, fileBufferSize, curWriteMetrics)
         }
       }
       if (objectsWritten > 0) {
@@ -99,6 +99,7 @@ private[spark] trait SpillableCollection[C, T <: Iterable[C]] extends Spillable[
 
     recordNextSpilledPart(file, blockId, batchSizes)
   }
+
 
   protected def getIteratorForCurrentSpillable(): Iterator[C]
   protected def writeNextObject(c: C, writer: DiskBlockObjectWriter): Unit
@@ -230,6 +231,15 @@ private object SpillableCollection {
   private def fileBufferSize(): Int =
     // Use getSizeAsKb (not bytes) to maintain backwards compatibility if no units are provided
     sparkConf.getSizeAsKb("spark.shuffle.file.buffer", "32k").toInt * 1024
+  /**
+   * Size of object batches when reading/writing from serializers.
+   *
+   * Objects are written in batches, with each batch using its own serialization stream. This
+   * cuts down on the size of reference-tracking maps constructed when deserializing a stream.
+   *
+   * NOTE: Setting this too low can cause excessive copying when serializing, since some serializers
+   * grow internal data structures by growing + copying every time the number of objects doubles.
+   */
   private def serializerBatchSize(): Long = sparkConf.getLong("spark.shuffle.spill.batchSize", 10000)
   private def serializer(): Serializer = SparkEnv.get.serializer
 }
