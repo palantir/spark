@@ -45,7 +45,7 @@ import org.apache.spark.mapreduce.SparkHadoopMapReduceUtil
 import org.apache.spark.partial.{BoundedDouble, PartialResult}
 import org.apache.spark.serializer.Serializer
 import org.apache.spark.util.{SerializableConfiguration, Utils}
-import org.apache.spark.util.collection.CompactBuffer
+import org.apache.spark.util.collection.{ExternalSorter, ExternalList, SizeTrackingCompactBuffer, CompactBuffer}
 import org.apache.spark.util.random.StratifiedSamplingUtils
 
 /**
@@ -463,12 +463,26 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
     // groupByKey shouldn't use map side combine because map side combine does not
     // reduce the amount of data shuffled and requires all map side data be inserted
     // into a hash table, leading to more objects in the old gen.
-    val createCombiner = (v: V) => CompactBuffer(v)
-    val mergeValue = (buf: CompactBuffer[V], v: V) => buf += v
-    val mergeCombiners = (c1: CompactBuffer[V], c2: CompactBuffer[V]) => c1 ++= c2
-    val bufs = combineByKey[CompactBuffer[V]](
-      createCombiner, mergeValue, mergeCombiners, partitioner, mapSideCombine = false)
-    bufs.asInstanceOf[RDD[(K, Iterable[V])]]
+    val createCombiner = (v: V) => ExternalList(v)
+    val mergeValue = (buf: ExternalList[V], v: V) => buf += v
+    val mergeCombiners = (c1: ExternalList[V], c2: ExternalList[V]) => {
+      c2.foreach(c => c1 += c)
+      c1
+    }
+    val aggregator = new Aggregator[K, V, ExternalList[V]](createCombiner,
+        mergeValue, mergeCombiners)
+    val shuffledRdd = if (self.partitioner != partitioner) {
+      self.partitionBy(partitioner)
+    } else {
+      self
+    }
+    def groupOnPartition(iterator: Iterator[(K, V)]): Iterator[(K, Iterable[V])] = {
+      val sorter = new ExternalSorter[K, V, ExternalList[V]](aggregator = Some(aggregator))
+      sorter.insertAll(iterator)
+      sorter.iterator.map(keyAndGroup => (keyAndGroup._1, keyAndGroup._2.asInstanceOf[Iterable[V]]))
+    }
+
+    shuffledRdd.mapPartitions(groupOnPartition(_), preservesPartitioning = true)
   }
 
   /**
