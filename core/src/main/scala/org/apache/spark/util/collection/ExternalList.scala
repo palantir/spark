@@ -57,9 +57,9 @@ private[spark] class ExternalList[T](implicit var tag: ClassTag[T])
     context.addTaskCompletionListener(new ScheduleCleanExternalList(this))
   }
 
-  override def size() = numItems
+  override def size(): Int = numItems
 
-  override def +=(value: T) = {
+  override def +=(value: T): ExternalList[T] = {
     currentInMemoryList += value
     if (maybeSpill(currentInMemoryList, currentInMemoryList.estimateSize())) {
       currentInMemoryList = new SizeTrackingCompactBuffer
@@ -148,8 +148,14 @@ private[spark] class ExternalList[T](implicit var tag: ClassTag[T])
     }
   }
 
-  override protected def getIteratorForCurrentSpillable(): Iterator[T] = currentInMemoryList.iterator
-  override protected def recordNextSpilledPart(file: File, blockId: BlockId, batchSizes: ArrayBuffer[Long]): Unit = {
+  override protected def getIteratorForCurrentSpillable(): Iterator[T] = {
+    currentInMemoryList.iterator
+  }
+
+  override protected def recordNextSpilledPart(
+      file: File,
+      blockId: BlockId,
+      batchSizes: ArrayBuffer[Long]): Unit = {
     spilledLists += new DiskListIterable(file, blockId, batchSizes)
   }
   override protected def writeNextObject(c: T, writer: DiskBlockObjectWriter): Unit = {

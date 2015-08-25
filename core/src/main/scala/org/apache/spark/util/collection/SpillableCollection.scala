@@ -240,6 +240,8 @@ private object SpillableCollection {
    * NOTE: Setting this too low can cause excessive copying when serializing, since some serializers
    * grow internal data structures by growing + copying every time the number of objects doubles.
    */
-  private def serializerBatchSize(): Long = sparkConf.getLong("spark.shuffle.spill.batchSize", 10000)
+  private def serializerBatchSize(): Long =
+    sparkConf.getLong("spark.shuffle.spill.batchSize", 10000)
+
   private def serializer(): Serializer = SparkEnv.get.serializer
 }

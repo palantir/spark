@@ -295,7 +295,8 @@ class ExternalAppendOnlyMap[K, V, C](
   private class DiskMapIterator(file: File, blockId: BlockId, batchSizes: ArrayBuffer[Long])
     extends DiskIterator(file, blockId, batchSizes)
   {
-    override protected def readNextItemFromStream(deserializeStream: DeserializationStream): (K, C) = {
+    override protected def readNextItemFromStream(
+        deserializeStream: DeserializationStream): (K, C) = {
       val k = deserializeStream.readKey().asInstanceOf[K]
       val v = deserializeStream.readValue().asInstanceOf[C]
       (k, v)
@@ -308,13 +309,20 @@ class ExternalAppendOnlyMap[K, V, C](
   /** Convenience function to hash the given (K, C) pair by the key. */
   private def hashKey(kc: (K, C)): Int = ExternalAppendOnlyMap.hash(kc._1)
 
-  override protected def getIteratorForCurrentSpillable(): Iterator[(K, C)] = currentMap.destructiveSortedIterator(keyComparator)
+  override protected def getIteratorForCurrentSpillable(): Iterator[(K, C)] = {
+    currentMap.destructiveSortedIterator(keyComparator)
+  }
 
-  override protected def writeNextObject(c: (K, C), writer: DiskBlockObjectWriter): Unit = {
+  override protected def writeNextObject(
+      c: (K, C),
+      writer: DiskBlockObjectWriter): Unit = {
     writer.write(c._1, c._2)
   }
 
-  override protected def recordNextSpilledPart(file: File, blockId: BlockId, batchSizes: ArrayBuffer[Long]): Unit = {
+  override protected def recordNextSpilledPart(
+      file: File,
+      blockId: BlockId,
+      batchSizes: ArrayBuffer[Long]): Unit = {
     spilledMaps.append(new DiskMapIterator(file, blockId, batchSizes))
   }
 }

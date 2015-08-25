@@ -469,7 +469,8 @@ class PairRDDFunctions[K, V](self: RDD[(K, V)])
       c2.foreach(c => c1 += c)
       c1
     }
-    val aggregator = new Aggregator[K, V, ExternalList[V]](createCombiner, mergeValue, mergeCombiners)
+    val aggregator = new Aggregator[K, V, ExternalList[V]](createCombiner,
+        mergeValue, mergeCombiners)
     val shuffledRdd = if (self.partitioner != partitioner) {
       self.partitionBy(partitioner)
     } else {

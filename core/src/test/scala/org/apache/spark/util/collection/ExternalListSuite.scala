@@ -22,7 +22,7 @@ import java.lang.ref.WeakReference
 import scala.language.existentials
 import scala.reflect.ClassTag
 
-import org.apache.spark.{SharedSparkContext, SparkEnv, SparkFunSuite, TaskContextImpl, TaskContext}
+import org.apache.spark._
 import org.apache.spark.serializer.{KryoSerializer, JavaSerializer, SerializerInstance}
 import org.apache.spark.util.collection.ExternalListSuite._
 import org.apache.spark.unsafe.memory.TaskMemoryManager
@@ -58,7 +58,10 @@ class ExternalListSuite extends SparkFunSuite with SharedSparkContext {
     runGC()
     // GC on the Cached RDD shouldn't trigger the cleanup
     cachedRdd.foreach(validateList(totalRddSize, numBuckets, _))
-    val filePaths = cachedRdd.map(_._2.asInstanceOf[ExternalList[Int]].getBackingFileLocations()).collect
+    def fileLocationsFromIterable(pair: (_, Iterable[Int])): Iterable[String] = {
+      pair._2.asInstanceOf[ExternalList[Int]].getBackingFileLocations()
+    }
+    val filePaths = cachedRdd.map(fileLocationsFromIterable).collect
     filePaths.foreach(paths => {
       paths.foreach(f => assertTrue(new File(f).exists()))
     })
@@ -134,7 +137,8 @@ object ExternalListSuite {
   val numBuckets = 5
 
   private def createAndSetFakeTaskContext(): Unit = {
-    taskContext = new TaskContextImpl(0, 0, 0L, 0, mock(classOf[TaskMemoryManager]), SparkEnv.get.metricsSystem)
+    taskContext = new TaskContextImpl(0, 0, 0L, 0, mock(classOf[TaskMemoryManager]),
+        SparkEnv.get.metricsSystem, Seq.empty[Accumulator[Long]])
     TaskContext.setTaskContext(taskContext)
   }
 
@@ -142,10 +146,13 @@ object ExternalListSuite {
     var numItems = 0
     for (valsInBucket <- kv._2) {
       numItems += 1
-      // Can't use scala assertions because including assert statements makes closures not serializable.
-      assertEquals(s"Value $valsInBucket should not be in bucket ${kv._1}", kv._1, valsInBucket % numBuckets)
+      // Can't use scala assertions because including assert statements makes closures
+      // not serializable.
+      assertEquals(s"Value $valsInBucket should not be" +
+          s" in bucket ${kv._1}", kv._1, valsInBucket % numBuckets)
     }
-    assertEquals(s"Number of items in bucket ${kv._1} is incorrect.", totalRddSize / numBuckets, numItems)
+    assertEquals(s"Number of items in bucket ${kv._1} is incorrect.",
+        totalRddSize / numBuckets, numItems)
   }
 }
 

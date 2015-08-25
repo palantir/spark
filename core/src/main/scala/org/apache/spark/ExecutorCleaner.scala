@@ -41,7 +41,8 @@ private[spark] class ExecutorCleaner extends WeakReferenceCleaner {
   override protected def handleCleanupForSpecificTask(task: CleanupTask): Unit = {
     task match {
       case CleanExternalList(paths) => doCleanExternalList(paths)
-      case unknown => logWarning(s"Got cleanup task that cannot be handled by ExecutorCleaner: $unknown")
+      case unknown => logWarning(s"Got cleanup task that cannot be" +
+        s" handled by ExecutorCleaner: $unknown")
     }
   }
 
