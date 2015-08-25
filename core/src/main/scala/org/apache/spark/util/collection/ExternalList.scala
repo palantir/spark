@@ -59,7 +59,7 @@ private[spark] class ExternalList[T](implicit var tag: ClassTag[T])
 
   override def size(): Int = numItems
 
-  override def +=(value: T): ExternalList[T] = {
+  override def +=(value: T): this.type = {
     currentInMemoryList += value
     if (maybeSpill(currentInMemoryList, currentInMemoryList.estimateSize())) {
       currentInMemoryList = new SizeTrackingCompactBuffer

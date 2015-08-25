@@ -17,13 +17,13 @@
 
 package org.apache.spark
 
-import org.apache.spark.util.Utils
-
-import scala.collection.mutable.{ArrayBuffer, SynchronizedBuffer}
-
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.{RDD, ReliableRDDCheckpointData}
 import org.apache.spark.util.Utils
+import org.apache.spark.util.cleanup.{ CleanAccum, CleanBroadcast, CleanCheckpoint }
+import org.apache.spark.util.cleanup.{ CleanRDD, CleanShuffle, CleanupTask }
+
+import scala.collection.mutable.{ArrayBuffer, SynchronizedBuffer}
 
 /**
  * An asynchronous cleaner for RDD, shuffle, and broadcast state.

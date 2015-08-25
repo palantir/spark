@@ -34,7 +34,12 @@ private[spark] class ExecutorCleaner extends WeakReferenceCleaner {
 
   def doCleanExternalList(paths: Iterable[String]): Unit = {
     paths.map(path => new File(path)).foreach(f => {
-      if (f.exists()) f.delete()
+      if (f.exists()) {
+        val isDeleted = f.delete()
+        if (!isDeleted) {
+          logWarning(s"Failed to delete ${f.getAbsolutePath} backing ExternalList")
+        }
+      }
     })
   }
 
