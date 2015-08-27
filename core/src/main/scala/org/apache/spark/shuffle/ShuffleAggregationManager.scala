@@ -31,7 +31,6 @@ private[spark] class ShuffleAggregationManager[K, V](
   private val partialAggReduction = conf.getDouble("spark.partialAgg.reduction", 0.5)
   private val partialAggInMemoryThreshold =
     SparkEnv.get.conf.getLong("spark.shuffle.spill.initialMemoryThreshold", 5 * 1024 * 1024)
-  private val shuffleMemoryManager = SparkEnv.get.shuffleMemoryManager
   private var partialAggEnabled = true
 
   private val uniqueKeysMap = new AppendOnlyMap[K, Boolean]
@@ -49,7 +48,8 @@ private[spark] class ShuffleAggregationManager[K, V](
   def enableAggregation(): Boolean = {
     while (records.hasNext
         && numIteratedRecords < partialAggCheckInterval
-        && partialAggEnabled) {
+        && partialAggEnabled
+        && iteratedElements.estimateSize() <= partialAggInMemoryThreshold) {
       val kv = records.next()
 
       iteratedElements += kv
