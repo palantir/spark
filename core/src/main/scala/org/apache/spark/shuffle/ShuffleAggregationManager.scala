@@ -57,8 +57,6 @@ private[spark] class ShuffleAggregationManager[K, V](
 
       uniqueKeysMap.update(kv._1, true)
 
-      shuffleMemoryManager.getMemoryConsumptionForThisTask()
-
       if (iteratedElements.estimateSize() > partialAggInMemoryThreshold ||
           numIteratedRecords == partialAggCheckInterval) {
         val partialAggSize = uniqueKeysMap.size
