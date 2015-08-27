@@ -21,9 +21,11 @@ import org.apache.spark._
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.serializer.Serializer
-import org.apache.spark.shuffle.{IndexShuffleBlockResolver, ShuffleWriter, BaseShuffleHandle}
+import org.apache.spark.shuffle.{ShuffleAggregationManager, IndexShuffleBlockResolver, ShuffleWriter, BaseShuffleHandle}
 import org.apache.spark.storage.ShuffleBlockId
 import org.apache.spark.util.collection.ExternalSorter
+
+import scala.reflect.ClassTag
 
 private[spark] class SortShuffleWriter[K, V, C](
     shuffleBlockResolver: IndexShuffleBlockResolver,
@@ -36,7 +38,7 @@ private[spark] class SortShuffleWriter[K, V, C](
 
   private val blockManager = SparkEnv.get.blockManager
 
-  private var sorter: SortShuffleFileWriter[K, V] = null
+  private var sorter: SortShuffleFileWriter[K, _] = null
 
   // Are we in the process of stopping? Because map tasks can call stop() with success = true
   // and then call stop() with success = false if they get an exception, we want to make sure
@@ -50,34 +52,66 @@ private[spark] class SortShuffleWriter[K, V, C](
 
   /** Write a bunch of records to this task's output */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
-    sorter = if (dep.mapSideCombine) {
-      require(dep.aggregator.isDefined, "Map-side combine without Aggregator specified!")
-      new ExternalSorter[K, V, C](
-        dep.aggregator, Some(dep.partitioner), dep.keyOrdering, dep.serializer)
-    } else if (SortShuffleWriter.shouldBypassMergeSort(
-        SparkEnv.get.conf, dep.partitioner.numPartitions, aggregator = None, keyOrdering = None)) {
-      // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
-      // need local aggregation and sorting, write numPartitions files directly and just concatenate
-      // them at the end. This avoids doing serialization and deserialization twice to merge
-      // together the spilled files, which would happen with the normal code path. The downside is
-      // having multiple files open at a time and thus more memory allocated to buffers.
-      new BypassMergeSortShuffleWriter[K, V](SparkEnv.get.conf, blockManager, dep.partitioner,
-        writeMetrics, Serializer.getSerializer(dep.serializer))
-    } else {
-      // In this case we pass neither an aggregator nor an ordering to the sorter, because we don't
-      // care whether the keys get sorted in each partition; that will be done on the reduce side
-      // if the operation being run is sortByKey.
-      new ExternalSorter[K, V, V](
-        aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
-    }
-    sorter.insertAll(records)
+    // Decide if it's optimal to do the pre-aggregation.
+    val aggManager = new ShuffleAggregationManager[K, V](SparkEnv.get.conf, records)
+    // Short-circuit if dep.mapSideCombine is explicitly set to false so we don't do the
+    // aggregation check. Else check if pre-aggregation would actually be beneficial
+    // via aggManager.
+    val enableMapSideCombine = dep.mapSideCombine && aggManager.enableAggregation()
 
+    sorter = (dep.mapSideCombine, enableMapSideCombine) match {
+      case (_, true) =>
+        assert (dep.mapSideCombine)
+        require(dep.aggregator.isDefined, "Map-side combine requested without " +
+                                          "Aggregator specified!")
+        val selectedSorter = new ExternalSorter[K, V, C](
+          dep.aggregator, Some(dep.partitioner), dep.keyOrdering, dep.serializer)
+        writeInternal(aggManager.getRestoredIterator(), selectedSorter)
+        selectedSorter
+      case (true, false) =>
+        // The user requested map-side combine, but we determined that it would be sub-optimal
+        // for here. So just write out the initial combiners (as the reducer will expect values
+        //  of type "C") but don't do the aggregations itself
+        require (dep.aggregator.isDefined, "Map side combine requested with " +
+                                            "no aggregator specified!")
+        val selectedSorter = if (SortShuffleWriter.shouldBypassMergeSort(SparkEnv.get.conf,
+            dep.partitioner.numPartitions, aggregator = None, keyOrdering = None)) {
+          new BypassMergeSortShuffleWriter[K, C](SparkEnv.get.conf, blockManager, dep.partitioner,
+            writeMetrics, Serializer.getSerializer(dep.serializer))
+        } else {
+          new ExternalSorter[K, C, C](
+            aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
+        }
+        val definedAggregator = dep.aggregator.get
+        val recordsWithAppliedCreateCombiner = aggManager.getRestoredIterator.map(kv =>
+                                              (kv._1, definedAggregator.createCombiner(kv._2)))
+        writeInternal(recordsWithAppliedCreateCombiner, selectedSorter)
+        selectedSorter
+      case (false, _) => {
+        val selectedSorter = if (SortShuffleWriter.shouldBypassMergeSort(SparkEnv.get.conf,
+            dep.partitioner.numPartitions, aggregator = None, keyOrdering = None)) {
+          new BypassMergeSortShuffleWriter[K, V](SparkEnv.get.conf, blockManager, dep.partitioner,
+            writeMetrics, Serializer.getSerializer(dep.serializer))
+        } else {
+          new ExternalSorter[K, V, V](
+            aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
+        }
+        writeInternal(aggManager.getRestoredIterator(), selectedSorter)
+        selectedSorter
+      }
+    }
+    logInfo("SortShuffleWriter - Enable Pre-Aggregation: " + enableMapSideCombine)
+  }
+
+  private def writeInternal[VorC](records: Iterator[Product2[K, VorC]],
+      selectedSorter: SortShuffleFileWriter[K, VorC]): Unit = {
+    selectedSorter.insertAll(records)
     // Don't bother including the time to open the merged output file in the shuffle write time,
     // because it just opens a single file, so is typically too fast to measure accurately
     // (see SPARK-3570).
     val outputFile = shuffleBlockResolver.getDataFile(dep.shuffleId, mapId)
     val blockId = ShuffleBlockId(dep.shuffleId, mapId, IndexShuffleBlockResolver.NOOP_REDUCE_ID)
-    val partitionLengths = sorter.writePartitionedFile(blockId, context, outputFile)
+    val partitionLengths = selectedSorter.writePartitionedFile(blockId, context, outputFile)
     shuffleBlockResolver.writeIndexFile(dep.shuffleId, mapId, partitionLengths)
 
     mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths)

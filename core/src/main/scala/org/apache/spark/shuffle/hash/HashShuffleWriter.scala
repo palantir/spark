@@ -50,9 +50,17 @@ private[spark] class HashShuffleWriter[K, V](
 
   /** Write a bunch of records to this task's output */
   override def write(records: Iterator[Product2[K, V]]): Unit = {
+    // Decide if it's optimal to do the pre-aggregation.
+    val aggManager = new ShuffleAggregationManager[K, V](SparkEnv.get.conf, records)
+
     val iter = if (dep.aggregator.isDefined) {
       if (dep.mapSideCombine) {
-        dep.aggregator.get.combineValuesByKey(records, context)
+        if (aggManager.enableAggregation()) {
+          dep.aggregator.get.combineValuesByKey(aggManager.getRestoredIterator(), context)
+        } else {
+          aggManager.getRestoredIterator().map(kv =>
+                                              (kv._1, dep.aggregator.get.createCombiner(kv._2)))
+        }
       } else {
         records
       }
