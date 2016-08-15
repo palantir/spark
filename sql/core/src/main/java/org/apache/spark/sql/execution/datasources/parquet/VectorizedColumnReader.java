@@ -18,6 +18,7 @@
 package org.apache.spark.sql.execution.datasources.parquet;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -263,7 +264,7 @@ public class VectorizedColumnReader {
           for (int i = rowId; i < rowId + num; ++i) {
             // TODO: Convert dictionary of Binaries to dictionary of Longs
             Binary v = dictionary.decodeToBinary(dictionaryIds.getDictId(i));
-            column.putLong(i, ParquetRowConverter.binaryToSQLTimestamp(v));
+            column.putLong(i, (long) ParquetRowConverter.binaryToSQLTimestamp(v));
           }
         } else {
           throw new UnsupportedOperationException();
@@ -379,7 +380,7 @@ public class VectorizedColumnReader {
         if (defColumn.readInteger() == maxDefLevel) {
           column.putLong(rowId + i,
               // Read 12 bytes for INT96
-              ParquetRowConverter.binaryToSQLTimestamp(data.readBinary(12)));
+              (long) ParquetRowConverter.binaryToSQLTimestamp(data.readBinary(12)));
         } else {
           column.putNull(rowId + i);
         }
@@ -451,7 +452,8 @@ public class VectorizedColumnReader {
     });
   }
 
-  private void initDataReader(Encoding dataEncoding, byte[] bytes, int offset) throws IOException {
+  private void initDataReader(Encoding dataEncoding, ByteBuffer bytes, int offset)
+          throws IOException {
     this.endOfPageValueCount = valuesRead + pageValueCount;
     if (dataEncoding.usesDictionary()) {
       this.dataColumn = null;
@@ -497,7 +499,7 @@ public class VectorizedColumnReader {
     this.repetitionLevelColumn = new ValuesReaderIntIterator(rlReader);
     this.definitionLevelColumn = new ValuesReaderIntIterator(dlReader);
     try {
-      byte[] bytes = page.getBytes().toByteArray();
+      ByteBuffer bytes = page.getBytes().toByteBuffer();
       rlReader.initFromPage(pageValueCount, bytes, 0);
       int next = rlReader.getNextOffset();
       dlReader.initFromPage(pageValueCount, bytes, next);
@@ -517,9 +519,9 @@ public class VectorizedColumnReader {
     this.defColumn = new VectorizedRleValuesReader(bitWidth);
     this.definitionLevelColumn = new ValuesReaderIntIterator(this.defColumn);
     this.defColumn.initFromBuffer(
-        this.pageValueCount, page.getDefinitionLevels().toByteArray());
+        this.pageValueCount, page.getDefinitionLevels().toByteBuffer());
     try {
-      initDataReader(page.getDataEncoding(), page.getData().toByteArray(), 0);
+      initDataReader(page.getDataEncoding(), page.getData().toByteBuffer(), 0);
     } catch (IOException e) {
       throw new IOException("could not read page " + page + " in col " + descriptor, e);
     }
