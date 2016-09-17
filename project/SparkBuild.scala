@@ -29,6 +29,7 @@ import sbt.Keys._
 import sbtunidoc.Plugin.UnidocKeys.unidocGenjavadocVersion
 import com.simplytyped.Antlr4Plugin._
 import com.typesafe.sbt.pom.{PomBuild, SbtPomKeys}
+import com.typesafe.sbt.SbtGit._
 import com.typesafe.tools.mima.plugin.MimaKeys
 import org.scalastyle.sbt.ScalastylePlugin._
 import org.scalastyle.sbt.Tasks
@@ -233,7 +234,7 @@ object SparkBuild extends PomBuild {
     }
   )
 
-  lazy val sharedSettings = sparkGenjavadocSettings ++
+  lazy val sharedSettings: Seq[Setting[_]] = versionWithGit ++ sparkGenjavadocSettings ++
       (if (sys.env.contains("NOLINT_ON_COMPILE")) Nil else enableScalaStyle) ++ Seq(
     exportJars in Compile := true,
     exportJars in Test := false,
@@ -243,6 +244,23 @@ object SparkBuild extends PomBuild {
     incOptions := incOptions.value.withNameHashing(true),
     publishMavenStyle := true,
     unidocGenjavadocVersion := "0.10",
+    git.useGitDescribe := true,
+    useJGit,
+    version := {
+      val uncommittedSuffix =
+        git.makeUncommittedSignifierSuffix(git.gitUncommittedChanges.value, git.uncommittedSignifier.value)
+      val releaseVersion =
+        git.releaseVersion(git.gitCurrentTags.value, git.gitTagToVersionNumber.value, uncommittedSuffix)
+      val describedVersion =
+        git.flaggedOptional(git.useGitDescribe.value, git.describeVersion(git.gitDescribedVersion.value, uncommittedSuffix))
+      val commitVersion = git.formattedShaVersion.value
+      //Now we fall through the potential version numbers...
+      git.makeVersion(Seq(
+        releaseVersion,
+        describedVersion,
+        commitVersion
+      )) get
+    },
 
     // Override SBT's default resolvers:
     resolvers := Seq(
