@@ -3,6 +3,11 @@ general:
     - target
 
 machine:
+  pre:
+    - sudo pkill -u postgres
+    - sudo pkill -u mongod
+    - sudo pkill -u beam.smp
+    - sudo pkill -u mysqld
   java:
     version: oraclejdk8
   environment:
