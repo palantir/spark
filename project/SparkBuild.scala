@@ -236,7 +236,7 @@ object SparkBuild extends PomBuild {
     }
   )
 
-  lazy val sharedSettings: Seq[Setting[_]] = bintraySettings ++ versionWithGit ++ sparkGenjavadocSettings ++
+  lazy val sharedSettings = bintraySettings ++ versionWithGit ++ sparkGenjavadocSettings ++
       (if (sys.env.contains("NOLINT_ON_COMPILE")) Nil else enableScalaStyle) ++ Seq(
     exportJars in Compile := true,
     exportJars in Test := false,
