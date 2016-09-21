@@ -13,7 +13,6 @@ machine:
     HADOOP_PROFILE: "hadoop2.7"
   post:
     - sudo pkill mongod
-    - sudo pkill beam.smp
     - sudo pkill mysqld
     - sudo pkill postgres
 
