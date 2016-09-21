@@ -57,7 +57,6 @@ install_app() {
       exit 2
     cd "${_DIR}" && tar -xzf "$2"
     rm -rf "$local_tarball"
-  fi
 }
 
 # Determine the Maven version from the root pom.xml file and
