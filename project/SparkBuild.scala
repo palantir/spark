@@ -23,6 +23,8 @@ import scala.util.Properties
 import scala.collection.JavaConverters._
 import scala.collection.mutable.Stack
 
+import bintray.BintrayKeys
+import bintray.BintrayPlugin._
 import sbt._
 import sbt.Classpaths.publishTask
 import sbt.Keys._
@@ -234,7 +236,7 @@ object SparkBuild extends PomBuild {
     }
   )
 
-  lazy val sharedSettings: Seq[Setting[_]] = versionWithGit ++ sparkGenjavadocSettings ++
+  lazy val sharedSettings: Seq[Setting[_]] = bintraySettings ++ versionWithGit ++ sparkGenjavadocSettings ++
       (if (sys.env.contains("NOLINT_ON_COMPILE")) Nil else enableScalaStyle) ++ Seq(
     exportJars in Compile := true,
     exportJars in Test := false,
@@ -261,6 +263,11 @@ object SparkBuild extends PomBuild {
         commitVersion
       )) get
     },
+    BintrayKeys.bintrayCredentialsFile := new File(".credentials"),
+    licenses += ("Apache 2.0", url("https://www.apache.org/licenses/LICENSE-2.0")),
+    BintrayKeys.bintrayOrganization := Some("palantir"),
+    BintrayKeys.bintrayRepository := "releases",
+    BintrayKeys.bintrayVcsUrl := Some("https://github.com/palantir/parquet-mr"),
 
     // Override SBT's default resolvers:
     resolvers := Seq(
