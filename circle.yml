@@ -12,9 +12,9 @@ machine:
     DEFAULT_JVM_OPTS: "-Xmx1024m -Xms512m"
     HADOOP_PROFILE: "hadoop2.7"
   post:
-    - sudo pkill mongod
-    - sudo pkill mysqld
-    - sudo pkill postgres
+    - sudo pkill mongod || true
+    - sudo pkill mysqld || true
+    - sudo pkill postgres || true
 
 checkout:
   post:
