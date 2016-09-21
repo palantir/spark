@@ -85,7 +85,9 @@ install_mvn() {
       "apache-maven-${MVN_VERSION}-bin.tar.gz" \
       "apache-maven-${MVN_VERSION}/bin/mvn"
 
-    MVN_BIN="${_DIR}/apache-maven-${MVN_VERSION}/bin/mvn"
+    MVN_HOME="${_DIR}/apache-maven-${MVN_VERSION}/bin"
+    export PATH=$MVN_HOME:$PATH
+    MVN_BIN="$MVN_HOME/mvn"
   fi
 }
 
