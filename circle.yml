@@ -9,7 +9,6 @@ machine:
     TERM: dumb
     DEFAULT_JVM_OPTS: "-Xmx1024m -Xms512m"
     HADOOP_PROFILE: "hadoop2.7"
-    MAVEN_OPTS: "-Xdebug"
 
 checkout:
   post:
