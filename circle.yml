@@ -15,6 +15,8 @@ checkout:
     - "[[ ! -s \"$(git rev-parse --git-dir)/shallow\" ]] || git fetch --unshallow"
     - echo "user=$BINTRAY_USER" > .credentials
     - echo "password=$BINTRAY_PASSWORD" >> .credentials
+    - echo "realm=Bintray API Realm" >> .credentials
+    - echo "host=api.bintray.com" >> .credentials
 
 dependencies:
   override:

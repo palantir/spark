@@ -111,6 +111,8 @@
     <module>external/kafka-0-8-assembly</module>
     <module>external/kafka-0-10</module>
     <module>external/kafka-0-10-assembly</module>
+    <module>yarn</module>
+    <module>common/network-yarn</module>
   </modules>
 
   <properties>
