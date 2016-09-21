@@ -5,15 +5,17 @@ general:
 machine:
   pre:
     - sudo pkill -u postgres
-    - sudo pkill mongod
-    - sudo pkill beam.smp
-    - sudo pkill mysqld
   java:
     version: oraclejdk8
   environment:
     TERM: dumb
     DEFAULT_JVM_OPTS: "-Xmx1024m -Xms512m"
     HADOOP_PROFILE: "hadoop2.7"
+  post:
+    - sudo pkill mongod
+    - sudo pkill beam.smp
+    - sudo pkill mysqld
+    - sudo pkill postgres
 
 checkout:
   post:
