@@ -264,7 +264,7 @@ object SparkBuild extends PomBuild {
       )) get
     },
     BintrayKeys.bintrayCredentialsFile := new File(".credentials"),
-    licenses += ("Apache 2.0", url("https://www.apache.org/licenses/LICENSE-2.0")),
+    licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0")),
     BintrayKeys.bintrayOrganization := Some("palantir"),
     BintrayKeys.bintrayRepository := "releases",
     BintrayKeys.bintrayVcsUrl := Some("https://github.com/palantir/parquet-mr"),
