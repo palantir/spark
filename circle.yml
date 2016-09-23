@@ -46,3 +46,4 @@ deployment:
       - ./dev/make-distribution.sh --name without-hadoop --tgz "-Psparkr -Phadoop-provided -Pyarn -Pmesos" \
           2>&1 > binary-release-without-hadoop.log
       - curl -u $BINTRAY_USER:$BINTRAY_PASSWORD -T "spark-$(git describe --tags)-bin-without-hadoop.tgz" "https://api.bintray.com/content/palantir/releases/spark/$(git describe --tags)/org/apache/spark/dist/spark-$(git describe --tags)-bin-without-hadoop.tgz"
+      -curl -u $BINTRAY_USER:$BINTRAY_PASSWORD -X POST https://api.bintray.com/content/palantir/releases/spark/$(git describe --tags)/publish
