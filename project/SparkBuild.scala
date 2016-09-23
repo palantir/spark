@@ -263,13 +263,13 @@ object SparkBuild extends PomBuild {
     },
     credentials += Credentials(new File(".credentials")),
     licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0")),
-    publishTo := Some("Bintray API Realm" at s"https://api.bintray.com/content/palantir/releases/spark/${version}"),
+    publishTo := Some("Bintray API Realm" at s"https://api.bintray.com/content/palantir/releases/spark/${version.value}"),
 
     // Override SBT's default resolvers:
     resolvers := Seq(
       DefaultMavenRepository,
       Resolver.mavenLocal,
-      Resolver.jcenterRepo,
+      Resolver.bintrayRepo("palantir", "releases"),
       Resolver.file("local", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
     ),
     externalResolvers := resolvers.value,
