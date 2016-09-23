@@ -23,8 +23,6 @@ import scala.util.Properties
 import scala.collection.JavaConverters._
 import scala.collection.mutable.Stack
 
-import bintray.BintrayKeys
-import bintray.BintrayPlugin._
 import sbt._
 import sbt.Classpaths.publishTask
 import sbt.Keys._
@@ -263,18 +261,15 @@ object SparkBuild extends PomBuild {
         commitVersion
       )) get
     },
-    BintrayKeys.bintrayCredentialsFile := new File(".credentials"),
+    credentials += Credentials(new File(".credentials"))
     licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0")),
-    BintrayKeys.bintrayOrganization := Some("palantir"),
-    BintrayKeys.bintrayRepository := "releases",
-    BintrayKeys.bintrayVcsUrl := Some("https://github.com/palantir/parquet-mr"),
-    BintrayKeys.bintrayReleaseOnPublish := true,
-    concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
+    publishTo := Some("Bintray API Realm" at s"https://api.bintray.com/content/palantir/releases/spark/${version}"),
 
     // Override SBT's default resolvers:
     resolvers := Seq(
       DefaultMavenRepository,
       Resolver.mavenLocal,
+      Resolver.jcenterRepo,
       Resolver.file("local", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
     ),
     externalResolvers := resolvers.value,
@@ -285,7 +280,6 @@ object SparkBuild extends PomBuild {
     publishMavenStyle in MavenCompile := true,
     publishLocal in MavenCompile <<= publishTask(publishLocalConfiguration in MavenCompile, deliverLocal),
     publishLocalBoth <<= Seq(publishLocal in MavenCompile, publishLocal).dependOn,
-
     javacOptions in (Compile, doc) ++= {
       val versionParts = System.getProperty("java.version").split("[+.\\-]+", 3)
       var major = versionParts(0).toInt
