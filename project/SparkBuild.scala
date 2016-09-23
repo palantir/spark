@@ -234,7 +234,7 @@ object SparkBuild extends PomBuild {
     }
   )
 
-  lazy val sharedSettings = versionWithGit ++ sparkGenjavadocSettings ++
+  lazy val sharedSettings = versionWithGit ++ // sparkGenjavadocSettings ++
       (if (sys.env.contains("NOLINT_ON_COMPILE")) Nil else enableScalaStyle) ++ Seq(
     exportJars in Compile := true,
     exportJars in Test := false,
@@ -242,8 +242,7 @@ object SparkBuild extends PomBuild {
       .orElse(sys.props.get("java.home").map { p => new File(p).getParentFile().getAbsolutePath() })
       .map(file),
     incOptions := incOptions.value.withNameHashing(true),
-    publishMavenStyle := true,
-    unidocGenjavadocVersion := "0.10",
+//    unidocGenjavadocVersion := "0.10",
     git.useGitDescribe := true,
     useJGit,
     version := {
@@ -269,7 +268,6 @@ object SparkBuild extends PomBuild {
     resolvers := Seq(
       DefaultMavenRepository,
       Resolver.mavenLocal,
-      Resolver.bintrayRepo("palantir", "releases"),
       Resolver.file("local", file(Path.userHome.absolutePath + "/.ivy2/local"))(Resolver.ivyStylePatterns)
     ),
     externalResolvers := resolvers.value,
@@ -277,6 +275,7 @@ object SparkBuild extends PomBuild {
     publishLocalConfiguration in MavenCompile <<= (packagedArtifacts, deliverLocal, ivyLoggingLevel) map {
       (arts, _, level) => new PublishConfiguration(None, "dotM2", arts, Seq(), level)
     },
+    publishMavenStyle := true,
     publishMavenStyle in MavenCompile := true,
     publishLocal in MavenCompile <<= publishTask(publishLocalConfiguration in MavenCompile, deliverLocal),
     publishLocalBoth <<= Seq(publishLocal in MavenCompile, publishLocal).dependOn,
@@ -403,8 +402,8 @@ object SparkBuild extends PomBuild {
   /* Package pyspark artifacts in a separate zip file for YARN. */
   enable(PySparkAssembly.settings)(assembly)
 
-  /* Enable unidoc only for the root spark project */
-  enable(Unidoc.settings)(spark)
+//  /* Enable unidoc only for the root spark project */
+//  enable(Unidoc.settings)(spark)
 
   /* Catalyst ANTLR generation settings */
   enable(Catalyst.settings)(catalyst)
