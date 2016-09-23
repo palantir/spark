@@ -261,7 +261,7 @@ object SparkBuild extends PomBuild {
         commitVersion
       )) get
     },
-    credentials += Credentials(new File(".credentials"))
+    credentials += Credentials(new File(".credentials")),
     licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0")),
     publishTo := Some("Bintray API Realm" at s"https://api.bintray.com/content/palantir/releases/spark/${version}"),
 
