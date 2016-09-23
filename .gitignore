@@ -69,6 +69,8 @@ unit-tests.log
 work/
 .credentials
 dev/pr-deps
+binary-release-hadoop-2.7.log
+binary-release-without-hadoop.log
 
 # For Hive
 TempStatsStore/
