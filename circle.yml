@@ -14,7 +14,7 @@ checkout:
 
 dependencies:
   override:
-    - ./build/mvn -DskipTests -Phadoop-2.7 -Pmesos -Pkinesis-asl -Pyarn -Phive-thriftserver -Phive dependency:go-offline
+    - ./build/mvn -Phadoop-2.7 -Pmesos -Pkinesis-asl -Pyarn -Phive-thriftserver -Phive dependency:go-offline
 
 test:
   override:
