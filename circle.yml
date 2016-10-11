@@ -54,6 +54,9 @@ deployment:
             publish_artifacts
 
             curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST https://api.bintray.com/content/palantir/releases/spark/$(git describe --tags)/publish
+        :
+          - timeout: 1200
+
   snapshot:
     branch: master
     commands:
@@ -88,3 +91,5 @@ deployment:
             publish_artifacts
 
             curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST https://api.bintray.com/content/palantir/releases/spark/$(git describe --tags)/publish
+        :
+          - timeout: 1200
