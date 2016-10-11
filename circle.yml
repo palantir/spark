@@ -24,72 +24,9 @@ deployment:
   release:
     tag: /[0-9]+(?:\.[0-9]+)+-palantir[0-9]+/
     commands:
-      - ? |
-            set -euo pipefail
-            version=$(git describe --tags)
-
-            make_dist() {
-              dist_name="$1"
-              build_flags="$2"
-              file_name="spark-${version}-bin-${dist_name}.tgz"
-              sudo apt-get --assume-yes install r-base r-base-dev
-              ./dev/make-distribution.sh --name $dist_name --tgz $build_flags
-              curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T $file_name "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/dist/${file_name}"
-            }
-
-            publish_artifacts() {
-              tmp_settings="tmp-settings.xml"
-              echo "<settings><servers><server>" > $tmp_settings
-              echo "<id>bintray-palantir-release</id><username>$BINTRAY_USERNAME</username>" >> $tmp_settings
-              echo "<password>$BINTRAY_PASSWORD</password>" >> $tmp_settings
-              echo "</server></servers></settings>" >> $tmp_settings
-
-              ./build/mvn versions:set -DnewVersion=$version
-              ./build/mvn --settings $tmp_settings -DskipTests -Phadoop-2.7 -Pmesos -Pkinesis-asl -Pyarn -Phive-thriftserver clean deploy
-            }
-
-            make_dist hadoop-2.7 "-Phadoop-2.7 -Pmesos -Pkinesis-asl -Pyarn -Phive-thriftserver -Phive"
-            make_dist without-hadoop "-Psparkr -Phadoop-provided -Pyarn -Pmesos"
-
-            publish_artifacts
-
-            curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST https://api.bintray.com/content/palantir/releases/spark/$(git describe --tags)/publish
-        :
-          - timeout: 1200
+      - ./dev/publish-palantir.sh
 
   snapshot:
     branch: master
     commands:
-      - ? |
-            # same as above
-            set -euo pipefail
-            version=$(git describe --tags)
-
-            make_dist() {
-              dist_name="$1"
-              build_flags="$2"
-              file_name="spark-${version}-bin-${dist_name}.tgz"
-              sudo apt-get --assume-yes install r-base r-base-dev
-              ./dev/make-distribution.sh --name $dist_name --tgz $build_flags
-              curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T $file_name "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/dist/${file_name}"
-            }
-
-            publish_artifacts() {
-              tmp_settings="tmp-settings.xml"
-              echo "<settings><servers><server>" > $tmp_settings
-              echo "<id>bintray-palantir-release</id><username>$BINTRAY_USERNAME</username>" >> $tmp_settings
-              echo "<password>$BINTRAY_PASSWORD</password>" >> $tmp_settings
-              echo "</server></servers></settings>" >> $tmp_settings
-
-              ./build/mvn versions:set -DnewVersion=$version
-              ./build/mvn --settings $tmp_settings -DskipTests -Phadoop-2.7 -Pmesos -Pkinesis-asl -Pyarn -Phive-thriftserver clean deploy
-            }
-
-            make_dist hadoop-2.7 "-Phadoop-2.7 -Pmesos -Pkinesis-asl -Pyarn -Phive-thriftserver -Phive"
-            make_dist without-hadoop "-Psparkr -Phadoop-provided -Pyarn -Pmesos"
-
-            publish_artifacts
-
-            curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST https://api.bintray.com/content/palantir/releases/spark/$(git describe --tags)/publish
-        :
-          - timeout: 1200
+      - ./dev/publish-palantir.sh
