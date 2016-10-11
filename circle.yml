@@ -18,7 +18,7 @@ dependencies:
 
 test:
   override:
-    - ./dev/run-tests
+    - HADOOP_PROFILE="hadoop2.7" ./dev/run-tests
 
 deployment:
   release:
