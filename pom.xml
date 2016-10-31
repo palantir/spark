@@ -134,7 +134,7 @@
     <!-- Version used for internal directory structure -->
     <hive.version.short>1.2.1</hive.version.short>
     <derby.version>10.12.1.1</derby.version>
-    <parquet.version>1.9.0-palantir2</parquet.version>
+    <parquet.version>1.9.0-palantir3</parquet.version>
     <hive.parquet.version>1.6.0</hive.parquet.version>
     <jetty.version>9.2.16.v20160414</jetty.version>
     <javaxservlet.version>3.1.0</javaxservlet.version>
@@ -168,7 +168,7 @@
     <!-- org.apache.commons/commons-lang/-->
     <commons-lang2.version>2.6</commons-lang2.version>
     <!-- org.apache.commons/commons-lang3/-->
-    <commons-lang3.version>3.3.2</commons-lang3.version>
+    <commons-lang3.version>3.5</commons-lang3.version>
     <datanucleus-core.version>3.2.10</datanucleus-core.version>
     <janino.version>3.0.0</janino.version>
     <jersey.version>2.22.2</jersey.version>
