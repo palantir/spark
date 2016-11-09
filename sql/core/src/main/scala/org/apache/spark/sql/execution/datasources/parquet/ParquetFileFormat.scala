@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources.parquet
 
+import java.io.FileNotFoundException
 import java.net.URI
 import java.util.logging.{Logger => JLogger}
 
@@ -30,10 +31,12 @@ import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileSplit
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
 import org.apache.parquet.{Log => ApacheParquetLog}
-import org.apache.parquet.filter2.compat.FilterCompat
+import org.apache.parquet.filter2.compat.{FilterCompat, RowGroupFilter}
 import org.apache.parquet.filter2.predicate.FilterApi
+import org.apache.parquet.format.converter.ParquetMetadataConverter
 import org.apache.parquet.hadoop._
 import org.apache.parquet.hadoop.codec.CodecConfig
+import org.apache.parquet.hadoop.metadata.ParquetMetadata
 import org.apache.parquet.hadoop.util.ContextUtil
 import org.apache.parquet.schema.MessageType
 import org.slf4j.bridge.SLF4JBridgeHandler
@@ -270,6 +273,83 @@ class ParquetFileFormat
       options: Map[String, String],
       path: Path): Boolean = {
     true
+  }
+
+  override def getSplits(fileIndex: FileIndex,
+                         fileStatus: FileStatus,
+                         filters: Seq[Filter],
+                         schema: StructType,
+                         hadoopConf: Configuration): Seq[FileSplit] = {
+    if (filters.isEmpty) {
+      // Return immediately to save FileSystem overhead
+      super.getSplits(fileIndex, fileStatus, filters, schema, hadoopConf)
+    } else {
+      val filePath = fileStatus.getPath
+      val rootOption: Option[Path] = fileIndex.rootPaths
+        .find(root => filePath.toString.startsWith(root.toString))
+      val metadataOption = rootOption.flatMap(getMetadataForPath(filePath, _, hadoopConf))
+      // If the metadata exists, filter the splits.
+      // Otherwise, fall back to the default implementation.
+      metadataOption
+        .map(filterToSplits(fileStatus, _, rootOption.get, filters, schema, hadoopConf))
+        .getOrElse(super.getSplits(fileIndex, fileStatus, filters, schema, hadoopConf))
+    }
+  }
+
+  private def filterToSplits(fileStatus: FileStatus,
+                             metadata: ParquetMetadata,
+                             metadataRoot: Path,
+                             filters: Seq[Filter],
+                             schema: StructType,
+                             hadoopConf: Configuration): Seq[FileSplit] = {
+    val metadataBlocks = metadata.getBlocks
+    val parquetSchema = metadata.getFileMetaData.getSchema
+    val filter = FilterCompat.get(filters
+          .flatMap(ParquetFilters.createFilter(schema, _))
+          .reduce(FilterApi.and))
+    val filteredMetadata =
+      RowGroupFilter.filterRowGroups(filter, metadataBlocks, parquetSchema).asScala
+    filteredMetadata.flatMap(bmd => {
+      val bmdPath = new Path(metadataRoot, bmd.getPath)
+      val fsPath = fileStatus.getPath
+      if (bmdPath == fsPath) {
+        Some(new FileSplit(bmdPath, bmd.getStartingPos, bmd.getTotalByteSize, Array.empty))
+      } else {
+        None
+      }
+    })
+  }
+
+  private def getMetadataForPath(filePath: Path,
+                                 rootPath: Path,
+                                 conf: Configuration): Option[ParquetMetadata] = {
+    val fs = rootPath.getFileSystem(conf)
+    try {
+      val stat = fs.getFileStatus(rootPath)
+      // Mimic Parquet behavior. If given a directory, find the underlying _metadata file
+      // If given a single file, check the parent directory for a _metadata file
+      val directory = if (stat.isDirectory) stat.getPath else stat.getPath.getParent
+      val metadataFile = new Path(directory, ParquetFileWriter.PARQUET_METADATA_FILE)
+      val metadata =
+        ParquetFileReader.readFooter(conf, metadataFile, ParquetMetadataConverter.NO_FILTER)
+
+      // Ensure that the metadata has an entry for the file.
+      // If it does not, do not filter at this stage.
+      val matchingBlockExists = metadata.getBlocks.asScala.exists(bmd => {
+        new Path(rootPath, bmd.getPath) == filePath
+      })
+      if (matchingBlockExists) {
+        Some(metadata)
+      } else {
+        log.warn(s"Found _metadata file $metadataFile," +
+          s" but no entry for blocks in $filePath. Discarding the metadata.")
+        None
+      }
+    } catch {
+      case notFound: FileNotFoundException =>
+        log.debug(s"No _metadata file found in root $rootPath")
+        None
+    }
   }
 
   override def buildReaderWithPartitionValues(

@@ -703,6 +703,34 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
       }
     }
   }
+
+  test("SPARK-17059: Allow FileFormat to specify partition pruning strategy") {
+    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true") {
+      withTempPath { path =>
+        spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
+          .toDF("x").write.parquet(path.getCanonicalPath)
+
+        val zeroPartitions = spark.read.parquet(path.getCanonicalPath).where("x = 0")
+        assert(zeroPartitions.rdd.partitions.length == 0)
+
+        val onePartition = spark.read.parquet(path.getCanonicalPath).where("x = 1")
+        assert(onePartition.rdd.partitions.length == 1)
+      }
+    }
+  }
+
+  test("Do not filter out parquet file when missing in _metadata file") {
+    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true") {
+      withTempPath { path =>
+        spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
+          .toDF("x").write.parquet(path.getCanonicalPath)
+        spark.sparkContext.parallelize(Seq(4))
+          .toDF("x").write.mode(SaveMode.Append).parquet(path.getCanonicalPath)
+        val onePartition = spark.read.parquet(path.getCanonicalPath).where("x = 1")
+        assert(onePartition.rdd.partitions.length == 1)
+      }
+    }
+  }
 }
 
 object TestingUDT {

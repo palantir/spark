@@ -23,7 +23,7 @@ import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, LocatedFileStatus, Path}
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{AnalysisException, SparkSession}
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
 import org.apache.spark.sql.catalyst.expressions._
@@ -481,13 +481,20 @@ case class FileSourceScanExec(
         val blockLocations = getBlockLocations(file)
         if (fsRelation.fileFormat.isSplitable(
             fsRelation.sparkSession, fsRelation.options, file.getPath)) {
-          (0L until file.getLen by maxSplitBytes).map { offset =>
-            val remaining = file.getLen - offset
-            val size = if (remaining > maxSplitBytes) maxSplitBytes else remaining
-            val hosts = getBlockHosts(blockLocations, offset, size)
-            PartitionedFile(
-              partition.values, file.getPath.toUri.toString, offset, size, hosts)
-          }
+
+          val validSplits = relation.fileFormat.getSplits(relation.location, file,
+            dataFilters, schema, relation.sparkSession.sparkContext.hadoopConfiguration)
+          validSplits.flatMap(split => {
+            val splitOffset = split.getStart
+            val end = splitOffset + split.getLength
+            (splitOffset until end by maxSplitBytes).map(offset => {
+              val remaining = end - offset
+              val size = if (remaining > maxSplitBytes) maxSplitBytes else remaining
+              val hosts = getBlockHosts(blockLocations, offset, size)
+              PartitionedFile(
+                partition.values, file.getPath.toUri.toString, offset, size, hosts)
+            })
+          })
         } else {
           val hosts = getBlockHosts(blockLocations, 0, file.getLen)
           Seq(PartitionedFile(

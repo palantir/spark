@@ -21,6 +21,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.hadoop.io.compress.{CompressionCodecFactory, SplittableCompressionCodec}
 import org.apache.hadoop.mapreduce.Job
+import org.apache.hadoop.mapreduce.lib.input.FileSplit
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
@@ -86,6 +87,17 @@ trait FileFormat {
       options: Map[String, String],
       path: Path): Boolean = {
     false
+  }
+
+  /**
+   * For a file, return valid splits that may pass the given data filter.
+   */
+  def getSplits(fileIndex: FileIndex,
+                fileStatus: FileStatus,
+                filters: Seq[Filter],
+                schema: StructType,
+                hadoopConf: Configuration): Seq[FileSplit] = {
+    Seq(new FileSplit(fileStatus.getPath, 0, fileStatus.getLen, Array.empty))
   }
 
   /**
