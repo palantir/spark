@@ -435,6 +435,7 @@ case class FileSourceScanExec(
       fsRelation: HadoopFsRelation): RDD[InternalRow] = {
     logInfo(s"Planning with ${bucketSpec.numBuckets} buckets")
     val session = fsRelation.sparkSession
+    val hadoopConf = session.sessionState.newHadoopConf()
     val partitionFiles = selectedPartitions.flatMap { partition =>
       partition.files.map((_, partition.values))
     }
@@ -444,8 +445,9 @@ case class FileSourceScanExec(
       val format = fsRelation.fileFormat
 
       if (format.isSplitable(session, fsRelation.options, file.getPath)) {
-        val validSplits = format.getSplits(session, fsRelation.location, file,
-          dataFilters, schema, session.sessionState.newHadoopConf())
+        val splitter =
+          format.buildSplitter(session, fsRelation.location, dataFilters, schema, hadoopConf)
+        val validSplits = splitter(file)
         validSplits.map { split =>
           val hosts = getBlockHosts(blockLocations, split.getStart, split.getLength)
           PartitionedFile(values, filePath, split.getStart, split.getLength, hosts)
@@ -479,6 +481,7 @@ case class FileSourceScanExec(
       selectedPartitions: Seq[PartitionDirectory],
       fsRelation: HadoopFsRelation): RDD[InternalRow] = {
     val session = fsRelation.sparkSession
+    val hadoopConf = session.sessionState.newHadoopConf()
     val defaultMaxSplitBytes = session.sessionState.conf.filesMaxPartitionBytes
     val openCostInBytes = session.sessionState.conf.filesOpenCostInBytes
     val defaultParallelism = session.sparkContext.defaultParallelism
@@ -499,8 +502,9 @@ case class FileSourceScanExec(
 
       // If the format is splittable, attempt to split and filter the file.
       if (format.isSplitable(session, fsRelation.options, file.getPath)) {
-        val validSplits = format.getSplits(session, fsRelation.location, file,
-          dataFilters, schema, session.sessionState.newHadoopConf())
+        val splitter =
+          format.buildSplitter(session, fsRelation.location, dataFilters, schema, hadoopConf)
+        val validSplits = splitter(file)
         validSplits.flatMap { split =>
           val splitOffset = split.getStart
           val end = splitOffset + split.getLength
