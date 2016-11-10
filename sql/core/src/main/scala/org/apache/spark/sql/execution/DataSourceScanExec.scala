@@ -434,18 +434,31 @@ case class FileSourceScanExec(
       selectedPartitions: Seq[PartitionDirectory],
       fsRelation: HadoopFsRelation): RDD[InternalRow] = {
     logInfo(s"Planning with ${bucketSpec.numBuckets} buckets")
-    val bucketed =
-      selectedPartitions.flatMap { p =>
-        p.files.map { f =>
-          val hosts = getBlockHosts(getBlockLocations(f), 0, f.getLen)
-          PartitionedFile(p.values, f.getPath.toUri.toString, 0, f.getLen, hosts)
-        }
-      }.groupBy { f =>
-        BucketingUtils
-          .getBucketId(new Path(f.filePath).getName)
-          .getOrElse(sys.error(s"Invalid bucket file ${f.filePath}"))
-      }
+    val partitionFiles = selectedPartitions.flatMap { partition =>
+      partition.files.map((_, partition.values))
+    }
+    val bucketed = partitionFiles.flatMap { case (file, values) =>
+      val blockLocations = getBlockLocations(file)
+      val filePath = file.getPath.toUri.toString
+      val format = relation.fileFormat
+      val session = relation.sparkSession
 
+      if (format.isSplitable(session, relation.options, file.getPath)) {
+        val validSplits = format.getSplits(relation.location, file,
+          dataFilters, schema, session.sparkContext.hadoopConfiguration)
+        validSplits.map { split =>
+          val hosts = getBlockHosts(blockLocations, split.getStart, split.getLength)
+          PartitionedFile(values, filePath, split.getStart, split.getLength, hosts)
+        }
+      } else {
+        val hosts = getBlockHosts(blockLocations, 0, file.getLen)
+        Seq(PartitionedFile(values, filePath, 0, file.getLen, hosts))
+      }
+    }.groupBy { f =>
+      BucketingUtils
+        .getBucketId(new Path(f.filePath).getName)
+        .getOrElse(sys.error(s"Invalid bucket file ${f.filePath}"))
+    }
     val filePartitions = Seq.tabulate(bucketSpec.numBuckets) { bucketId =>
       FilePartition(bucketId, bucketed.getOrElse(bucketId, Nil))
     }
@@ -476,30 +489,33 @@ case class FileSourceScanExec(
     logInfo(s"Planning scan with bin packing, max size: $maxSplitBytes bytes, " +
       s"open cost is considered as scanning $openCostInBytes bytes.")
 
-    val splitFiles = selectedPartitions.flatMap { partition =>
-      partition.files.flatMap { file =>
-        val blockLocations = getBlockLocations(file)
-        if (fsRelation.fileFormat.isSplitable(
-            fsRelation.sparkSession, fsRelation.options, file.getPath)) {
+    val partitionFiles = selectedPartitions.flatMap { partition =>
+      partition.files.map((_, partition.values))
+    }
+    val splitFiles = partitionFiles.flatMap { case (file, values) =>
+      val blockLocations = getBlockLocations(file)
+      val filePath = file.getPath.toUri.toString
+      val format = relation.fileFormat
+      val session = relation.sparkSession
 
-          val validSplits = relation.fileFormat.getSplits(relation.location, file,
-            dataFilters, schema, relation.sparkSession.sparkContext.hadoopConfiguration)
-          validSplits.flatMap(split => {
-            val splitOffset = split.getStart
-            val end = splitOffset + split.getLength
-            (splitOffset until end by maxSplitBytes).map(offset => {
-              val remaining = end - offset
-              val size = if (remaining > maxSplitBytes) maxSplitBytes else remaining
-              val hosts = getBlockHosts(blockLocations, offset, size)
-              PartitionedFile(
-                partition.values, file.getPath.toUri.toString, offset, size, hosts)
-            })
-          })
-        } else {
-          val hosts = getBlockHosts(blockLocations, 0, file.getLen)
-          Seq(PartitionedFile(
-            partition.values, file.getPath.toUri.toString, 0, file.getLen, hosts))
+      // If the format is splittable, attempt to split and filter the file.
+      if (fsRelation.fileFormat.isSplitable(session, fsRelation.options, file.getPath)) {
+        val validSplits = relation.fileFormat.getSplits(relation.location, file,
+          dataFilters, schema, session.sparkContext.hadoopConfiguration)
+        validSplits.flatMap { split =>
+          val splitOffset = split.getStart
+          val end = splitOffset + split.getLength
+          (splitOffset until end by maxSplitBytes).map { offset =>
+            val remaining = end - offset
+            val size = if (remaining > maxSplitBytes) maxSplitBytes else remaining
+            val hosts = getBlockHosts(blockLocations, offset, size)
+            PartitionedFile(values, filePath, offset, size, hosts)
+          }
         }
+      } else {
+        // Take the entire file as one partition.
+        val hosts = getBlockHosts(blockLocations, 0, file.getLen)
+        Seq(PartitionedFile(values, filePath, 0, file.getLen, hosts))
       }
     }.toArray.sortBy(_.length)(implicitly[Ordering[Long]].reverse)
 

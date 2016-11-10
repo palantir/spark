@@ -92,11 +92,12 @@ trait FileFormat {
   /**
    * For a file, return valid splits that may pass the given data filter.
    */
-  def getSplits(fileIndex: FileIndex,
-                fileStatus: FileStatus,
-                filters: Seq[Filter],
-                schema: StructType,
-                hadoopConf: Configuration): Seq[FileSplit] = {
+  def getSplits(
+      fileIndex: FileIndex,
+      fileStatus: FileStatus,
+      filters: Seq[Filter],
+      schema: StructType,
+      hadoopConf: Configuration): Seq[FileSplit] = {
     Seq(new FileSplit(fileStatus.getPath, 0, fileStatus.getLen, Array.empty))
   }
 

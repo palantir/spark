@@ -275,11 +275,12 @@ class ParquetFileFormat
     true
   }
 
-  override def getSplits(fileIndex: FileIndex,
-                         fileStatus: FileStatus,
-                         filters: Seq[Filter],
-                         schema: StructType,
-                         hadoopConf: Configuration): Seq[FileSplit] = {
+  override def getSplits(
+      fileIndex: FileIndex,
+      fileStatus: FileStatus,
+      filters: Seq[Filter],
+      schema: StructType,
+      hadoopConf: Configuration): Seq[FileSplit] = {
     if (filters.isEmpty) {
       // Return immediately to save FileSystem overhead
       super.getSplits(fileIndex, fileStatus, filters, schema, hadoopConf)
@@ -296,20 +297,21 @@ class ParquetFileFormat
     }
   }
 
-  private def filterToSplits(fileStatus: FileStatus,
-                             metadata: ParquetMetadata,
-                             metadataRoot: Path,
-                             filters: Seq[Filter],
-                             schema: StructType,
-                             hadoopConf: Configuration): Seq[FileSplit] = {
+  private def filterToSplits(
+      fileStatus: FileStatus,
+      metadata: ParquetMetadata,
+      metadataRoot: Path,
+      filters: Seq[Filter],
+      schema: StructType,
+      hadoopConf: Configuration): Seq[FileSplit] = {
     val metadataBlocks = metadata.getBlocks
     val parquetSchema = metadata.getFileMetaData.getSchema
     val filter = FilterCompat.get(filters
-          .flatMap(ParquetFilters.createFilter(schema, _))
-          .reduce(FilterApi.and))
+      .flatMap(ParquetFilters.createFilter(schema, _))
+      .reduce(FilterApi.and))
     val filteredMetadata =
       RowGroupFilter.filterRowGroups(filter, metadataBlocks, parquetSchema).asScala
-    filteredMetadata.flatMap(bmd => {
+    filteredMetadata.flatMap { bmd =>
       val bmdPath = new Path(metadataRoot, bmd.getPath)
       val fsPath = fileStatus.getPath
       if (bmdPath == fsPath) {
@@ -317,12 +319,13 @@ class ParquetFileFormat
       } else {
         None
       }
-    })
+    }
   }
 
-  private def getMetadataForPath(filePath: Path,
-                                 rootPath: Path,
-                                 conf: Configuration): Option[ParquetMetadata] = {
+  private def getMetadataForPath(
+      filePath: Path,
+      rootPath: Path,
+      conf: Configuration): Option[ParquetMetadata] = {
     val fs = rootPath.getFileSystem(conf)
     try {
       val stat = fs.getFileStatus(rootPath)
@@ -335,9 +338,9 @@ class ParquetFileFormat
 
       // Ensure that the metadata has an entry for the file.
       // If it does not, do not filter at this stage.
-      val matchingBlockExists = metadata.getBlocks.asScala.exists(bmd => {
+      val matchingBlockExists = metadata.getBlocks.asScala.exists { bmd =>
         new Path(rootPath, bmd.getPath) == filePath
-      })
+      }
       if (matchingBlockExists) {
         Some(metadata)
       } else {
