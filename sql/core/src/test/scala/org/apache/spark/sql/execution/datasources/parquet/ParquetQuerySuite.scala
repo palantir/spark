@@ -18,8 +18,10 @@
 package org.apache.spark.sql.execution.datasources.parquet
 
 import java.io.File
+import java.net.URI
 
-import org.apache.hadoop.fs.{FileSystem, Path}
+import com.google.common.collect.{HashMultiset, Multiset}
+import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path, RawLocalFileSystem}
 import org.apache.parquet.hadoop.ParquetOutputFormat
 
 import org.apache.spark.sql._
@@ -731,6 +733,53 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
       }
     }
   }
+
+  test("Only read _metadata file once for a given root path") {
+    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true",
+      "fs.count.impl" -> classOf[CountingFileSystem].getName,
+      "fs.count.impl.disable.cache" -> "true") {
+      withTempPath { path =>
+        val mockedPath = s"count://some-bucket/${path.getCanonicalPath}"
+        val metadataPath: Path = new Path(s"$mockedPath/_metadata")
+        spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
+          .toDF("x").write.parquet(mockedPath)
+        val onePartition = spark.read.parquet(mockedPath).where("x = 1")
+        assert(onePartition.rdd.partitions.length == 1)
+        assert(Counter.count(metadataPath) == 1)
+        Counter.reset()
+      }
+    }
+  }
+}
+
+class CountingFileSystem extends RawLocalFileSystem {
+  override def getScheme: String = "count"
+
+  override def getUri: URI = {
+    URI.create("count://some-bucket")
+  }
+
+  override def open(path: Path, bufferSize: Int): FSDataInputStream = {
+    Counter.increment(path)
+    super.open(path, bufferSize)
+  }
+}
+
+object Counter {
+  var counts: Multiset[Path] = HashMultiset.create()
+
+  def increment(path: Path): Unit = {
+    counts.add(path)
+  }
+
+  def count(path: Path): Int = {
+    counts.count(path)
+  }
+
+  def reset(): Unit = {
+    counts = HashMultiset.create()
+  }
+
 }
 
 object TestingUDT {

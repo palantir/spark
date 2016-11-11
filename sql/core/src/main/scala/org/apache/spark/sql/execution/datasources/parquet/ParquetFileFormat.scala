@@ -60,6 +60,9 @@ class ParquetFileFormat
   with Logging
   with Serializable {
 
+  @transient private val cachedMetadata: mutable.LinkedHashMap[Path, Option[ParquetMetadata]] =
+    new mutable.LinkedHashMap[Path, Option[ParquetMetadata]]
+
   override def shortName(): String = "parquet"
 
   override def toString: String = "ParquetFormat"
@@ -288,7 +291,9 @@ class ParquetFileFormat
       val filePath = fileStatus.getPath
       val rootOption: Option[Path] = fileIndex.rootPaths
         .find(root => filePath.toString.startsWith(root.toString))
-      val metadataOption = rootOption.flatMap(getMetadataForPath(filePath, _, hadoopConf))
+      val metadataOption = rootOption.flatMap { root =>
+        cachedMetadata.getOrElseUpdate(root, getMetadataForPath(filePath, root, hadoopConf))
+      }
       // If the metadata exists, filter the splits.
       // Otherwise, fall back to the default implementation.
       metadataOption
