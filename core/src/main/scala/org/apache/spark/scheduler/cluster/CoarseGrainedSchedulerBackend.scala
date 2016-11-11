@@ -89,9 +89,6 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   @GuardedBy("CoarseGrainedSchedulerBackend.this")
   protected var localityAwareTasks = 0
 
-  // The num of current max ExecutorId used to re-register appMaster
-  @volatile protected var currentExecutorIdCounter = 0
-
   class DriverEndpoint(override val rpcEnv: RpcEnv, sparkProperties: Seq[(String, String)])
     extends ThreadSafeRpcEndpoint with Logging {
 
@@ -150,42 +147,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
 
       case RegisterExecutor(executorId, executorRef, hostname, cores, logUrls) =>
-        if (executorDataMap.contains(executorId)) {
-          executorRef.send(RegisterExecutorFailed("Duplicate executor ID: " + executorId))
-          context.reply(true)
-        } else {
-          // If the executor's rpc env is not listening for incoming connections, `hostPort`
-          // will be null, and the client connection should be used to contact the executor.
-          val executorAddress = if (executorRef.address != null) {
-              executorRef.address
-            } else {
-              context.senderAddress
-            }
-          logInfo(s"Registered executor $executorRef ($executorAddress) with ID $executorId")
-          addressToExecutorId(executorAddress) = executorId
-          totalCoreCount.addAndGet(cores)
-          totalRegisteredExecutors.addAndGet(1)
-          val data = new ExecutorData(executorRef, executorRef.address, hostname,
-            cores, cores, logUrls)
-          // This must be synchronized because variables mutated
-          // in this block are read when requesting executors
-          CoarseGrainedSchedulerBackend.this.synchronized {
-            executorDataMap.put(executorId, data)
-            if (currentExecutorIdCounter < executorId.toInt) {
-              currentExecutorIdCounter = executorId.toInt
-            }
-            if (numPendingExecutors > 0) {
-              numPendingExecutors -= 1
-              logDebug(s"Decremented number of pending executors ($numPendingExecutors left)")
-            }
-          }
-          executorRef.send(RegisteredExecutor)
-          // Note: some tests expect the reply to come after we put the executor in the map
-          context.reply(true)
-          listenerBus.post(
-            SparkListenerExecutorAdded(System.currentTimeMillis(), executorId, data))
-          makeOffers()
-        }
+        doRegisterExecutor(context, executorId, executorRef, hostname, cores, logUrls)
 
       case StopDriver =>
         context.reply(true)
@@ -206,8 +168,51 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         removeExecutor(executorId, reason)
         context.reply(true)
 
-      case RetrieveSparkProps =>
+      case RetrieveSparkProps(executorHostname) =>
         context.reply(sparkProperties)
+    }
+
+    protected def doRegisterExecutor(
+        context: RpcCallContext,
+        executorId: String,
+        executorRef: RpcEndpointRef,
+        hostname: String,
+        cores: Int,
+        logUrls: Map[String, String]): Unit = {
+      if (executorDataMap.contains(executorId)) {
+        executorRef.send(RegisterExecutorFailed("Duplicate executor ID: " + executorId))
+        context.reply(true)
+      } else {
+        // If the executor's rpc env is not listening for incoming connections, `hostPort`
+        // will be null, and the client connection should be used to contact the executor.
+        val executorAddress = if (executorRef.address != null) {
+          executorRef.address
+        } else {
+          context.senderAddress
+        }
+        logInfo(s"Registered executor $executorRef ($executorAddress) with ID $executorId")
+        addressToExecutorId(executorAddress) = executorId
+        totalCoreCount.addAndGet(cores)
+        totalRegisteredExecutors.addAndGet(1)
+        val data = new ExecutorData(executorRef, executorRef.address, hostname,
+          cores, cores, logUrls)
+        // This must be synchronized because variables mutated
+        // in this block are read when requesting executors
+        CoarseGrainedSchedulerBackend.this.synchronized {
+          executorDataMap.put(executorId, data)
+          registerExecutorId(executorId)
+          if (numPendingExecutors > 0) {
+            numPendingExecutors -= 1
+            logDebug(s"Decremented number of pending executors ($numPendingExecutors left)")
+          }
+        }
+        executorRef.send(RegisteredExecutor)
+        // Note: some tests expect the reply to come after we put the executor in the map
+        context.reply(true)
+        listenerBus.post(
+          SparkListenerExecutorAdded(System.currentTimeMillis(), executorId, data))
+        makeOffers()
+      }
     }
 
     // Make fake resource offers on all executors
@@ -443,6 +448,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
    * Return the number of executors currently registered with this backend.
    */
   private def numExistingExecutors: Int = executorDataMap.size
+
+  // Only overridden by YARN to handle executor ID counting.
+  protected def registerExecutorId(executorId: String): Unit = {}
 
   override def getExecutorIds(): Seq[String] = {
     executorDataMap.keySet.toSeq
