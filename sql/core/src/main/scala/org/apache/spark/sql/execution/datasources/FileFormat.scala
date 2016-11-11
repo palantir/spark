@@ -93,6 +93,7 @@ trait FileFormat {
    * For a file, return valid splits that may pass the given data filter.
    */
   def getSplits(
+      sparkSession: SparkSession,
       fileIndex: FileIndex,
       fileStatus: FileStatus,
       filters: Seq[Filter],

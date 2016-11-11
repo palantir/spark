@@ -279,14 +279,15 @@ class ParquetFileFormat
   }
 
   override def getSplits(
+      sparkSession: SparkSession,
       fileIndex: FileIndex,
       fileStatus: FileStatus,
       filters: Seq[Filter],
       schema: StructType,
       hadoopConf: Configuration): Seq[FileSplit] = {
-    if (filters.isEmpty) {
+    if (filters.isEmpty || !sparkSession.sessionState.conf.parquetPartitionPruningEnabled) {
       // Return immediately to save FileSystem overhead
-      super.getSplits(fileIndex, fileStatus, filters, schema, hadoopConf)
+      super.getSplits(sparkSession, fileIndex, fileStatus, filters, schema, hadoopConf)
     } else {
       val filePath = fileStatus.getPath
       val rootOption: Option[Path] = fileIndex.rootPaths
@@ -298,7 +299,7 @@ class ParquetFileFormat
       // Otherwise, fall back to the default implementation.
       metadataOption
         .map(filterToSplits(fileStatus, _, rootOption.get, filters, schema, hadoopConf))
-        .getOrElse(super.getSplits(fileIndex, fileStatus, filters, schema, hadoopConf))
+        .getOrElse(super.getSplits(sparkSession, fileIndex, fileStatus, filters, schema, hadoopConf))
     }
   }
 
