@@ -155,26 +155,7 @@ case class FileSourceScanExec(
     false
   }
 
-  @transient private lazy val selectedPartitions = {
-    val originalPartitions = relation.location.listFiles(partitionFilters)
-    val filteredPartitions = if (relation.location.rootPaths.isEmpty) {
-      originalPartitions
-    } else {
-      relation.fileFormat.filterPartitions(
-        dataFilters,
-        outputSchema,
-        relation.sparkSession.sparkContext.hadoopConfiguration,
-        originalPartitions.flatMap(_.files),
-        relation.location.rootPaths.head,
-        originalPartitions)
-    }
-    val totalFilesRaw = originalPartitions.map(_.files.size).sum
-    val totalFilesFiltered = filteredPartitions.map(_.files.size).sum
-    logInfo(s"Filtered down total number of partitions to ${filteredPartitions.size}"
-      + s" from ${originalPartitions.size}, "
-      + s"total number of files to ${totalFilesFiltered} from ${totalFilesRaw}")
-    filteredPartitions
-  }
+  @transient private lazy val selectedPartitions = relation.location.listFiles(partitionFilters)
 
   override val (outputPartitioning, outputOrdering): (Partitioning, Seq[SortOrder]) = {
     val bucketSpec = if (relation.sparkSession.sessionState.conf.bucketingEnabled) {

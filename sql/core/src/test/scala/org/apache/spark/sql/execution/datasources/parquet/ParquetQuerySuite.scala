@@ -180,7 +180,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
     withSQLConf(
       SQLConf.PARQUET_SCHEMA_MERGING_ENABLED.key -> "true",
       SQLConf.PARQUET_SCHEMA_RESPECT_SUMMARIES.key -> "true",
-      ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true"
+      ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL"
     ) {
       testSchemaMerging(2)
     }
@@ -700,16 +700,6 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
 
         val withShortField = new StructType().add("f", ShortType)
         checkAnswer(spark.read.schema(withShortField).parquet(path), Row(1: Short))
-      }
-    }
-  }
-
-  test("SPARK-17059: Allow FileFormat to specify partition pruning strategy") {
-    withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL") {
-      withTempPath { path =>
-        Seq(1, 2, 3).toDF("x").write.parquet(path.getCanonicalPath)
-        val df = spark.read.parquet(path.getCanonicalPath).where("x = 0")
-        assert(df.rdd.partitions.length == 0)
       }
     }
   }
