@@ -706,8 +706,11 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
     }
   }
 
+  // In order to make intent more readable for partition pruning tests, we increase
+  // openCostInBytes to disable file merging.
   test("SPARK-17059: Allow FileFormat to specify partition pruning strategy") {
-    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true") {
+    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true",
+      SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString) {
       withTempPath { path =>
         spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
           .toDF("x").write.parquet(path.getCanonicalPath)
@@ -722,14 +725,17 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
   }
 
   test("Do not filter out parquet file when missing in _metadata file") {
-    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true") {
+    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true",
+      SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString) {
       withTempPath { path =>
         spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
           .toDF("x").write.parquet(path.getCanonicalPath)
-        spark.sparkContext.parallelize(Seq(4))
-          .toDF("x").write.mode(SaveMode.Append).parquet(path.getCanonicalPath)
-        val onePartition = spark.read.parquet(path.getCanonicalPath).where("x = 1")
-        assert(onePartition.rdd.partitions.length == 1)
+        withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "false") {
+          spark.sparkContext.parallelize(Seq(4), 1)
+            .toDF("x").write.mode(SaveMode.Append).parquet(path.getCanonicalPath)
+        }
+        val twoPartitions = spark.read.parquet(path.getCanonicalPath).where("x = 1")
+        assert(twoPartitions.rdd.partitions.length == 2)
       }
     }
   }

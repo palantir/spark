@@ -60,8 +60,8 @@ class ParquetFileFormat
   with Logging
   with Serializable {
 
-  @transient private val cachedMetadata: mutable.LinkedHashMap[Path, Option[ParquetMetadata]] =
-    new mutable.LinkedHashMap[Path, Option[ParquetMetadata]]
+  @transient private val cachedMetadata: mutable.LinkedHashMap[Path, ParquetMetadata] =
+    new mutable.LinkedHashMap[Path, ParquetMetadata]
 
   override def shortName(): String = "parquet"
 
@@ -293,13 +293,18 @@ class ParquetFileFormat
       val rootOption: Option[Path] = fileIndex.rootPaths
         .find(root => filePath.toString.startsWith(root.toString))
       val metadataOption = rootOption.flatMap { root =>
-        cachedMetadata.getOrElseUpdate(root, getMetadataForPath(filePath, root, hadoopConf))
+        cachedMetadata.get(root).orElse(getMetadataForPath(filePath, root, hadoopConf))
+          .map { metadata =>
+            cachedMetadata.put(root, metadata)
+            metadata
+          }
       }
       // If the metadata exists, filter the splits.
       // Otherwise, fall back to the default implementation.
       metadataOption
         .map(filterToSplits(fileStatus, _, rootOption.get, filters, schema, hadoopConf))
-        .getOrElse(super.getSplits(sparkSession, fileIndex, fileStatus, filters, schema, hadoopConf))
+        .getOrElse(super.getSplits(sparkSession, fileIndex, fileStatus,
+          filters, schema, hadoopConf))
     }
   }
 
@@ -311,6 +316,18 @@ class ParquetFileFormat
       schema: StructType,
       hadoopConf: Configuration): Seq[FileSplit] = {
     val metadataBlocks = metadata.getBlocks
+
+    // Ensure that the metadata has an entry for the file.
+    // If it does not, do not filter at this stage.
+    val metadataContainsPath = metadataBlocks.asScala.exists { bmd =>
+      new Path(metadataRoot, bmd.getPath) == fileStatus.getPath
+    }
+    if (!metadataContainsPath) {
+      log.warn(s"Found _metadata file for $metadataRoot," +
+        s" but no entries for blocks in ${fileStatus.getPath}. Retaining whole file.")
+      return Seq(new FileSplit(fileStatus.getPath, 0, fileStatus.getLen, Array.empty))
+    }
+
     val parquetSchema = metadata.getFileMetaData.getSchema
     val filter = FilterCompat.get(filters
       .flatMap(ParquetFilters.createFilter(schema, _))
@@ -341,19 +358,7 @@ class ParquetFileFormat
       val metadataFile = new Path(directory, ParquetFileWriter.PARQUET_METADATA_FILE)
       val metadata =
         ParquetFileReader.readFooter(conf, metadataFile, ParquetMetadataConverter.NO_FILTER)
-
-      // Ensure that the metadata has an entry for the file.
-      // If it does not, do not filter at this stage.
-      val matchingBlockExists = metadata.getBlocks.asScala.exists { bmd =>
-        new Path(rootPath, bmd.getPath) == filePath
-      }
-      if (matchingBlockExists) {
-        Some(metadata)
-      } else {
-        log.warn(s"Found _metadata file $metadataFile," +
-          s" but no entry for blocks in $filePath. Discarding the metadata.")
-        None
-      }
+      Option(metadata)
     } catch {
       case notFound: FileNotFoundException =>
         log.debug(s"No _metadata file found in root $rootPath")
