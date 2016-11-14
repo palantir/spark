@@ -55,7 +55,10 @@ private[spark] class Client(private val clientArgs: ClientArguments)
   private val secretBase64String = Base64.encodeBase64String(secretBytes)
   private implicit val retryableExecutionContext = ExecutionContext
     .fromExecutorService(
-      Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setDaemon(true).build()))
+      Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+        .setNameFormat("kubernetes-client-retryable-futures-%d")
+        .setDaemon(true)
+        .build()))
 
   private def retryableFuture[T]
       (times: Int, interval: Duration)
@@ -97,9 +100,9 @@ private[spark] class Client(private val clientArgs: ClientArguments)
         .withType("Opaque")
         .done()
       try {
-        val sparkDriverConfiguration = buildSparkDriverConfiguration()
+        val driverConfiguration = buildSparkDriverConfiguration()
         val selectors = Map(DRIVER_LAUNCHER_SELECTOR_LABEL -> driverLauncherSelectorValue).asJava
-        val uiPort = sparkDriverConfiguration
+        val uiPort = driverConfiguration
           .sparkConf
           .get("spark.ui.port")
           .map(_.toInt)
@@ -121,39 +124,44 @@ private[spark] class Client(private val clientArgs: ClientArguments)
         val podWatcher = new Watcher[Pod] {
           override def eventReceived(action: Action, t: Pod): Unit = {
             if ((action == Action.ADDED || action == Action.MODIFIED)
-                && t.getStatus.getPhase.equals("Running")
-                && !t.getStatus.getContainerStatuses.isEmpty
-                && t.getStatus.getContainerStatuses.get(0).getReady
+                && t.getStatus.getPhase == "Running"
                 && !submitCompletedFuture.isDone) {
-              try {
-                val driverLauncher = getDriverLauncherService(k8ClientConfig)
-
-                val ping = retry(5, 5.seconds) {
-                  driverLauncher.ping()
-                }
-                ping onFailure {
-                  case t: Throwable =>
-                    if (!submitCompletedFuture.isDone) {
-                      submitCompletedFuture.setException(t)
+              t.getStatus
+                .getContainerStatuses
+                .asScala
+                .find(status =>
+                  status.getName == DRIVER_LAUNCHER_CONTAINER_NAME && status.getReady) match {
+                case Some(status) =>
+                  try {
+                    val driverLauncher = getDriverLauncherService(k8ClientConfig)
+                    val ping = retry(5, 5.seconds) {
+                      driverLauncher.ping()
                     }
-                }
-                val submitComplete = ping andThen {
-                  case Success(_) =>
-                    driverLauncher.submitApplication(secretBase64String, sparkDriverConfiguration)
-                    submitCompletedFuture.set(true)
-                }
-                submitComplete onFailure {
-                  case t: Throwable =>
-                    if (!submitCompletedFuture.isDone) {
-                      submitCompletedFuture.setException(t)
+                    ping onFailure {
+                      case t: Throwable =>
+                        if (!submitCompletedFuture.isDone) {
+                          submitCompletedFuture.setException(t)
+                        }
                     }
-                }
-              } catch {
-                  case e: Throwable =>
-                    if (!submitCompletedFuture.isDone) {
-                      submitCompletedFuture.setException(e)
-                      throw e
+                    val submitComplete = ping andThen {
+                      case Success(_) =>
+                        driverLauncher.submitApplication(secretBase64String, driverConfiguration)
+                        submitCompletedFuture.set(true)
                     }
+                    submitComplete onFailure {
+                      case t: Throwable =>
+                        if (!submitCompletedFuture.isDone) {
+                          submitCompletedFuture.setException(t)
+                        }
+                    }
+                  } catch {
+                    case e: Throwable =>
+                      if (!submitCompletedFuture.isDone) {
+                        submitCompletedFuture.setException(e)
+                        throw e
+                      }
+                  }
+                case None =>
               }
             }
           }
@@ -182,7 +190,7 @@ private[spark] class Client(private val clientArgs: ClientArguments)
                   .endSecret()
                 .endVolume
               .addNewContainer()
-                .withName("spark-kubernetes-driver-launcher")
+                .withName(DRIVER_LAUNCHER_CONTAINER_NAME)
                 .withImage(clientArgs.driverDockerImage)
                 .withImagePullPolicy("Never")
                 .addNewVolumeMount()
@@ -261,7 +269,7 @@ private[spark] class Client(private val clientArgs: ClientArguments)
 
     val customExecutorSpecBase64 = clientArgs.customExecutorSpecFile.map(filePath => {
       val file = new File(filePath)
-      if (!file.exists()) {
+      if (!file.isFile) {
         throw new IllegalArgumentException("Custom executor spec file was provided as " +
           s"$filePath, but no file is available at that path.")
       }
@@ -326,6 +334,7 @@ private object Client {
   private val DRIVER_LAUNCHER_SERVICE_PORT_NAME = "driver-launcher-port"
   private val DRIVER_PORT_NAME = "driver-port"
   private val BLOCKMANAGER_PORT_NAME = "block-manager-port"
+  private val DRIVER_LAUNCHER_CONTAINER_NAME = "spark-kubernetes-driver-launcher"
 
   private val SECURE_RANDOM = new SecureRandom()
 

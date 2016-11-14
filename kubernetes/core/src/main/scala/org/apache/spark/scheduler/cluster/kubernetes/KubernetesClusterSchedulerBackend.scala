@@ -98,7 +98,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
       Executors.newCachedThreadPool(
           new ThreadFactoryBuilder()
               .setDaemon(true)
-              .setNameFormat("kubernetes-executor-requests")
+              .setNameFormat("kubernetes-executor-requests-%d")
               .build))
 
   private val kubernetesClient = createKubernetesClient()
@@ -295,6 +295,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
       None
     } else {
       val shuffleServicePort = conf.getInt("spark.shuffle.service.port", 7337)
+      val shuffleServiceMemory = conf.get("spark.kubernetes.shuffle.service.memory", "1g")
       val shuffleServiceDockerImage = conf
         .getOption("spark.kubernetes.shuffle.service.docker.image")
         .getOrElse(s"spark-shuffle-service:${sc.version}")
@@ -359,6 +360,10 @@ private[spark] class KubernetesClusterSchedulerBackend(
                   .addNewEnv()
                     .withName("SPARK_SHUFFLE_SERVICE_PORT")
                     .withValue(shuffleServicePort.toString)
+                    .endEnv()
+                  .addNewEnv()
+                    .withName("SPARK_SHUFFLE_SERVICE_MEMORY")
+                    .withValue(shuffleServiceMemory)
                     .endEnv()
                   .endContainer()
                 .endSpec()

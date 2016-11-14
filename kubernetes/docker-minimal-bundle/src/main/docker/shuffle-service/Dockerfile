@@ -22,4 +22,4 @@ ENV JAVA_HOME /usr/lib/jvm/java-7-openjdk-amd64/jre
 
 WORKDIR /opt/spark
 
-CMD ${JAVA_HOME}/bin/java -Dspark.shuffle.service.port=$SPARK_SHUFFLE_SERVICE_PORT -Xmx1g -cp ${SPARK_HOME}/jars/\* org.apache.spark.deploy.ExternalShuffleService 
+CMD ${JAVA_HOME}/bin/java -Dspark.shuffle.service.port=$SPARK_SHUFFLE_SERVICE_PORT -Xms$SPARK_SHUFFLE_SERVICE_MEMORY -Xmx$SPARK_SHUFFLE_SERVICE_MEMORY -cp ${SPARK_HOME}/jars/\* org.apache.spark.deploy.ExternalShuffleService
