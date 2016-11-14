@@ -44,7 +44,10 @@ private[spark] class KubernetesDriverLauncherServiceImpl(
   private val javaExecutable = s"${System.getenv("JAVA_HOME")}/bin/java"
   private val sparkHome = System.getenv("SPARK_HOME")
   private implicit val waitForApplicationExecutor = ExecutionContext.fromExecutorService(
-    Executors.newSingleThreadExecutor(new ThreadFactoryBuilder().setDaemon(true).build()))
+    Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+      .setNameFormat("wait-for-application-%d")
+      .setDaemon(true)
+      .build()))
   private var applicationCompleteFuture: Future[_] = null
   private var submitComplete = false
 
