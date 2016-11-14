@@ -709,7 +709,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
   // In order to make intent more readable for partition pruning tests, we increase
   // openCostInBytes to disable file merging.
   test("SPARK-17059: Allow FileFormat to specify partition pruning strategy") {
-    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true",
+    withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
       SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString) {
       withTempPath { path =>
         spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
@@ -725,12 +725,12 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
   }
 
   test("Do not filter out parquet file when missing in _metadata file") {
-    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true",
+    withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
       SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString) {
       withTempPath { path =>
         spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
           .toDF("x").write.parquet(path.getCanonicalPath)
-        withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "false") {
+        withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "NONE") {
           spark.sparkContext.parallelize(Seq(4), 1)
             .toDF("x").write.mode(SaveMode.Append).parquet(path.getCanonicalPath)
         }
@@ -741,7 +741,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
   }
 
   test("Only read _metadata file once for a given root path") {
-    withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true",
+    withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
       "fs.count.impl" -> classOf[CountingFileSystem].getName,
       "fs.count.impl.disable.cache" -> "true") {
       withTempPath { path =>

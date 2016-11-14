@@ -519,7 +519,7 @@ class BucketedReadSuite extends QueryTest with SQLTestUtils with TestHiveSinglet
 
   test("prune files when not passing filters") {
     withTable("bucketed_table") {
-      withSQLConf(ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true") {
+      withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL") {
         df.write.format("parquet").bucketBy(8, "i").saveAsTable("bucketed_table")
         // All partitions should have empty files.
         hiveContext.table("bucketed_table").filter("j == -1").rdd.partitions.foreach { partition =>
