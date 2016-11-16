@@ -140,7 +140,7 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
                 + " out of: " + Arrays.toString(foundRowGroupOffsets)
                 + " in range " + split.getStart() + ", " + split.getEnd());
       }
-      this.reader = new ParquetFileReader(configuration, file, footer);
+      this.reader = ParquetFileReader.open(configuration, file, footer);
     }
     this.fileSchema = footer.getFileMetaData().getSchema();
     Map<String, String> fileMetadata = footer.getFileMetaData().getKeyValueMetaData();
