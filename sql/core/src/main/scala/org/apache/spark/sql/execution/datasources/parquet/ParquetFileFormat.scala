@@ -26,14 +26,14 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Try}
 
-import com.google.common.cache.{Cache, CacheBuilder}
+import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.input.FileSplit
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
 import org.apache.parquet.{Log => ApacheParquetLog}
-import org.apache.parquet.filter2.compat.{FilterCompat, RowGroupFilter}
+import org.apache.parquet.filter2.compat.FilterCompat
 import org.apache.parquet.filter2.predicate.FilterApi
 import org.apache.parquet.format.converter.ParquetMetadataConverter
 import org.apache.parquet.hadoop._
@@ -504,7 +504,15 @@ object ParquetFileFormat extends Logging {
     CacheBuilder.newBuilder()
       .expireAfterAccess(4, TimeUnit.HOURS)
       .concurrencyLevel(1)
-      .build()
+      .softValues()
+      .removalListener(new RemovalListener[Path, ParquetFileSplitter] {
+          override def onRemoval(removalNotification:
+                                 RemovalNotification[Path, ParquetFileSplitter]): Unit = {
+            val path = removalNotification.getKey
+            log.info(s"Removing value for path $path from cache," +
+              s"cause: ${removalNotification.getCause}")
+          }
+      }).build()
 
   private[parquet] def readSchema(
       footers: Seq[Footer], sparkSession: SparkSession): Option[StructType] = {
