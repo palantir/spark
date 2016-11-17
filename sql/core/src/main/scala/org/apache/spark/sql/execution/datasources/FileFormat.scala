@@ -80,6 +80,21 @@ trait FileFormat {
   }
 
   /**
+   * Allow FileFormats to have a pluggable way to utilize pushed filters to eliminate partitions
+   * before execution. By default no pruning is performed and the original partitioning is
+   * preserved.
+   */
+  def filterPartitions(
+      filters: Seq[Filter],
+      schema: StructType,
+      conf: Configuration,
+      allFiles: Seq[FileStatus],
+      root: Path,
+      partitions: Seq[PartitionDirectory]): Seq[PartitionDirectory] = {
+    partitions
+  }
+
+  /**
    * Returns whether a file with `path` could be splitted or not.
    */
   def isSplitable(
@@ -90,16 +105,15 @@ trait FileFormat {
   }
 
   /**
-   * For a file, return valid splits that may pass the given data filter.
+   * Allow a splittable FileFormat to produce a function to split individual files.
    */
-  def getSplits(
+  def buildSplitter(
       sparkSession: SparkSession,
       fileIndex: FileIndex,
-      fileStatus: FileStatus,
       filters: Seq[Filter],
       schema: StructType,
-      hadoopConf: Configuration): Seq[FileSplit] = {
-    Seq(new FileSplit(fileStatus.getPath, 0, fileStatus.getLen, Array.empty))
+      hadoopConf: Configuration): (FileStatus => Seq[FileSplit]) = {
+    stat => Seq(new FileSplit(stat.getPath, 0, stat.getLen, Array.empty))
   }
 
   /**

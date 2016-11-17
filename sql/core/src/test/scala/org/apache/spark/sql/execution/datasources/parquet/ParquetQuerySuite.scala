@@ -182,7 +182,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
     withSQLConf(
       SQLConf.PARQUET_SCHEMA_MERGING_ENABLED.key -> "true",
       SQLConf.PARQUET_SCHEMA_RESPECT_SUMMARIES.key -> "true",
-      ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL"
+      ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true"
     ) {
       testSchemaMerging(2)
     }
@@ -705,7 +705,6 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
       }
     }
   }
-
   // In order to make intent more readable for partition pruning tests, we increase
   // openCostInBytes to disable file merging.
   test("SPARK-17059: Allow FileFormat to specify partition pruning strategy") {
@@ -785,7 +784,6 @@ object Counter {
   def reset(): Unit = {
     counts = HashMultiset.create()
   }
-
 }
 
 object TestingUDT {
