@@ -106,7 +106,7 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
       // then we need to apply the predicate push down filter
       footer = readFooter(configuration, file, range(split.getStart(), split.getEnd()));
       FilterCompat.Filter filter = getFilter(configuration);
-      this.reader = ParquetFileReader.open(taskAttemptContext.getConfiguration(), file, footer);
+      this.reader = ParquetFileReader.open(configuration, file, footer);
       blocks = filterRowGroups(
               ImmutableList.of(RowGroupFilter.FilterLevel.STATISTICS, RowGroupFilter.FilterLevel.DICTIONARY),
               filter,
