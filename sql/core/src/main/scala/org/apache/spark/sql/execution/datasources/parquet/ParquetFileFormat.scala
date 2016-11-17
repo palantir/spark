@@ -509,7 +509,7 @@ object ParquetFileFormat extends Logging {
           override def onRemoval(removalNotification:
                                  RemovalNotification[Path, ParquetFileSplitter]): Unit = {
             val path = removalNotification.getKey
-            log.info(s"Removing value for path $path from cache," +
+            log.info(s"Removing value for path $path from cache, " +
               s"cause: ${removalNotification.getCause}")
           }
       }).build()
