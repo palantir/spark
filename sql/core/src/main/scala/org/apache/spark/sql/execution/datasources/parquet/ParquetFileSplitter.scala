@@ -84,12 +84,12 @@ class ParquetMetadataFileSplitter(
     }
 
     val statFilter: (FileStatus => Seq[FileSplit]) = { stat =>
-      if (!referencedFiles.contains(stat.getPath)) {
+      if (referencedFiles.contains(stat.getPath)) {
+        eligible.filter(_.getPath == stat.getPath)
+      } else {
         log.warn(s"Found _metadata file for $root," +
           s" but no entries for blocks in ${stat.getPath}. Retaining whole file.")
         singleFileSplit(stat)
-      } else {
-        eligible.filter(_.getPath == stat.getPath)
       }
     }
     statFilter
@@ -116,11 +116,13 @@ class ParquetMetadataFileSplitter(
   private def buildFilterBitMaps(filters: Seq[Filter]): Unit = {
     this.synchronized {
       // Only build bitmaps for filters that don't exist.
-      val sets = filters.flatMap { filter =>
-        val bitmap = new RoaringBitmap
-        ParquetFilters.createFilter(schema, filter)
-          .map((filter, _, bitmap))
-      }
+      val sets = filters
+        .filter(filterSets.getIfPresent(_) == null)
+        .flatMap { filter =>
+          val bitmap = new RoaringBitmap
+          ParquetFilters.createFilter(schema, filter)
+            .map((filter, _, bitmap))
+        }
       var i = 0
       val blockLen = blocks.size
       while (i < blockLen) {
