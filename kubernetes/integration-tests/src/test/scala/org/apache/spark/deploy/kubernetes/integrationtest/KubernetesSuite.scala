@@ -23,9 +23,10 @@ import java.util.UUID
 import com.google.common.base.Charsets
 import com.google.common.collect.ImmutableList
 import com.google.common.io.Files
-import io.fabric8.kubernetes.api.model.ReplicationController
-import io.fabric8.kubernetes.client.KubernetesClient
+import io.fabric8.kubernetes.api.model.{Pod, ReplicationController}
+import io.fabric8.kubernetes.client.{Config, KubernetesClient}
 import org.apache.commons.io.FileUtils
+import org.apache.spark.deploy.kubernetes.shuffle.{StartKubernetesShuffleServiceArgumentsBuilder, StartKubernetesShuffleServiceArguments, StartKubernetesShuffleService}
 import org.scalatest.BeforeAndAfter
 import org.scalatest.concurrent.{Eventually, PatienceConfiguration}
 import org.scalatest.time.{Minutes, Seconds, Span}
@@ -45,13 +46,15 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .listFiles()(0)
       .getAbsolutePath
 
-  private val USER_HOME = System.getProperty("user.home")
   private val TIMEOUT = PatienceConfiguration.Timeout(Span(2, Minutes))
   private val INTERVAL = PatienceConfiguration.Interval(Span(2, Seconds))
   private val MAIN_CLASS = "org.apache.spark.deploy.kubernetes" +
     ".integrationtest.jobs.SparkPiWithInfiniteWait"
   private val NAMESPACE = UUID.randomUUID.toString.replaceAll("-", "")
+  private val SHUFFLE_SERVICE_NAMESPACE = UUID.randomUUID.toString.replaceAll("-", "")
+  private val SHUFFLE_SERVICE_NAME = "spark-shuffle-service"
   private var minikubeKubernetesClient: KubernetesClient = _
+  private var clientConfig: Config = _
 
   override def beforeAll(): Unit = {
     Minikube.startMinikube()
@@ -62,14 +65,30 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
         .endMetadata()
       .done()
     minikubeKubernetesClient = Minikube.getKubernetesClient.inNamespace(NAMESPACE)
+    Minikube.getKubernetesClient.namespaces.createNew()
+      .withNewMetadata()
+        .withName(SHUFFLE_SERVICE_NAMESPACE)
+        .endMetadata()
+      .done()
+
+    clientConfig = minikubeKubernetesClient.getConfiguration
+    val startShuffleArgs = new StartKubernetesShuffleServiceArgumentsBuilder()
+      .copy(kubernetesMaster = Some(clientConfig.getMasterUrl))
+      .copy(shuffleServiceNamespace = Some(SHUFFLE_SERVICE_NAMESPACE))
+      .copy(shuffleServiceDaemonSetName = SHUFFLE_SERVICE_NAME)
+      .copy(shuffleServiceDockerImage = "spark-shuffle-service:latest")
+      .copy(shuffleServiceMemory = "512m")
+      .copy(kubernetesCaCertFile = Some(clientConfig.getCaCertFile))
+      .copy(kubernetesClientCertFile = Some(clientConfig.getClientCertFile))
+      .copy(kubernetesClientKeyFile = Some(clientConfig.getClientKeyFile))
+      .build()
+    new StartKubernetesShuffleService().run(startShuffleArgs)
   }
 
   before {
     Eventually.eventually(TIMEOUT, INTERVAL) {
       assert(minikubeKubernetesClient.pods().list().getItems.isEmpty)
       assert(minikubeKubernetesClient.services().list().getItems.isEmpty)
-      assert(minikubeKubernetesClient.replicationControllers().list().getItems.isEmpty)
-      assert(minikubeKubernetesClient.extensions().daemonSets().list().getItems.isEmpty)
     }
   }
 
@@ -77,13 +96,6 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
     minikubeKubernetesClient
       .services
       .delete(minikubeKubernetesClient.services().list().getItems)
-    minikubeKubernetesClient
-      .replicationControllers()
-      .delete(minikubeKubernetesClient.replicationControllers().list().getItems)
-    minikubeKubernetesClient
-      .extensions()
-      .daemonSets()
-      .delete(minikubeKubernetesClient.extensions().daemonSets().list().getItems)
     minikubeKubernetesClient
       .pods()
       .delete(minikubeKubernetesClient.pods().list().getItems)
@@ -123,8 +135,8 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .userMainClass(MAIN_CLASS)
       .addJar(s"file://$EXAMPLES_JAR")
       .addSparkConf("spark.master", "kubernetes")
-      .addSparkConf("spark.driver.memory", "1g")
-      .addSparkConf("spark.executor.memory", "1g")
+      .addSparkConf("spark.driver.memory", "512m")
+      .addSparkConf("spark.executor.memory", "512m")
       .addSparkConf("spark.executor.instances", "2")
       .addSparkConf("spark.executor.cores", "1")
       .kubernetesAppName("spark-pi")
@@ -132,9 +144,9 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .executorDockerImage("spark-executor:latest")
       .kubernetesAppNamespace(NAMESPACE)
       .kubernetesMaster(s"https://${Minikube.getMinikubeIp}:8443")
-      .kubernetesCaCertFile(s"$USER_HOME/.minikube/ca.crt")
-      .kubernetesClientCertFile(s"$USER_HOME/.minikube/apiserver.crt")
-      .kubernetesClientKeyFile(s"$USER_HOME/.minikube/apiserver.key")
+      .kubernetesCaCertFile(clientConfig.getCaCertFile)
+      .kubernetesClientCertFile(clientConfig.getClientCertFile)
+      .kubernetesClientKeyFile(clientConfig.getClientKeyFile)
       .build()
     new Client(args).run()
 
@@ -148,8 +160,8 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .userMainClass(MAIN_CLASS)
       .addJar(s"file://$EXAMPLES_JAR")
       .addSparkConf("spark.master", "kubernetes")
-      .addSparkConf("spark.driver.memory", "1g")
-      .addSparkConf("spark.executor.memory", "1g")
+      .addSparkConf("spark.driver.memory", "512m")
+      .addSparkConf("spark.executor.memory", "512m")
       .addSparkConf("spark.dynamicAllocation.enabled", "true")
       .addSparkConf("spark.dynamicAllocation.minExecutors", "0")
       .addSparkConf("spark.dynamicAllocation.initialExecutors", "0")
@@ -160,12 +172,13 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .kubernetesAppName("spark-pi-dyn")
       .driverDockerImage("spark-driver:latest")
       .executorDockerImage("spark-executor:latest")
-      .addSparkConf("spark.kubernetes.shuffle.service.docker.image", "spark-shuffle-service:latest")
+      .addSparkConf("spark.kubernetes.shuffle.service.daemonset.name", SHUFFLE_SERVICE_NAME)
+      .addSparkConf("spark.kubernetes.shuffle.service.daemonset.namespace", SHUFFLE_SERVICE_NAMESPACE)
       .kubernetesAppNamespace(NAMESPACE)
       .kubernetesMaster(s"https://${Minikube.getMinikubeIp}:8443")
-      .kubernetesCaCertFile(s"$USER_HOME/.minikube/ca.crt")
-      .kubernetesClientCertFile(s"$USER_HOME/.minikube/apiserver.crt")
-      .kubernetesClientKeyFile(s"$USER_HOME/.minikube/apiserver.key")
+      .kubernetesCaCertFile(clientConfig.getCaCertFile)
+      .kubernetesClientCertFile(clientConfig.getClientCertFile)
+      .kubernetesClientKeyFile(clientConfig.getClientKeyFile)
       .build()
     new Client(args).run()
 
@@ -174,13 +187,13 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
     expectationsForDynamicAllocation(sparkMetricsService)
   }
 
-  test("Dynamic allocation replication controller management") {
+  test("Dynamic allocation pod management") {
     val args = ClientArguments.builder()
       .userMainClass(MAIN_CLASS)
       .addJar(s"file://$EXAMPLES_JAR")
       .addSparkConf("spark.master", "kubernetes")
-      .addSparkConf("spark.driver.memory", "1g")
-      .addSparkConf("spark.executor.memory", "1g")
+      .addSparkConf("spark.driver.memory", "512m")
+      .addSparkConf("spark.executor.memory", "512m")
       .addSparkConf("spark.dynamicAllocation.enabled", "true")
       .addSparkConf("spark.dynamicAllocation.minExecutors", "1")
       .addSparkConf("spark.dynamicAllocation.initialExecutors", "2")
@@ -191,42 +204,35 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .kubernetesAppName("spark-pi-dyn")
       .driverDockerImage("spark-driver:latest")
       .executorDockerImage("spark-executor:latest")
-      .addSparkConf("spark.kubernetes.shuffle.service.docker.image", "spark-shuffle-service:latest")
+      .addSparkConf("spark.kubernetes.shuffle.service.daemonset.name", SHUFFLE_SERVICE_NAME)
+      .addSparkConf("spark.kubernetes.shuffle.service.daemonset.namespace", SHUFFLE_SERVICE_NAMESPACE)
       .kubernetesAppNamespace(NAMESPACE)
       .kubernetesMaster(s"https://${Minikube.getMinikubeIp}:8443")
-      .kubernetesCaCertFile(s"$USER_HOME/.minikube/ca.crt")
-      .kubernetesClientCertFile(s"$USER_HOME/.minikube/apiserver.crt")
-      .kubernetesClientKeyFile(s"$USER_HOME/.minikube/apiserver.key")
+      .kubernetesCaCertFile(clientConfig.getCaCertFile)
+      .kubernetesClientCertFile(clientConfig.getClientCertFile)
+      .kubernetesClientKeyFile(clientConfig.getClientKeyFile)
       .build()
     new Client(args).run()
-    def getExecutorReplicationControllers: Iterable[ReplicationController] =
-      minikubeKubernetesClient.replicationControllers()
+    def getExecutorPods: Iterable[Pod] =
+      minikubeKubernetesClient.pods()
         .list()
         .getItems
         .asScala
-        .filter(controller =>
-          controller
-            .getSpec
-            .getTemplate
-            .getSpec
-            .getContainers
-            .asScala
-            .count(container => container.getImage.equals("spark-executor:latest")) == 1)
+        .filter(pod => pod
+          .getSpec
+          .getContainers
+          .asScala
+          .count(container => container.getImage.equals("spark-executor:latest")) == 1)
     Eventually.eventually(TIMEOUT, INTERVAL) {
-      val executorReplicationControllers = getExecutorReplicationControllers
-      executorReplicationControllers.foreach(
-        controller => assert(controller.getStatus.getReplicas == 1))
-      assert(executorReplicationControllers.size == 2)
+      val executorPods = getExecutorPods
+      assert(executorPods.size == 2)
+      executorPods.foreach(pod => assert(pod.getStatus.getPhase == "Running"))
     }
 
     Eventually.eventually(TIMEOUT, INTERVAL) {
-      val executorReplicationControllers = getExecutorReplicationControllers
-      val numActiveControllers = executorReplicationControllers.count(controller =>
-        controller.getStatus.getReplicas == 1)
-      assert(numActiveControllers == 1)
-      val numInactiveControllers = executorReplicationControllers.count(controller =>
-        controller.getStatus.getReplicas == 0)
-      assert(numInactiveControllers == 1)
+      val executorPods = getExecutorPods
+      assert(executorPods.size == 1)
+      executorPods.foreach(pod => assert(pod.getStatus.getPhase == "Running"))
     }
   }
 
@@ -264,27 +270,20 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
     val executorSpecificationYml =
       """
         |apiVersion: v1
-        |kind: ReplicationController
+        |kind: Pod
         |metadata:
         |  name: executor-and-nginx
-        |spec:
-        |  replicas: 0
-        |  selector:
+        |  labels:
         |    app: executor-and-nginx
-        |  template:
-        |    metadata:
-        |      name: executor-and-nginx
-        |      labels:
-        |        app: executor-and-nginx
-        |    spec:
-        |      containers:
-        |      - name: nginx
-        |        image: nginx:1.11.5-alpine
-        |        ports:
-        |        - containerPort: 80
-        |      - name: executor
-        |        image: spark-executor:latest
-        |        imagePullPolicy: Never
+        |spec:
+        |  containers:
+        |  - name: nginx
+        |    image: nginx:1.11.5-alpine
+        |    ports:
+        |    - containerPort: 80
+        |  - name: executor
+        |    image: spark-executor:latest
+        |    imagePullPolicy: Never
         |
       """.stripMargin
     val writtenSpecFile = new File(Files.createTempDir(), "executor-replication-controller.yml")
@@ -293,8 +292,8 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .userMainClass(MAIN_CLASS)
       .addJar(s"file://$EXAMPLES_JAR")
       .addSparkConf("spark.master", "kubernetes")
-      .addSparkConf("spark.driver.memory", "1g")
-      .addSparkConf("spark.executor.memory", "1g")
+      .addSparkConf("spark.driver.memory", "512m")
+      .addSparkConf("spark.executor.memory", "512m")
       .addSparkConf("spark.dynamicAllocation.enabled", "true")
       .addSparkConf("spark.dynamicAllocation.minExecutors", "0")
       .addSparkConf("spark.dynamicAllocation.initialExecutors", "0")
@@ -305,20 +304,30 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .kubernetesAppName("spark-pi-custom")
       .driverDockerImage("spark-driver:latest")
       .executorDockerImage("spark-executor:latest")
-      .addSparkConf("spark.kubernetes.shuffle.service.docker.image", "spark-shuffle-service:latest")
+      .addSparkConf("spark.kubernetes.shuffle.service.daemonset.name", SHUFFLE_SERVICE_NAME)
+      .addSparkConf("spark.kubernetes.shuffle.service.daemonset.namespace", SHUFFLE_SERVICE_NAMESPACE)
       .kubernetesAppNamespace(NAMESPACE)
       .kubernetesMaster(s"https://${Minikube.getMinikubeIp}:8443")
-      .kubernetesCaCertFile(s"$USER_HOME/.minikube/ca.crt")
-      .kubernetesClientCertFile(s"$USER_HOME/.minikube/apiserver.crt")
-      .kubernetesClientKeyFile(s"$USER_HOME/.minikube/apiserver.key")
+      .kubernetesCaCertFile(clientConfig.getCaCertFile)
+      .kubernetesClientCertFile(clientConfig.getClientCertFile)
+      .kubernetesClientKeyFile(clientConfig.getClientKeyFile)
       .customExecutorSpecFile(writtenSpecFile.getAbsolutePath)
       .customExecutorSpecContainerName("executor")
       .build()
     new Client(args).run()
 
-    val sparkMetricsService = Minikube.getService[SparkRestApiV1](
-      "spark-pi-custom", NAMESPACE, "spark-ui-port")
-    expectationsForDynamicAllocation(sparkMetricsService)
+    Eventually.eventually(TIMEOUT, INTERVAL) {
+      val executorPods = minikubeKubernetesClient
+        .pods()
+        .list()
+        .getItems
+        .asScala
+        .filter(_.getStatus.getContainerStatuses.asScala.exists(
+          _.getImage == "spark-executor:latest"))
+      assert(executorPods.nonEmpty)
+      executorPods.foreach(pod => assert(
+          pod.getStatus.getContainerStatuses.asScala.exists(_.getImage == "nginx:1.11.5-alpine")))
+    }
   }
 
 }

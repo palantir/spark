@@ -21,12 +21,9 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.Executors
 
-import com.google.common.collect.Iterables
-import com.google.common.util.concurrent.{SettableFuture, ThreadFactoryBuilder}
-import io.fabric8.kubernetes.api.model.{ContainerPort, ContainerPortBuilder, EnvVar, EnvVarBuilder, ReplicationControllerBuilder}
-import io.fabric8.kubernetes.api.model.extensions.DaemonSet
-import io.fabric8.kubernetes.client.{ConfigBuilder, DefaultKubernetesClient, KubernetesClient, KubernetesClientException, Watcher}
-import io.fabric8.kubernetes.client.Watcher.Action
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import io.fabric8.kubernetes.api.model.{ContainerPort, ContainerPortBuilder, EnvVar, EnvVarBuilder, Pod, PodBuilder, QuantityBuilder}
+import io.fabric8.kubernetes.client.{ConfigBuilder, DefaultKubernetesClient}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -35,7 +32,7 @@ import scala.io.Source
 
 import org.apache.spark.{SparkContext, SparkException}
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpointAddress, RpcEnv}
-import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.{RegisterExecutor, RetrieveSparkProps}
+import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.RetrieveSparkProps
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.scheduler.TaskSchedulerImpl
 import org.apache.spark.util.Utils
@@ -48,8 +45,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
   import KubernetesClusterSchedulerBackend._
 
   private val EXECUTOR_MODIFICATION_LOCK = new Object
-  private val runningExecutorControllers = new mutable.HashMap[String, String]
-  private val inactiveExecutorControllers = new mutable.Queue[String]
+  private val runningExecutorPods = new mutable.HashMap[String, Pod]
 
   private val kubernetesMaster = conf
       .getOption("spark.kubernetes.master")
@@ -91,6 +87,14 @@ private[spark] class KubernetesClusterSchedulerBackend(
         throw new SparkException("Must specify the service name the driver is running with"))
 
   private val executorMemory = conf.getOption("spark.executor.memory").getOrElse("1g")
+  private val executorMemoryBytes = Utils.byteStringAsBytes(executorMemory)
+
+  private val memoryOverheadBytes = conf
+      .getOption("spark.kubernetes.executor.memoryOverhead")
+      .map(overhead => Utils.byteStringAsBytes(overhead))
+      .getOrElse(math.max((MEMORY_OVERHEAD_FACTOR * executorMemoryBytes).toInt,
+        MEMORY_OVERHEAD_MIN))
+  private val executorMemoryWithOverhead = executorMemoryBytes + memoryOverheadBytes
 
   private val executorCores = conf.getOption("spark.executor.cores").getOrElse("1")
 
@@ -114,7 +118,21 @@ private[spark] class KubernetesClusterSchedulerBackend(
     }
 
   protected var totalExpectedExecutors = new AtomicInteger(0)
-  private val maybeShuffleService = initializeShuffleService()
+  private val maybeShuffleService = if (externalShuffleServiceEnabled) {
+      val daemonSetName = conf
+        .getOption("spark.kubernetes.shuffle.service.daemonset.name")
+        .getOrElse(throw new IllegalArgumentException("When using the shuffle" +
+          " service, must specify the shuffle service daemon set name.")
+      )
+      val daemonSetNamespace = conf
+        .getOption("spark.kubernetes.shuffle.service.daemonset.namespace")
+        .getOrElse(throw new IllegalArgumentException("When using the shuffle service," +
+          " must specify the shuffle service daemon set namespace."))
+      Some(ShuffleServiceDaemonSetMetadata(daemonSetName, daemonSetNamespace))
+    } else {
+      Option.empty[ShuffleServiceDaemonSetMetadata]
+    }
+
   private val driverUrl = RpcEndpointAddress(
     System.getenv(s"${convertToEnvMode(kubernetesDriverServiceName)}_SERVICE_HOST"),
     sc.getConf.get("spark.driver.port").toInt,
@@ -129,7 +147,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
     totalRegisteredExecutors.get() >= initialExecutors * minRegisteredRatio
   }
 
-  private def createKubernetesClient(): KubernetesClient = {
+  private def createKubernetesClient(): DefaultKubernetesClient = {
     var clientConfigBuilder = new ConfigBuilder()
         .withApiVersion("v1")
         .withMasterUrl(kubernetesMaster)
@@ -153,59 +171,72 @@ private[spark] class KubernetesClusterSchedulerBackend(
     }
   }
 
-  private def allocateNewExecutorReplicationController(): String = {
-    val executorKubernetesId = UUID.randomUUID().toString.replaceAll("-", "")
-    val name = s"exec$executorKubernetesId"
-    val selectors = Map(SPARK_EXECUTOR_SELECTOR -> executorKubernetesId,
+  private def allocateNewExecutorPod(): (String, Pod) = {
+    val executorId = UUID.randomUUID().toString.replaceAll("-", "")
+    val name = s"exec$executorId"
+    val selectors = Map(SPARK_EXECUTOR_SELECTOR -> executorId,
       SPARK_APP_SELECTOR -> kubernetesAppId).asJava
-    val resolvedName = executorCustomSpecFile match {
+    val executorMemoryQuantity = new QuantityBuilder(false)
+      .withAmount(executorMemoryBytes.toString)
+      .build()
+    val executorMemoryLimitQuantity = new QuantityBuilder(false)
+      .withAmount(executorMemoryWithOverhead.toString)
+      .build()
+    val requiredEnv = new ArrayBuffer[EnvVar]
+    requiredEnv += new EnvVarBuilder()
+      .withName("SPARK_EXECUTOR_PORT")
+      .withValue(executorPort.toString)
+      .build()
+    requiredEnv += new EnvVarBuilder()
+      .withName("SPARK_DRIVER_URL")
+      .withValue(driverUrl)
+      .build()
+    requiredEnv += new EnvVarBuilder()
+      .withName("SPARK_EXECUTOR_CORES")
+      .withValue(executorCores)
+      .build()
+    requiredEnv += new EnvVarBuilder()
+      .withName("SPARK_EXECUTOR_MEMORY")
+      .withValue(executorMemory)
+      .build()
+    requiredEnv += new EnvVarBuilder()
+      .withName("SPARK_APPLICATION_ID")
+      .withValue(kubernetesAppId)
+      .build()
+    requiredEnv += new EnvVarBuilder()
+      .withName("SPARK_EXECUTOR_ID")
+      .withValue(executorId)
+      .build()
+    val requiredPorts = new ArrayBuffer[ContainerPort]
+    requiredPorts += new ContainerPortBuilder()
+      .withName(EXECUTOR_PORT_NAME)
+      .withContainerPort(executorPort)
+      .build()
+    requiredPorts += new ContainerPortBuilder()
+      .withName(BLOCK_MANAGER_PORT_NAME)
+      .withContainerPort(blockmanagerPort)
+      .build()
+    executorCustomSpecFile match {
       case Some(filePath) =>
         val file = new File(filePath)
         if (!file.exists()) {
           throw new SparkException(s"Custom executor spec file not found at $filePath")
         }
-        val providedController = Utils.tryWithResource(new FileInputStream(file)) { is =>
-          kubernetesClient.replicationControllers().load(is)
+        val providedPodSpec = Utils.tryWithResource(new FileInputStream(file)) { is =>
+          kubernetesClient.pods().load(is)
         }
-        val resolvedContainers = providedController.get.getSpec.getTemplate.getSpec
-          .getContainers.asScala
+        val resolvedContainers = providedPodSpec.get.getSpec.getContainers.asScala
         var foundExecutorContainer = false
         for (container <- resolvedContainers) {
           if (container.getName == executorCustomSpecExecutorContainerName.get) {
             foundExecutorContainer = true
             val resolvedEnv = new ArrayBuffer[EnvVar]
             resolvedEnv ++= container.getEnv.asScala
-            resolvedEnv += new EnvVarBuilder()
-              .withName("SPARK_EXECUTOR_PORT")
-              .withValue(executorPort.toString)
-              .build()
-            resolvedEnv += new EnvVarBuilder()
-              .withName("SPARK_DRIVER_URL")
-              .withValue(driverUrl)
-              .build()
-            resolvedEnv += new EnvVarBuilder()
-              .withName("SPARK_EXECUTOR_CORES")
-              .withValue(executorCores)
-              .build()
-            resolvedEnv += new EnvVarBuilder()
-              .withName("SPARK_EXECUTOR_MEMORY")
-              .withValue(executorMemory)
-              .build()
-            resolvedEnv += new EnvVarBuilder()
-              .withName("SPARK_APPLICATION_ID")
-              .withValue(kubernetesAppId)
-              .build()
+            resolvedEnv ++= requiredEnv
             container.setEnv(resolvedEnv.asJava)
             val resolvedPorts = new ArrayBuffer[ContainerPort]
             resolvedPorts ++= container.getPorts.asScala
-            resolvedPorts += new ContainerPortBuilder()
-              .withName(EXECUTOR_PORT_NAME)
-              .withContainerPort(executorPort)
-              .build()
-            resolvedPorts += new ContainerPortBuilder()
-              .withName(BLOCK_MANAGER_PORT_NAME)
-              .withContainerPort(blockmanagerPort)
-              .build()
+            resolvedPorts ++= requiredPorts
             container.setPorts(resolvedPorts.asJava)
           }
         }
@@ -216,163 +247,36 @@ private[spark] class KubernetesClusterSchedulerBackend(
             " executor replication controller, but it was not found in" +
             " the provided spec file.")
         }
-        val editedController = new ReplicationControllerBuilder(providedController.get())
+        val editedPod = new PodBuilder(providedPodSpec.get())
           .editMetadata()
             .withName(name)
             .addToLabels(selectors)
             .endMetadata()
           .editSpec()
-            .withReplicas(1)
-            .addToSelector(selectors)
-            .editTemplate()
-              .editMetadata()
-                .addToLabels(selectors)
-                .endMetadata()
-              .editSpec()
-                .withContainers(resolvedContainers.asJava)
-                .endSpec()
-              .endTemplate()
+            .withContainers(resolvedContainers.asJava)
             .endSpec()
           .build()
-        kubernetesClient.replicationControllers().create(editedController).getMetadata.getName
+        (executorId, kubernetesClient.pods().create(editedPod))
       case None =>
-        kubernetesClient.replicationControllers().createNew()
+        (executorId, kubernetesClient.pods().createNew()
           .withNewMetadata()
             .withName(name)
             .withLabels(selectors)
             .endMetadata()
           .withNewSpec()
-            .withReplicas(1)
-            .withSelector(selectors)
-            .withNewTemplate()
-              .withNewMetadata()
-                .withName(s"exec-$kubernetesAppId-pod")
-                .withLabels(selectors)
-                .endMetadata()
-              .withNewSpec()
-                .addNewContainer()
-                  .withName(s"exec-$kubernetesAppId-container")
-                  .withImage(executorDockerImage)
-                  .withImagePullPolicy("IfNotPresent")
-                  .addNewEnv()
-                    .withName("SPARK_EXECUTOR_PORT")
-                    .withValue(executorPort.toString)
-                    .endEnv()
-                  .addNewEnv()
-                    .withName("SPARK_DRIVER_URL")
-                    .withValue(driverUrl)
-                    .endEnv()
-                  .addNewEnv()
-                    .withName("SPARK_EXECUTOR_CORES")
-                    .withValue(executorCores)
-                    .endEnv()
-                  .addNewEnv()
-                    .withName("SPARK_EXECUTOR_MEMORY")
-                    .withValue(executorMemory)
-                    .endEnv()
-                  .addNewEnv()
-                    .withName("SPARK_APPLICATION_ID")
-                    .withValue(kubernetesAppId).endEnv()
-                  .addNewPort()
-                    .withName(EXECUTOR_PORT_NAME)
-                    .withContainerPort(executorPort.toInt)
-                    .endPort()
-                  .addNewPort()
-                    .withName(BLOCK_MANAGER_PORT_NAME)
-                    .withContainerPort(blockmanagerPort.toInt)
-                    .endPort()
-                  .endContainer()
-                .endSpec()
-              .endTemplate()
+            .addNewContainer()
+              .withName(s"exec-$kubernetesAppId-container")
+              .withImage(executorDockerImage)
+              .withImagePullPolicy("IfNotPresent")
+              .withNewResources()
+                .addToRequests("memory", executorMemoryQuantity)
+                .addToLimits("memory", executorMemoryLimitQuantity)
+                .endResources()
+              .withEnv(requiredEnv.asJava)
+              .withPorts(requiredPorts.asJava)
+              .endContainer()
             .endSpec()
-          .done().getMetadata.getName
-    }
-    resolvedName
-  }
-
-  private def initializeShuffleService(): Option[DaemonSet] = {
-    if (!externalShuffleServiceEnabled) {
-      None
-    } else {
-      val shuffleServicePort = conf.getInt("spark.shuffle.service.port", 7337)
-      val shuffleServiceMemory = conf.get("spark.kubernetes.shuffle.service.memory", "1g")
-      val shuffleServiceDockerImage = conf
-        .getOption("spark.kubernetes.shuffle.service.docker.image")
-        .getOrElse(s"spark-shuffle-service:${sc.version}")
-      val selectors = Map(SPARK_SHUFFLE_SERVICE_SELECTOR -> kubernetesAppId).asJava
-      val daemonSetName = s"shuffle-service-$kubernetesAppId"
-
-      val shuffleServiceReady = SettableFuture.create[Boolean]()
-      val watch = kubernetesClient
-        .extensions()
-        .daemonSets()
-        .withLabels(selectors)
-        .watch(new Watcher[DaemonSet] {
-          override def eventReceived(action: Action, daemonSet: DaemonSet): Unit = {
-            val name = daemonSet.getMetadata.getName
-            action match {
-              case a @ (Action.ADDED | Action.MODIFIED) if name == daemonSetName =>
-                if (daemonSet.getStatus.getCurrentNumberScheduled
-                      >= daemonSet.getStatus.getDesiredNumberScheduled) {
-                  synchronized {
-                    shuffleServiceReady.set(true)
-                  }
-                }
-              case _ =>
-            }
-          }
-
-          override def onClose(cause: KubernetesClientException): Unit = {
-            synchronized {
-              if (!shuffleServiceReady.isDone) {
-                shuffleServiceReady.setException(
-                  new IllegalStateException("Received closed event for shuffle service"
-                    + " daemon set.", cause))
-              }
-            }
-          }
-        })
-
-      Utils.tryWithResource(watch)(_ => {
-        val shuffleServiceDaemonSet = kubernetesClient
-          .extensions()
-          .daemonSets()
-          .createNew()
-            .withNewMetadata()
-              .withName(daemonSetName)
-              .withLabels(selectors)
-              .endMetadata()
-            .withNewSpec()
-              .withNewSelector()
-                .withMatchLabels(selectors)
-                .endSelector()
-              .withNewTemplate()
-                .withNewMetadata()
-                .withName(s"shuffle-service-$kubernetesAppId-pod")
-                .withLabels(selectors)
-                .endMetadata()
-              .withNewSpec()
-                .addNewContainer()
-                  .withName(s"shuffle-service-$kubernetesAppId-container")
-                  .withImage(shuffleServiceDockerImage)
-                  .withImagePullPolicy("IfNotPresent")
-                  .addNewPort().withContainerPort(shuffleServicePort).endPort()
-                  .addNewEnv()
-                    .withName("SPARK_SHUFFLE_SERVICE_PORT")
-                    .withValue(shuffleServicePort.toString)
-                    .endEnv()
-                  .addNewEnv()
-                    .withName("SPARK_SHUFFLE_SERVICE_MEMORY")
-                    .withValue(shuffleServiceMemory)
-                    .endEnv()
-                  .endContainer()
-                .endSpec()
-              .endTemplate()
-            .endSpec()
-          .done()
-        shuffleServiceReady.get
-        Some(shuffleServiceDaemonSet)
-      })
+          .done())
     }
   }
 
@@ -383,12 +287,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
           + s" additional executors, expecting total $requestedTotal and currently" +
           s" expected ${totalExpectedExecutors.get}")
         for (i <- 0 until (requestedTotal - totalExpectedExecutors.get)) {
-          if (inactiveExecutorControllers.isEmpty) {
-            allocateNewExecutorReplicationController()
-          } else {
-            val executor = inactiveExecutorControllers.dequeue
-            kubernetesClient.replicationControllers().withName(executor).scale(1)
-          }
+          runningExecutorPods += allocateNewExecutorPod()
         }
       }
       totalExpectedExecutors.set(requestedTotal)
@@ -398,16 +297,12 @@ private[spark] class KubernetesClusterSchedulerBackend(
 
   override def doKillExecutors(executorIds: Seq[String]): Future[Boolean] = Future[Boolean] {
     EXECUTOR_MODIFICATION_LOCK.synchronized {
-      executorIds.foreach(executor => {
-        runningExecutorControllers.remove(executor) match {
-          case Some(name) =>
-            kubernetesClient.replicationControllers().withName(name).scale(0, true)
-            inactiveExecutorControllers += name
-          case None =>
-            throw new IllegalStateException(s"Trying to remove executor $executor before it" +
-              s" has registered with the scheduler.")
+      for (executor <- executorIds) {
+        runningExecutorPods.remove(executor) match {
+          case Some(pod) => kubernetesClient.pods().delete(pod)
+          case None => logWarning(s"Unable to remove pod for unknown executor $executor")
         }
-      })
+      }
     }
     true
   }
@@ -432,37 +327,10 @@ private[spark] class KubernetesClusterSchedulerBackend(
     // When using Utils.tryLogNonFatalError some of the code fails but without any logs or
     // indication as to why.
     try {
-      val allControllers = kubernetesClient
-        .replicationControllers()
-        .withLabel(SPARK_APP_SELECTOR, kubernetesAppId)
-        .withLabel(SPARK_EXECUTOR_SELECTOR)
-        .list()
-        .getItems
-        .asScala
-      allControllers.map(_.getMetadata.getName).foreach(controller => {
-        kubernetesClient.replicationControllers.withName(controller).cascading(true).delete()
-      })
+      runningExecutorPods.values.foreach(kubernetesClient.pods().delete(_))
     } catch {
       case e: Throwable => logError("Uncaught exception while shutting down controllers.", e)
     }
-
-    maybeShuffleService.foreach(service => {
-      try {
-        kubernetesClient
-          .extensions()
-          .daemonSets
-          .withName(service.getMetadata.getName)
-          .cascading(true)
-          .delete()
-        kubernetesClient
-          .pods()
-          .withLabels(service.getSpec.getSelector.getMatchLabels)
-          .delete()
-      } catch {
-        case e: Throwable => logError("Uncaught exception while shutting down shuffle service.", e)
-      }
-    })
-
     try {
       kubernetesClient.services().withName(kubernetesDriverServiceName).delete()
     } catch {
@@ -490,52 +358,40 @@ private[spark] class KubernetesClusterSchedulerBackend(
         override def isDefinedAt(x: Any): Boolean = {
           x match {
             case RetrieveSparkProps(executorHostname) => true
-            case RegisterExecutor(executorId, executorRef, hostname, cores, logUrls) => true
             case _ => false
           }
         }
 
         override def apply(v1: Any): Unit = {
           v1 match {
-            case RetrieveSparkProps(executorHostname) =>
+            case RetrieveSparkProps(executorId) =>
               var resolvedProperties = sparkProperties
               maybeShuffleService.foreach(service => {
-                val executorPod = kubernetesClient
+                // Refresh the pod so we get the status, particularly what host it's running on
+                val runningExecutorPod = kubernetesClient
                   .pods()
-                  .withLabel(SPARK_APP_SELECTOR, kubernetesAppId)
-                  .list()
-                  .getItems
-                  .asScala
-                  .filter(_.getMetadata.getName == executorHostname)
-                  .head
+                  .withName(runningExecutorPods(executorId).getMetadata.getName)
+                  .get()
+                val shuffleServiceDaemonSet = kubernetesClient
+                  .extensions()
+                  .daemonSets()
+                  .inNamespace(service.daemonSetNamespace)
+                  .withName(service.daemonSetName)
+                  .get()
                 val shuffleServiceForPod = kubernetesClient
+                  .inNamespace(service.daemonSetNamespace)
                   .pods()
-                  .withLabels(service.getSpec.getSelector.getMatchLabels)
+                  .inNamespace(service.daemonSetNamespace)
+                  .withLabels(shuffleServiceDaemonSet.getSpec.getSelector.getMatchLabels)
                   .list()
                   .getItems
                   .asScala
-                  .filter(_.getStatus.getHostIP == executorPod.getStatus.getHostIP)
+                  .filter(_.getStatus.getHostIP == runningExecutorPod.getStatus.getHostIP)
                   .head
                 resolvedProperties = resolvedProperties ++ Seq(
                   ("spark.shuffle.service.host", shuffleServiceForPod.getStatus.getPodIP))
               })
               context.reply(resolvedProperties)
-            case RegisterExecutor(executorId, executorRef, hostname, cores, logUrls) =>
-              doRegisterExecutor(context, executorId, executorRef, hostname, cores, logUrls)
-              EXECUTOR_MODIFICATION_LOCK.synchronized {
-                val podSelectorId = kubernetesClient.pods()
-                  .withName(hostname)
-                  .get
-                  .getMetadata
-                  .getLabels
-                  .get(SPARK_EXECUTOR_SELECTOR)
-                val executorReplicationControllerName = Iterables.getOnlyElement(
-                  kubernetesClient.replicationControllers()
-                    .withLabel(SPARK_EXECUTOR_SELECTOR, podSelectorId)
-                    .list()
-                  .getItems).getMetadata.getName
-                runningExecutorControllers.put(executorId, executorReplicationControllerName)
-              }
           }
         }
       }.orElse(super.receiveAndReply(context))
@@ -548,9 +404,14 @@ private object KubernetesClusterSchedulerBackend {
   private val CA_CERT_FILE = new File("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
   private val SPARK_EXECUTOR_SELECTOR = "spark-exec"
   private val SPARK_APP_SELECTOR = "spark-app"
-  private val SPARK_SHUFFLE_SERVICE_SELECTOR = "shuffle-svc"
   private val DEFAULT_STATIC_PORT = 10000
   private val DEFAULT_BLOCKMANAGER_PORT = 7079
   private val BLOCK_MANAGER_PORT_NAME = "blockmanager"
   private val EXECUTOR_PORT_NAME = "executor"
+  private val MEMORY_OVERHEAD_FACTOR = 0.10
+  private val MEMORY_OVERHEAD_MIN = 384L
 }
+
+private case class ShuffleServiceDaemonSetMetadata(
+  val daemonSetName: String,
+  val daemonSetNamespace: String)

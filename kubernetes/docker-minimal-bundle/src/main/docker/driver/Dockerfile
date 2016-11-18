@@ -5,7 +5,7 @@ FROM ubuntu:trusty
 # Remove unneeded /var/lib/apt/lists/* after install to reduce the
 # docker image size (by ~30MB)
 RUN apt-get update && \
-    apt-get install -y less openjdk-7-jre-headless net-tools vim-tiny sudo openssh-server procps dbus && \
+    apt-get install -y less openjdk-7-jre-headless net-tools vim-tiny sudo openssh-server procps && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /opt/spark

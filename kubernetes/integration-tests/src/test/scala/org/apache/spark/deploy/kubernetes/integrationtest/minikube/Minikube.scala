@@ -51,7 +51,7 @@ private[spark] object Minikube extends Logging {
   def startMinikube(): Unit = synchronized {
     assert(MINIKUBE_EXECUTABLE_DEST.exists(), EXPECTED_DOWNLOADED_MINIKUBE_MESSAGE)
     if (getMinikubeStatus != MinikubeStatus.RUNNING) {
-      executeMinikube("start")
+      executeMinikube("start", "--memory", "6000", "--cpus", "8")
     } else {
       logInfo("Minikube is already started.")
     }
@@ -128,14 +128,14 @@ private[spark] object Minikube extends Logging {
     HttpClientUtil.createClient[T](url, sslContext.getSocketFactory, trustManager)
   }
 
-  private def executeMinikube(action: String): Seq[String] = {
+  private def executeMinikube(action: String, args: String*): Seq[String] = {
     if (!MINIKUBE_EXECUTABLE_DEST.canExecute) {
       if (!MINIKUBE_EXECUTABLE_DEST.setExecutable(true)) {
         throw new IllegalStateException("Failed to make the Minikube binary executable.")
       }
     }
-    val pb = new ProcessBuilder()
-      .command(MINIKUBE_EXECUTABLE_DEST.getAbsolutePath, action)
+    val fullCommand = Array(MINIKUBE_EXECUTABLE_DEST.getAbsolutePath, action) ++ args
+    val pb = new ProcessBuilder().command(fullCommand: _*)
     pb.redirectErrorStream(true)
     val proc = pb.start()
     val outputLines = new ArrayBuffer[String]
@@ -154,6 +154,7 @@ private[spark] object Minikube extends Logging {
     }
     assert(proc.waitFor(MINIKUBE_STARTUP_TIMEOUT_SECONDS, TimeUnit.SECONDS),
       s"Timed out while executing $action on minikube.")
+    assert(proc.exitValue == 0, s"Failed to execute minikube $action ${args.mkString(" ")}")
     outputLines.toSeq
   }
 }
