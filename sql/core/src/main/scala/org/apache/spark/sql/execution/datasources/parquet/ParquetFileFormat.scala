@@ -304,9 +304,7 @@ class ParquetFileFormat
         val filePath = stat.getPath
         val rootOption: Option[Path] = fileIndex.rootPaths
           .find(root => filePath.toString.startsWith(root.toString))
-        val splitterForPath = rootOption.flatMap { root =>
-          splitters.get(root)
-        }.getOrElse(defaultSplitter)
+        val splitterForPath = rootOption.flatMap(splitters.get).getOrElse(defaultSplitter)
         splitterForPath(stat)
       }
       compositeSplitter
