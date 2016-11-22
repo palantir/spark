@@ -128,6 +128,10 @@ private[spark] object Minikube extends Logging {
     HttpClientUtil.createClient[T](url, sslContext.getSocketFactory, trustManager)
   }
 
+  def executeMinikubeSsh(command: String): Unit = {
+    executeMinikube("ssh", command)
+  }
+
   private def executeMinikube(action: String, args: String*): Seq[String] = {
     if (!MINIKUBE_EXECUTABLE_DEST.canExecute) {
       if (!MINIKUBE_EXECUTABLE_DEST.setExecutable(true)) {

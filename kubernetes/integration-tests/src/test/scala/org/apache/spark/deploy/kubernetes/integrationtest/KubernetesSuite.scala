@@ -71,6 +71,7 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
         .endMetadata()
       .done()
 
+    Minikube.executeMinikubeSsh("mkdir -p /tmp/spark-shuffles")
     clientConfig = minikubeKubernetesClient.getConfiguration
     val startShuffleArgs = new StartKubernetesShuffleServiceArgumentsBuilder()
       .copy(kubernetesMaster = Some(clientConfig.getMasterUrl))
@@ -81,6 +82,7 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .copy(kubernetesCaCertFile = Some(clientConfig.getCaCertFile))
       .copy(kubernetesClientCertFile = Some(clientConfig.getClientCertFile))
       .copy(kubernetesClientKeyFile = Some(clientConfig.getClientKeyFile))
+      .copy(shuffleHostPathDir = "/tmp/spark-shuffles")
       .build()
     new StartKubernetesShuffleService().run(startShuffleArgs)
   }
@@ -169,6 +171,7 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .addSparkConf("spark.executor.cores", "1")
       .addSparkConf("spark.shuffle.service.enabled", "true")
       .addSparkConf("spark.dynamicAllocation.executorIdleTimeout", "20s")
+      .addSparkConf("spark.memory.storageFraction", "1.0")
       .kubernetesAppName("spark-pi-dyn")
       .driverDockerImage("spark-driver:latest")
       .executorDockerImage("spark-executor:latest")
@@ -201,6 +204,7 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .addSparkConf("spark.executor.cores", "1")
       .addSparkConf("spark.shuffle.service.enabled", "true")
       .addSparkConf("spark.dynamicAllocation.executorIdleTimeout", "10s")
+      .addSparkConf("spark.memory.storageFraction", "1.0")
       .kubernetesAppName("spark-pi-dyn")
       .driverDockerImage("spark-driver:latest")
       .executorDockerImage("spark-executor:latest")
@@ -255,7 +259,13 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
     val completedApp = Eventually.eventually(TIMEOUT, INTERVAL) {
       val result = sparkMetricsService.getStages(
         apps.head.id, Seq(StageStatus.COMPLETE).asJava)
-      assert(result.size == 1)
+      val allStages = sparkMetricsService.getStages(
+        apps.head.id, Seq[StageStatus](
+          StageStatus.ACTIVE,
+          StageStatus.COMPLETE,
+          StageStatus.FAILED,
+          StageStatus.PENDING).asJava)
+      assert(result.size == allStages.size)
       result
     }
     val noExecutorsAfterFinishedJob = Eventually.eventually(TIMEOUT, INTERVAL) {
@@ -301,6 +311,7 @@ private[spark] class KubernetesSuite extends SparkFunSuite with BeforeAndAfter {
       .addSparkConf("spark.executor.cores", "1")
       .addSparkConf("spark.shuffle.service.enabled", "true")
       .addSparkConf("spark.dynamicAllocation.executorIdleTimeout", "20s")
+      .addSparkConf("spark.memory.storageFraction", "1.0")
       .kubernetesAppName("spark-pi-custom")
       .driverDockerImage("spark-driver:latest")
       .executorDockerImage("spark-executor:latest")

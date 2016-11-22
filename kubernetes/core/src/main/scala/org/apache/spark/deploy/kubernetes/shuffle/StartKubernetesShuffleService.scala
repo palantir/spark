@@ -34,6 +34,7 @@ private[spark] case class StartKubernetesShuffleServiceArguments(
   shuffleServicePort: Int,
   shuffleServiceMemory: String,
   shuffleServiceDockerImage: String,
+  shuffleHostPathDir: String,
   kubernetesClientCertFile: Option[String] = None,
   kubernetesClientKeyFile: Option[String] = None,
   kubernetesCaCertFile: Option[String] = None)
@@ -44,6 +45,7 @@ private[spark] case class StartKubernetesShuffleServiceArgumentsBuilder(
   shuffleServiceDaemonSetName: String = "spark-shuffle-service",
   shuffleServicePort: Int = 7337,
   shuffleServiceMemory: String = "1g",
+  shuffleHostPathDir: String = "/tmp",
   shuffleServiceDockerImage: String = s"spark-shuffle-service:$SPARK_VERSION",
   kubernetesClientCertFile: Option[String] = None,
   kubernetesClientKeyFile: Option[String] = None,
@@ -60,6 +62,7 @@ private[spark] case class StartKubernetesShuffleServiceArgumentsBuilder(
       shuffleServiceDaemonSetName = shuffleServiceDaemonSetName,
       shuffleServicePort = shuffleServicePort,
       shuffleServiceMemory = shuffleServiceMemory,
+      shuffleHostPathDir = shuffleHostPathDir,
       shuffleServiceDockerImage = shuffleServiceDockerImage,
       kubernetesClientCertFile = kubernetesClientCertFile,
       kubernetesClientKeyFile = kubernetesClientKeyFile,
@@ -79,38 +82,44 @@ private[spark] object StartKubernetesShuffleServiceArgumentsBuilder
           args = tail
           currentBuilder.copy(
             kubernetesMaster = Some(Validate.notBlank(value,
-              "Kubernetes master must not be empty")))
+              "Kubernetes master must not be empty.")))
         case "--namespace" :: value :: tail =>
           args = tail
           currentBuilder.copy(
-            shuffleServiceNamespace = Some(Validate.notBlank(value, "Namespace must not be empty")))
+            shuffleServiceNamespace = Some(Validate.notBlank(value,
+              "Namespace must not be empty.")))
         case "--daemon-set-name" :: value :: tail =>
           args = tail
           currentBuilder.copy(
             shuffleServiceDaemonSetName = Validate.notBlank(value,
-              "Daemon set name must not be empty"))
+              "Daemon set name must not be empty."))
         case "--port" :: value :: tail =>
           args = tail
           currentBuilder.copy(
-            shuffleServicePort = Validate.notBlank(value, "Port must not be empty").toInt)
+            shuffleServicePort = Validate.notBlank(value, "Port must not be empty.").toInt)
         case "--memory" :: value :: tail =>
           args = tail
           currentBuilder.copy(
-            shuffleServiceMemory = Validate.notBlank(value, "Memory must not be empty"))
+            shuffleServiceMemory = Validate.notBlank(value, "Memory must not be empty."))
+        case "--shuffle-service-host-directory" :: value :: tail =>
+          args = tail
+          currentBuilder.copy(shuffleHostPathDir = Validate.notBlank(value,
+            "Shuffle host directory must not be empty."))
         case KUBERNETES_CLIENT_KEY_FILE :: value :: tail =>
           args = tail
           currentBuilder.copy(
             kubernetesClientKeyFile = Some(Validate.notBlank(value,
-              "Client key file must not be empty")))
+              "Client key file must not be empty.")))
         case KUBERNETES_CLIENT_CERT_FILE :: value :: tail =>
           args = tail
           currentBuilder.copy(
             kubernetesClientCertFile = Some(Validate.notBlank(value,
-              "Client cert file must not be empty")))
+              "Client cert file must not be empty.")))
         case KUBERNETES_CA_CERT_FILE :: value :: tail =>
           args = tail
           currentBuilder.copy(
-            kubernetesCaCertFile = Some(Validate.notBlank(value, "Ca cert file must not be empty")))
+            kubernetesCaCertFile = Some(Validate.notBlank(value,
+              "Ca cert file must not be empty.")))
         case Nil => currentBuilder
         case _ =>
           // TODO fill in usage message
@@ -162,6 +171,10 @@ private[spark] class StartKubernetesShuffleService {
               .withLabels(selectors)
               .endMetadata()
             .withNewSpec()
+              .addNewVolume()
+                .withName("shuffles-volume")
+                .withNewHostPath().withPath(parsedArguments.shuffleHostPathDir).endHostPath()
+                .endVolume()
               .addNewContainer()
                 .withName(s"shuffle-service-container")
                 .withImage(parsedArguments.shuffleServiceDockerImage)
@@ -178,6 +191,11 @@ private[spark] class StartKubernetesShuffleService {
                 .withNewResources()
                   .addToRequests("memory", shuffleServiceMemoryQuantity)
                   .endResources()
+                .addNewVolumeMount()
+                  .withName("shuffles-volume")
+                  .withMountPath(parsedArguments.shuffleHostPathDir)
+                  .withReadOnly(true)
+                  .endVolumeMount()
                 .endContainer()
               .endSpec()
             .endTemplate()

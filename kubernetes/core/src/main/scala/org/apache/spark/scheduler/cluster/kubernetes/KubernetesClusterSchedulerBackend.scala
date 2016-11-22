@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.Executors
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import io.fabric8.kubernetes.api.model.{ContainerPort, ContainerPortBuilder, EnvVar, EnvVarBuilder, Pod, PodBuilder, QuantityBuilder}
+import io.fabric8.kubernetes.api.model._
+import io.fabric8.kubernetes.api.model.extensions.DaemonSet
 import io.fabric8.kubernetes.client.{ConfigBuilder, DefaultKubernetesClient}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -207,6 +208,31 @@ private[spark] class KubernetesClusterSchedulerBackend(
       .withName("SPARK_EXECUTOR_ID")
       .withValue(executorId)
       .build()
+
+    val shuffleServiceVolume = maybeShuffleService.map(service => {
+      val shuffleServiceDaemonSet = getShuffleServiceDaemonSet(service)
+      val shuffleDir = shuffleServiceDaemonSet
+        .getSpec
+        .getTemplate
+        .getSpec
+        .getVolumes
+        .asScala
+        .find(_.getName == "shuffles-volume")
+        .getOrElse(throw new IllegalStateException("Expected to find a host path" +
+          " shuffles-service volume."))
+      new VolumeBuilder()
+        .withName("shuffles-volume")
+        .withNewHostPath().withPath(shuffleDir.getHostPath.getPath).endHostPath()
+        .build()
+    })
+
+    shuffleServiceVolume.foreach(volume => {
+      requiredEnv += new EnvVarBuilder()
+        .withName("SPARK_LOCAL_DIRS")
+        .withValue(volume.getHostPath.getPath)
+        .build()
+    })
+
     val requiredPorts = new ArrayBuffer[ContainerPort]
     requiredPorts += new ContainerPortBuilder()
       .withName(EXECUTOR_PORT_NAME)
@@ -230,16 +256,32 @@ private[spark] class KubernetesClusterSchedulerBackend(
         for (container <- resolvedContainers) {
           if (container.getName == executorCustomSpecExecutorContainerName.get) {
             foundExecutorContainer = true
+
             val resolvedEnv = new ArrayBuffer[EnvVar]
             resolvedEnv ++= container.getEnv.asScala
             resolvedEnv ++= requiredEnv
             container.setEnv(resolvedEnv.asJava)
+
             val resolvedPorts = new ArrayBuffer[ContainerPort]
             resolvedPorts ++= container.getPorts.asScala
             resolvedPorts ++= requiredPorts
             container.setPorts(resolvedPorts.asJava)
+
+            val resolvedVolumeMounts = new ArrayBuffer[VolumeMount]
+            resolvedVolumeMounts ++= container.getVolumeMounts.asScala
+            shuffleServiceVolume.map(volume => {
+              resolvedVolumeMounts += new VolumeMountBuilder()
+                .withMountPath(volume.getHostPath.getPath)
+                .withName(volume.getName)
+                .build()
+            })
           }
         }
+        val providedVolumes = providedPodSpec.get.getSpec.getVolumes.asScala
+        val resolvedVolumes = shuffleServiceVolume.map(volume => {
+          Seq(volume) ++ providedVolumes
+        }).getOrElse(providedVolumes)
+
         if (!foundExecutorContainer) {
           throw new SparkException("Expected container"
             + s" ${executorCustomSpecExecutorContainerName.get}" +
@@ -254,6 +296,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
             .endMetadata()
           .editSpec()
             .withContainers(resolvedContainers.asJava)
+            .withVolumes(resolvedVolumes.asJava)
             .endSpec()
           .build()
         (executorId, kubernetesClient.pods().create(editedPod))
@@ -264,10 +307,17 @@ private[spark] class KubernetesClusterSchedulerBackend(
             .withLabels(selectors)
             .endMetadata()
           .withNewSpec()
+            .withVolumes(shuffleServiceVolume.map(Seq(_)).getOrElse(Seq[Volume]()).asJava)
             .addNewContainer()
               .withName(s"exec-$kubernetesAppId-container")
               .withImage(executorDockerImage)
               .withImagePullPolicy("IfNotPresent")
+              .withVolumeMounts(shuffleServiceVolume.map(volume => {
+                Seq(new VolumeMountBuilder()
+                  .withName(volume.getName)
+                  .withMountPath(volume.getHostPath.getPath)
+                  .build())
+              }).getOrElse(Seq[VolumeMount]()).asJava)
               .withNewResources()
                 .addToRequests("memory", executorMemoryQuantity)
                 .addToLimits("memory", executorMemoryLimitQuantity)
@@ -396,6 +446,16 @@ private[spark] class KubernetesClusterSchedulerBackend(
         }
       }.orElse(super.receiveAndReply(context))
     }
+  }
+
+  private def getShuffleServiceDaemonSet(serviceMetadata: ShuffleServiceDaemonSetMetadata)
+      : DaemonSet = {
+    kubernetesClient
+      .extensions()
+      .daemonSets()
+      .inNamespace(serviceMetadata.daemonSetNamespace)
+      .withName(serviceMetadata.daemonSetName)
+      .get
   }
 }
 
