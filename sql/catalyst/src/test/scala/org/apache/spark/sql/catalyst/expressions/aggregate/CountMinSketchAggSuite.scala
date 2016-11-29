@@ -190,7 +190,6 @@ class CountMinSketchAggSuite extends SparkFunSuite {
     agg.initialize(buffer)
     // Empty aggregation buffer
     assert(isEqual(agg.eval(buffer), emptyCms))
-
     // Empty input row
     agg.update(buffer, InternalRow(null))
     assert(isEqual(agg.eval(buffer), emptyCms))

@@ -211,10 +211,6 @@ class CountMinSketchImpl extends CountMinSketch implements Serializable {
     return ((int) hash) % width;
   }
 
-  private static int[] getHashBuckets(String key, int hashCount, int max) {
-    return getHashBuckets(Utils.getBytesFromUTF8String(key), hashCount, max);
-  }
-
   private static int[] getHashBuckets(byte[] b, int hashCount, int max) {
     int[] result = new int[hashCount];
     int hash1 = Murmur3_x86_32.hashUnsafeBytes(b, Platform.BYTE_ARRAY_OFFSET, b.length, 0);
@@ -244,7 +240,7 @@ class CountMinSketchImpl extends CountMinSketch implements Serializable {
     return res;
   }
 
-  private long estimateCountForStringItem(String item) {
+  private long estimateCountForBinaryItem(byte[] item) {
     long res = Long.MAX_VALUE;
     int[] buckets = getHashBuckets(item, depth, width);
     for (int i = 0; i < depth; ++i) {
