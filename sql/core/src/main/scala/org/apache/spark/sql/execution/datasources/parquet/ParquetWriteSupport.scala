@@ -35,7 +35,6 @@ import org.apache.spark.sql.execution.datasources.parquet.ParquetSchemaConverter
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 
-
 /**
  * A Parquet [[WriteSupport]] implementation that writes Catalyst [[InternalRow]]s as Parquet
  * messages.  This class can write Parquet data in two modes:

@@ -76,10 +76,11 @@ private[parquet] object ParquetFilters {
         binaryColumn(n),
         Option(v).map(b => Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]])).orNull)
     case TimestampType =>
-      (n: String, v: Any) => FilterApi.eq(
+      (n: String, v: Any) => FilterApi.notEq(
         longColumn(n), v.asInstanceOf[java.sql.Timestamp].asInstanceOf[java.lang.Long])
     case DateType =>
-      (n: String, v: Any) => FilterApi.notEq(intColumn(n), v.asInstanceOf[Integer])
+      (n: String, v: Any) => FilterApi.notEq(
+        intColumn(n), v.asInstanceOf[java.sql.Date].asInstanceOf[Integer])
   }
 
   private val makeLt: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -99,10 +100,11 @@ private[parquet] object ParquetFilters {
       (n: String, v: Any) =>
         FilterApi.lt(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
     case TimestampType =>
-      (n: String, v: Any) => FilterApi.eq(
+      (n: String, v: Any) => FilterApi.lt(
         longColumn(n), v.asInstanceOf[java.sql.Timestamp].asInstanceOf[java.lang.Long])
     case DateType =>
-      (n: String, v: Any) => FilterApi.lt(intColumn(n), v.asInstanceOf[Integer])
+      (n: String, v: Any) => FilterApi.lt(
+        intColumn(n), v.asInstanceOf[java.sql.Date].asInstanceOf[Integer])
   }
 
   private val makeLtEq: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -122,10 +124,11 @@ private[parquet] object ParquetFilters {
       (n: String, v: Any) =>
         FilterApi.ltEq(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
     case TimestampType =>
-      (n: String, v: Any) => FilterApi.eq(
+      (n: String, v: Any) => FilterApi.ltEq(
         longColumn(n), v.asInstanceOf[java.sql.Timestamp].asInstanceOf[java.lang.Long])
     case DateType =>
-      (n: String, v: Any) => FilterApi.ltEq(intColumn(n), v.asInstanceOf[Integer])
+      (n: String, v: Any) => FilterApi.ltEq(
+        intColumn(n), v.asInstanceOf[java.sql.Date].asInstanceOf[Integer])
   }
 
   private val makeGt: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -145,10 +148,11 @@ private[parquet] object ParquetFilters {
       (n: String, v: Any) =>
         FilterApi.gt(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
     case TimestampType =>
-      (n: String, v: Any) => FilterApi.eq(
+      (n: String, v: Any) => FilterApi.gt(
         longColumn(n), v.asInstanceOf[java.sql.Timestamp].asInstanceOf[java.lang.Long])
     case DateType =>
-      (n: String, v: Any) => FilterApi.gt(intColumn(n), v.asInstanceOf[Integer])
+      (n: String, v: Any) => FilterApi.gt(
+        intColumn(n), v.asInstanceOf[java.sql.Date].asInstanceOf[Integer])
   }
 
   private val makeGtEq: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -168,10 +172,11 @@ private[parquet] object ParquetFilters {
       (n: String, v: Any) =>
         FilterApi.gtEq(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
     case TimestampType =>
-      (n: String, v: Any) => FilterApi.eq(
+      (n: String, v: Any) => FilterApi.gtEq(
         longColumn(n), v.asInstanceOf[java.sql.Timestamp].asInstanceOf[java.lang.Long])
     case DateType =>
-      (n: String, v: Any) => FilterApi.gtEq(intColumn(n), v.asInstanceOf[Integer])
+      (n: String, v: Any) => FilterApi.gtEq(
+        intColumn(n), v.asInstanceOf[java.sql.Date].asInstanceOf[Integer])
   }
 
   /**
