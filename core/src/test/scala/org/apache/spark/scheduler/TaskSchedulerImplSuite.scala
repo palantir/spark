@@ -19,13 +19,13 @@ package org.apache.spark.scheduler
 
 import java.nio.ByteBuffer
 
-import org.apache.commons.math3.analysis.function.Add
-
 import scala.collection.mutable.HashMap
+
 import org.mockito.Matchers.{anyInt, anyString, eq => meq}
 import org.mockito.Mockito.{atLeast, atMost, never, spy, verify, when}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.mock.MockitoSugar
+
 import org.apache.spark._
 import org.apache.spark.internal.config
 import org.apache.spark.internal.Logging
