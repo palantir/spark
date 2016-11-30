@@ -302,7 +302,7 @@ class ParquetFileFormat
         val splits = ParquetFileFormat.fileSplits.get(root,
           new Callable[ParquetFileSplitter] {
             override def call(): ParquetFileSplitter =
-              createParquetFileSplits(root, hadoopConf, schema)
+              createParquetFileSplits(root, hadoopConf, schema, sparkSession)
           })
         root -> splits.buildSplitter(filters)
       }.toMap
@@ -320,9 +320,12 @@ class ParquetFileFormat
   private def createParquetFileSplits(
     root: Path,
     hadoopConf: Configuration,
-    schema: StructType): ParquetFileSplitter = {
+    schema: StructType,
+    sparkSession: SparkSession): ParquetFileSplitter = {
     getMetadataForPath(root, hadoopConf)
-      .map(meta => new ParquetMetadataFileSplitter(root, meta.getBlocks.asScala, schema))
+      .map { meta =>
+        new ParquetMetadataFileSplitter(root, meta.getBlocks.asScala, schema, sparkSession)
+      }
       .getOrElse(ParquetDefaultFileSplitter)
   }
 
@@ -402,7 +405,7 @@ class ParquetFileFormat
       } else {
         None
       }
-
+    log.debug(s"Pushing converted filters: $pushed")
     val broadcastedHadoopConf =
       sparkSession.sparkContext.broadcast(new SerializableConfiguration(hadoopConf))
 

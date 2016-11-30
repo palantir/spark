@@ -21,6 +21,7 @@ import org.apache.parquet.filter2.predicate._
 import org.apache.parquet.filter2.predicate.FilterApi._
 import org.apache.parquet.io.api.Binary
 
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.sources
 import org.apache.spark.sql.types._
 
@@ -49,6 +50,12 @@ private[parquet] object ParquetFilters {
       (n: String, v: Any) => FilterApi.eq(
         binaryColumn(n),
         Option(v).map(b => Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]])).orNull)
+    case TimestampType =>
+      (n: String, v: Any) => FilterApi.eq(
+        longColumn(n), convertTimestamp(v.asInstanceOf[java.sql.Timestamp]))
+    case DateType =>
+      (n: String, v: Any) => FilterApi.eq(
+        intColumn(n), convertDate(v.asInstanceOf[java.sql.Date]))
   }
 
   private val makeNotEq: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -70,6 +77,12 @@ private[parquet] object ParquetFilters {
       (n: String, v: Any) => FilterApi.notEq(
         binaryColumn(n),
         Option(v).map(b => Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]])).orNull)
+    case TimestampType =>
+      (n: String, v: Any) => FilterApi.notEq(
+        longColumn(n), convertTimestamp(v.asInstanceOf[java.sql.Timestamp]))
+    case DateType =>
+      (n: String, v: Any) => FilterApi.notEq(
+        intColumn(n), convertDate(v.asInstanceOf[java.sql.Date]))
   }
 
   private val makeLt: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -88,6 +101,12 @@ private[parquet] object ParquetFilters {
     case BinaryType =>
       (n: String, v: Any) =>
         FilterApi.lt(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
+    case TimestampType =>
+      (n: String, v: Any) => FilterApi.lt(
+        longColumn(n), convertTimestamp(v.asInstanceOf[java.sql.Timestamp]))
+    case DateType =>
+      (n: String, v: Any) => FilterApi.lt(
+        intColumn(n), convertDate(v.asInstanceOf[java.sql.Date]))
   }
 
   private val makeLtEq: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -106,6 +125,12 @@ private[parquet] object ParquetFilters {
     case BinaryType =>
       (n: String, v: Any) =>
         FilterApi.ltEq(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
+    case TimestampType =>
+      (n: String, v: Any) => FilterApi.ltEq(
+        longColumn(n), convertTimestamp(v.asInstanceOf[java.sql.Timestamp]))
+    case DateType =>
+      (n: String, v: Any) => FilterApi.ltEq(
+        intColumn(n), convertDate(v.asInstanceOf[java.sql.Date]))
   }
 
   private val makeGt: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -124,6 +149,12 @@ private[parquet] object ParquetFilters {
     case BinaryType =>
       (n: String, v: Any) =>
         FilterApi.gt(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
+    case TimestampType =>
+      (n: String, v: Any) => FilterApi.gt(
+        longColumn(n), convertTimestamp(v.asInstanceOf[java.sql.Timestamp]))
+    case DateType =>
+      (n: String, v: Any) => FilterApi.gt(
+        intColumn(n), convertDate(v.asInstanceOf[java.sql.Date]))
   }
 
   private val makeGtEq: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
@@ -142,6 +173,28 @@ private[parquet] object ParquetFilters {
     case BinaryType =>
       (n: String, v: Any) =>
         FilterApi.gtEq(binaryColumn(n), Binary.fromReusedByteArray(v.asInstanceOf[Array[Byte]]))
+    case TimestampType =>
+      (n: String, v: Any) => FilterApi.gtEq(
+        longColumn(n), convertTimestamp(v.asInstanceOf[java.sql.Timestamp]))
+    case DateType =>
+      (n: String, v: Any) => FilterApi.gtEq(
+        intColumn(n), convertDate(v.asInstanceOf[java.sql.Date]))
+  }
+
+  private def convertDate(d: java.sql.Date): java.lang.Integer = {
+    if (d != null) {
+      DateTimeUtils.fromJavaDate(d).asInstanceOf[java.lang.Integer]
+    } else {
+      null
+    }
+  }
+
+  private def convertTimestamp(t: java.sql.Timestamp): java.lang.Long = {
+    if (t != null) {
+      DateTimeUtils.fromJavaTimestamp(t).asInstanceOf[java.lang.Long]
+    } else {
+      null
+    }
   }
 
   /**
@@ -153,17 +206,23 @@ private[parquet] object ParquetFilters {
    * using such fields, otherwise Parquet library will throw exception (PARQUET-389).
    * Here we filter out such fields.
    */
-  private def getFieldMap(dataType: DataType): Map[String, DataType] = dataType match {
-    case StructType(fields) =>
-      // Here we don't flatten the fields in the nested schema but just look up through
-      // root fields. Currently, accessing to nested fields does not push down filters
-      // and it does not support to create filters for them.
-      fields.filter { f =>
-        !f.metadata.contains(StructType.metadataKeyForOptionalField) ||
-          !f.metadata.getBoolean(StructType.metadataKeyForOptionalField)
-      }.map(f => f.name -> f.dataType).toMap
-    case _ => Map.empty[String, DataType]
-  }
+  private def getFieldMap(dataType: DataType, int96AsTimestamp: Boolean): Map[String, DataType] =
+    dataType match {
+      case StructType(fields) =>
+        // Here we don't flatten the fields in the nested schema but just look up through
+        // root fields. Currently, accessing to nested fields does not push down filters
+        // and it does not support to create filters for them.
+        // scalastyle:off println
+        fields.filterNot { f =>
+          val isTs = DataTypes.TimestampType.acceptsType(f.dataType)
+
+          val isOptionalField = f.metadata.contains(StructType.metadataKeyForOptionalField) &&
+            f.metadata.getBoolean(StructType.metadataKeyForOptionalField)
+
+          (isTs && int96AsTimestamp) || isOptionalField
+        }.map(f => f.name -> f.dataType).toMap
+      case _ => Map.empty[String, DataType]
+    }
 
   /**
    * Converts data sources filters to Parquet filter predicates.
