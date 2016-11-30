@@ -17,10 +17,9 @@
 
 package org.apache.spark.sql.execution.datasources.parquet
 
-import org.apache.parquet.filter2.predicate._
 import org.apache.parquet.filter2.predicate.FilterApi._
+import org.apache.parquet.filter2.predicate._
 import org.apache.parquet.io.api.Binary
-
 import org.apache.spark.sql.sources
 import org.apache.spark.sql.types._
 
@@ -188,23 +187,29 @@ private[parquet] object ParquetFilters {
    * using such fields, otherwise Parquet library will throw exception (PARQUET-389).
    * Here we filter out such fields.
    */
-  private def getFieldMap(dataType: DataType): Map[String, DataType] = dataType match {
-    case StructType(fields) =>
-      // Here we don't flatten the fields in the nested schema but just look up through
-      // root fields. Currently, accessing to nested fields does not push down filters
-      // and it does not support to create filters for them.
-      fields.filter { f =>
-        !f.metadata.contains(StructType.metadataKeyForOptionalField) ||
-          !f.metadata.getBoolean(StructType.metadataKeyForOptionalField)
-      }.map(f => f.name -> f.dataType).toMap
-    case _ => Map.empty[String, DataType]
-  }
+  private def getFieldMap(dataType: DataType, int96AsTimestamp: Boolean): Map[String, DataType] =
+    dataType match {
+      case StructType(fields) =>
+        // Here we don't flatten the fields in the nested schema but just look up through
+        // root fields. Currently, accessing to nested fields does not push down filters
+        // and it does not support to create filters for them.
+        fields.filter { f =>
+          !int96AsTimestamp ||
+            f.dataType != DataTypes.TimestampType ||
+          !f.metadata.contains(StructType.metadataKeyForOptionalField) ||
+            !f.metadata.getBoolean(StructType.metadataKeyForOptionalField)
+        }.map(f => f.name -> f.dataType).toMap
+      case _ => Map.empty[String, DataType]
+    }
 
   /**
    * Converts data sources filters to Parquet filter predicates.
    */
-  def createFilter(schema: StructType, predicate: sources.Filter): Option[FilterPredicate] = {
-    val dataTypeOf = getFieldMap(schema)
+  def createFilter(
+      schema: StructType,
+      predicate: sources.Filter,
+      int96AsTimestamp: Boolean): Option[FilterPredicate] = {
+    val dataTypeOf = getFieldMap(schema, int96AsTimestamp)
 
     // NOTE:
     //
@@ -256,18 +261,20 @@ private[parquet] object ParquetFilters {
         // Pushing one side of AND down is only safe to do at the top level.
         // You can see ParquetRelation's initializeLocalJobFunc method as an example.
         for {
-          lhsFilter <- createFilter(schema, lhs)
-          rhsFilter <- createFilter(schema, rhs)
+          lhsFilter <- createFilter(schema, lhs, int96AsTimestamp)
+          rhsFilter <- createFilter(schema, rhs, int96AsTimestamp)
         } yield FilterApi.and(lhsFilter, rhsFilter)
 
       case sources.Or(lhs, rhs) =>
         for {
-          lhsFilter <- createFilter(schema, lhs)
-          rhsFilter <- createFilter(schema, rhs)
+          lhsFilter <- createFilter(schema, lhs, int96AsTimestamp)
+          rhsFilter <- createFilter(schema, rhs, int96AsTimestamp)
         } yield FilterApi.or(lhsFilter, rhsFilter)
 
       case sources.Not(pred) =>
-        createFilter(schema, pred).map(FilterApi.not).map(LogicalInverseRewriter.rewrite)
+        createFilter(schema, pred, int96AsTimestamp)
+          .map(FilterApi.not)
+          .map(LogicalInverseRewriter.rewrite)
 
       case sources.In(name, values) if dataTypeOf.contains(name) =>
         val eq = makeEq.lift(dataTypeOf(name))

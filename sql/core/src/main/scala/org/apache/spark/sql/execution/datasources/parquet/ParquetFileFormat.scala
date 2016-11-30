@@ -21,10 +21,6 @@ import java.io.FileNotFoundException
 import java.net.URI
 import java.util.concurrent.{Callable, TimeUnit}
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable
-import scala.util.{Failure, Try}
-
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
@@ -39,8 +35,6 @@ import org.apache.parquet.hadoop.codec.CodecConfig
 import org.apache.parquet.hadoop.metadata.ParquetMetadata
 import org.apache.parquet.hadoop.util.ContextUtil
 import org.apache.parquet.schema.MessageType
-
-import org.apache.spark.{SparkException, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
@@ -52,6 +46,11 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
 import org.apache.spark.util.SerializableConfiguration
+import org.apache.spark.{SparkException, TaskContext}
+
+import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.util.{Failure, Try}
 
 class ParquetFileFormat
   extends FileFormat
@@ -382,13 +381,14 @@ class ParquetFileFormat
       requiredSchema).asInstanceOf[StructType]
     ParquetWriteSupport.setSchema(dataSchemaToWrite, hadoopConf)
 
+    val int96AsTimestamp = sparkSession.sessionState.conf.isParquetINT96AsTimestamp
     // Sets flags for `CatalystSchemaConverter`
     hadoopConf.setBoolean(
       SQLConf.PARQUET_BINARY_AS_STRING.key,
       sparkSession.sessionState.conf.isParquetBinaryAsString)
     hadoopConf.setBoolean(
       SQLConf.PARQUET_INT96_AS_TIMESTAMP.key,
-      sparkSession.sessionState.conf.isParquetINT96AsTimestamp)
+      int96AsTimestamp)
 
     // Try to push down filters when filter push-down is enabled.
     val pushed =
@@ -397,7 +397,7 @@ class ParquetFileFormat
           // Collects all converted Parquet filter predicates. Notice that not all predicates can be
           // converted (`ParquetFilters.createFilter` returns an `Option`). That's why a `flatMap`
           // is used here.
-          .flatMap(ParquetFilters.createFilter(requiredSchema, _))
+          .flatMap(ParquetFilters.createFilter(requiredSchema, _, int96AsTimestamp))
           .reduceOption(FilterApi.and)
       } else {
         None
