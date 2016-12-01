@@ -227,8 +227,11 @@ private[parquet] object ParquetFilters {
   /**
    * Converts data sources filters to Parquet filter predicates.
    */
-  def createFilter(schema: StructType, predicate: sources.Filter): Option[FilterPredicate] = {
-    val dataTypeOf = getFieldMap(schema)
+  def createFilter(
+    schema: StructType,
+    predicate: sources.Filter,
+    int96AsTimestamp: Boolean): Option[FilterPredicate] = {
+    val dataTypeOf = getFieldMap(schema, int96AsTimestamp)
 
     // NOTE:
     //
@@ -280,18 +283,20 @@ private[parquet] object ParquetFilters {
         // Pushing one side of AND down is only safe to do at the top level.
         // You can see ParquetRelation's initializeLocalJobFunc method as an example.
         for {
-          lhsFilter <- createFilter(schema, lhs)
-          rhsFilter <- createFilter(schema, rhs)
+          lhsFilter <- createFilter(schema, lhs, int96AsTimestamp)
+          rhsFilter <- createFilter(schema, rhs, int96AsTimestamp)
         } yield FilterApi.and(lhsFilter, rhsFilter)
 
       case sources.Or(lhs, rhs) =>
         for {
-          lhsFilter <- createFilter(schema, lhs)
-          rhsFilter <- createFilter(schema, rhs)
+          lhsFilter <- createFilter(schema, lhs, int96AsTimestamp)
+          rhsFilter <- createFilter(schema, rhs, int96AsTimestamp)
         } yield FilterApi.or(lhsFilter, rhsFilter)
 
       case sources.Not(pred) =>
-        createFilter(schema, pred).map(FilterApi.not).map(LogicalInverseRewriter.rewrite)
+        createFilter(schema, pred, int96AsTimestamp)
+          .map(FilterApi.not)
+          .map(LogicalInverseRewriter.rewrite)
 
       case sources.In(name, values) if dataTypeOf.contains(name) =>
         val eq = makeEq.lift(dataTypeOf(name))

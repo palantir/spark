@@ -385,13 +385,14 @@ class ParquetFileFormat
       requiredSchema).asInstanceOf[StructType]
     ParquetWriteSupport.setSchema(dataSchemaToWrite, hadoopConf)
 
+    val int96AsTimestamp = sparkSession.sessionState.conf.isParquetINT96AsTimestamp
     // Sets flags for `CatalystSchemaConverter`
     hadoopConf.setBoolean(
       SQLConf.PARQUET_BINARY_AS_STRING.key,
       sparkSession.sessionState.conf.isParquetBinaryAsString)
     hadoopConf.setBoolean(
       SQLConf.PARQUET_INT96_AS_TIMESTAMP.key,
-      sparkSession.sessionState.conf.isParquetINT96AsTimestamp)
+      int96AsTimestamp)
 
     // Try to push down filters when filter push-down is enabled.
     val pushed =
@@ -400,7 +401,7 @@ class ParquetFileFormat
           // Collects all converted Parquet filter predicates. Notice that not all predicates can be
           // converted (`ParquetFilters.createFilter` returns an `Option`). That's why a `flatMap`
           // is used here.
-          .flatMap(ParquetFilters.createFilter(requiredSchema, _))
+          .flatMap(ParquetFilters.createFilter(requiredSchema, _, int96AsTimestamp))
           .reduceOption(FilterApi.and)
       } else {
         None
