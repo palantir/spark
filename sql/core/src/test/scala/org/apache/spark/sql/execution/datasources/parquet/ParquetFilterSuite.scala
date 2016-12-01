@@ -24,7 +24,7 @@ import java.time.{LocalDate, ZoneId}
 import org.apache.parquet.filter2.predicate.{FilterPredicate, Operators}
 import org.apache.parquet.filter2.predicate.FilterApi._
 import org.apache.parquet.filter2.predicate.Operators.{Column => _, _}
-import org.apache.parquet.hadoop.ParquetOutputFormat
+import org.apache.parquet.hadoop.{ParquetInputFormat, ParquetOutputFormat}
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.dsl.expressions._
@@ -689,7 +689,8 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
 
   test("Large In filters work with UDP") {
     import testImplicits._
-    withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL") {
+    withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
+      ParquetInputFormat.DICTIONARY_FILTERING_ENABLED -> "true") {
       withTempPath { dir =>
         val path = s"${dir.getCanonicalPath}/table1"
         (1 to 1000).toDF().write.parquet(path)
