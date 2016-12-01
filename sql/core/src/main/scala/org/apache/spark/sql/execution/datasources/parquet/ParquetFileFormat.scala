@@ -406,7 +406,7 @@ class ParquetFileFormat
       } else {
         None
       }
-    log.debug(s"Pushing converted filters: $pushed")
+    log.info(s"Pushing converted filters: $pushed")
     val broadcastedHadoopConf =
       sparkSession.sparkContext.broadcast(new SerializableConfiguration(hadoopConf))
 
