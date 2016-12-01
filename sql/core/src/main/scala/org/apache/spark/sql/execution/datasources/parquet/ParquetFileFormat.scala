@@ -387,6 +387,7 @@ class ParquetFileFormat
 
     val int96AsTimestamp = sparkSession.sessionState.conf.isParquetINT96AsTimestamp
     // Sets flags for `CatalystSchemaConverter`
+    hadoopConf.setBoolean(ParquetInputFormat.RECORD_FILTERING_ENABLED, false)
     hadoopConf.setBoolean(
       SQLConf.PARQUET_BINARY_AS_STRING.key,
       sparkSession.sessionState.conf.isParquetBinaryAsString)

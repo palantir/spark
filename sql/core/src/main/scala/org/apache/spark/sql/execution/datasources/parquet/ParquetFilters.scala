@@ -30,6 +30,56 @@ import org.apache.spark.sql.types._
  */
 private[parquet] object ParquetFilters {
 
+  case class SetInFilter[T <: Comparable[T]](valueSet: Set[T])
+    extends UserDefinedPredicate[T] with Serializable {
+    private val min: T = valueSet.min
+    private val max: T = valueSet.max
+
+    override def keep(value: T): Boolean = {
+      value != null && valueSet.contains(value)
+    }
+
+    // Dropping when the range of the Set filter is disconnected from the statistics range
+    override def canDrop(statistics: Statistics[T]): Boolean = {
+      val statMax = statistics.getMax
+      val statMin = statistics.getMin
+      val range = com.google.common.collect.Range.closed(min, max)
+      val statRange = com.google.common.collect.Range.closed(statMin, statMax)
+      !range.isConnected(statRange)
+    }
+
+    // Can only drop not(in(set)) when we are know that every element is in the set.
+    // From the statistics, we can only be assured of this when min == max.
+    override def inverseCanDrop(statistics: Statistics[T]): Boolean = {
+      val statMax = statistics.getMax
+      val statMin = statistics.getMin
+      statMin == statMax && valueSet.contains(statMin)
+    }
+  }
+
+  private val makeInSet: PartialFunction[DataType, (String, Set[Any]) => FilterPredicate] = {
+    case IntegerType =>
+      (n: String, v: Set[Any]) =>
+        FilterApi.userDefined(intColumn(n), SetInFilter(v.asInstanceOf[Set[java.lang.Integer]]))
+    case LongType =>
+      (n: String, v: Set[Any]) =>
+        FilterApi.userDefined(longColumn(n), SetInFilter(v.asInstanceOf[Set[java.lang.Long]]))
+    case FloatType =>
+      (n: String, v: Set[Any]) =>
+        FilterApi.userDefined(floatColumn(n), SetInFilter(v.asInstanceOf[Set[java.lang.Float]]))
+    case DoubleType =>
+      (n: String, v: Set[Any]) =>
+        FilterApi.userDefined(doubleColumn(n), SetInFilter(v.asInstanceOf[Set[java.lang.Double]]))
+    case StringType =>
+      (n: String, v: Set[Any]) =>
+        FilterApi.userDefined(binaryColumn(n),
+          SetInFilter(v.map(s => Binary.fromString(s.asInstanceOf[String]))))
+    case BinaryType =>
+      (n: String, v: Set[Any]) =>
+        FilterApi.userDefined(binaryColumn(n),
+          SetInFilter(v.map(e => Binary.fromReusedByteArray(e.asInstanceOf[Array[Byte]]))))
+  }
+
   private val makeEq: PartialFunction[DataType, (String, Any) => FilterPredicate] = {
     case BooleanType =>
       (n: String, v: Any) => FilterApi.eq(booleanColumn(n), v.asInstanceOf[java.lang.Boolean])
@@ -299,10 +349,7 @@ private[parquet] object ParquetFilters {
           .map(LogicalInverseRewriter.rewrite)
 
       case sources.In(name, values) if dataTypeOf.contains(name) =>
-        val eq = makeEq.lift(dataTypeOf(name))
-        values.flatMap { v =>
-          eq.map(_(name, v))
-        }.reduceLeftOption(FilterApi.or)
+        makeInSet.lift(dataTypeOf(name)).map(_(name, values.toSet))
 
       case _ => None
     }
