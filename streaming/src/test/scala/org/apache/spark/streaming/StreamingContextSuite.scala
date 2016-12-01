@@ -900,31 +900,6 @@ object TestReceiver {
   val counter = new AtomicInteger(1)
 }
 
-class FakeByteArrayReceiver extends Receiver[Array[Byte]](StorageLevel.MEMORY_ONLY) with Logging {
-
-  val data: Array[Byte] = "test".getBytes
-  var receivingThreadOption: Option[Thread] = None
-
-  override def onStart(): Unit = {
-    val thread = new Thread() {
-      override def run() {
-        logInfo("Receiving started")
-        while (!isStopped) {
-          store(data)
-        }
-        logInfo("Receiving stopped")
-      }
-    }
-    receivingThreadOption = Some(thread)
-    thread.start()
-  }
-
-  override def onStop(): Unit = {
-    // no clean to be done, the receiving thread should stop on it own, so just wait for it.
-    receivingThreadOption.foreach(_.join())
-  }
-}
-
 /** Custom receiver for testing whether a slow receiver can be shutdown gracefully or not */
 class SlowTestReceiver(totalRecords: Int, recordsPerSecond: Int)
   extends Receiver[Int](StorageLevel.MEMORY_ONLY) with Logging {
