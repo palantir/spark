@@ -39,13 +39,12 @@ private[parquet] object ParquetFilters {
       value != null && valueSet.contains(value)
     }
 
-    // Dropping when the range of the Set filter is disconnected from the statistics range
+    // Drop when no value in the set is within the statistics range.
     override def canDrop(statistics: Statistics[T]): Boolean = {
       val statMax = statistics.getMax
       val statMin = statistics.getMin
-      val range = com.google.common.collect.Range.closed(min, max)
       val statRange = com.google.common.collect.Range.closed(statMin, statMax)
-      !range.isConnected(statRange)
+      !valueSet.exists(value => statRange.contains(value))
     }
 
     // Can only drop not(in(set)) when we are know that every element is in the set.
