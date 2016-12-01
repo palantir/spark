@@ -304,7 +304,7 @@ class ParquetFileFormat
             override def call(): ParquetFileSplitter =
               createParquetFileSplits(root, hadoopConf, schema)
           })
-        root -> splits.buildSplitter(filters)
+        root -> splits.buildSplitter(filters, sparkSession.sessionState.conf)
       }.toMap
       val compositeSplitter: (FileStatus => Seq[FileSplit]) = { stat =>
         val filePath = stat.getPath
