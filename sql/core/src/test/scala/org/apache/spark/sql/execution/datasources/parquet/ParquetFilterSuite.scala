@@ -734,7 +734,6 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
 
       checkNoFilterPredicate(!('_1 < timestamps(3)))
       checkNoFilterPredicate('_1 < timestamps(1) || '_1 > timestamps(2))
-
     }
   }
 }
