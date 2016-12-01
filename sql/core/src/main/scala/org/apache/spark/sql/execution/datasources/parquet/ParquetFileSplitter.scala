@@ -25,19 +25,21 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.google.common.cache.{Cache, CacheBuilder}
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.lib.input.FileSplit
-import org.apache.parquet.filter2.predicate.{FilterApi, FilterPredicate}
+import org.apache.parquet.filter2.predicate.FilterApi
 import org.apache.parquet.filter2.statisticslevel.StatisticsFilter
 import org.apache.parquet.hadoop.metadata.BlockMetaData
 import org.roaringbitmap.RoaringBitmap
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.ThreadUtils
 
 
+
 abstract class ParquetFileSplitter {
-  def buildSplitter(filters: Seq[Filter]): (FileStatus => Seq[FileSplit])
+  def buildSplitter(filters: Seq[Filter], sQLConf: SQLConf): (FileStatus => Seq[FileSplit])
 
   def singleFileSplit(stat: FileStatus): Seq[FileSplit] = {
     Seq(new FileSplit(stat.getPath, 0, stat.getLen, Array.empty))
@@ -45,9 +47,9 @@ abstract class ParquetFileSplitter {
 }
 
 object ParquetDefaultFileSplitter extends ParquetFileSplitter {
-  override def buildSplitter(filters: Seq[Filter]): (FileStatus => Seq[FileSplit]) = {
-    stat => singleFileSplit(stat)
-  }
+  override def buildSplitter(
+    filters: Seq[Filter],
+    sQLConf: SQLConf): (FileStatus => Seq[FileSplit]) = singleFileSplit
 }
 
 class ParquetMetadataFileSplitter(
@@ -65,7 +67,9 @@ class ParquetMetadataFileSplitter(
       .concurrencyLevel(1)
       .build()
 
-  override def buildSplitter(filters: Seq[Filter]): (FileStatus => Seq[FileSplit]) = {
+  override def buildSplitter(
+      filters: Seq[Filter],
+      sQLConf: SQLConf): (FileStatus => Seq[FileSplit]) = {
     val (applied, unapplied, filteredBlocks) = this.synchronized {
       val (applied, unapplied) = filters.partition(filterSets.getIfPresent(_) != null)
       val filteredBlocks = filterSets.getAllPresent(applied.asJava).values().asScala
@@ -78,7 +82,8 @@ class ParquetMetadataFileSplitter(
       (applied, unapplied, filteredBlocks)
     }
 
-    val eligible = applyParquetFilter(unapplied, filteredBlocks).map { bmd =>
+    val eligible = applyParquetFilter(unapplied, filteredBlocks,
+        sQLConf.isParquetINT96AsTimestamp).map { bmd =>
       val blockPath = new Path(root, bmd.getPath)
       new FileSplit(blockPath, bmd.getStartingPos, bmd.getCompressedSize, Array.empty)
     }
@@ -97,14 +102,15 @@ class ParquetMetadataFileSplitter(
 
   private def applyParquetFilter(
       filters: Seq[Filter],
-      blocks: Seq[BlockMetaData]): Seq[BlockMetaData] = {
+      blocks: Seq[BlockMetaData],
+      int96AsTimestamp: Boolean): Seq[BlockMetaData] = {
     val predicates = filters.flatMap {
-      ParquetFilters.createFilter(schema, _)
+      ParquetFilters.createFilter(schema, _, int96AsTimestamp)
     }
     if (predicates.nonEmpty) {
       // Asynchronously build bitmaps
       Future {
-        buildFilterBitMaps(filters)
+        buildFilterBitMaps(filters, int96AsTimestamp)
       }(ParquetMetadataFileSplitter.executionContext)
 
       val predicate = predicates.reduce(FilterApi.and)
@@ -114,21 +120,21 @@ class ParquetMetadataFileSplitter(
     }
   }
 
-  private def buildFilterBitMaps(filters: Seq[Filter]): Unit = {
+  private def buildFilterBitMaps(filters: Seq[Filter], int96AsTimestamp: Boolean): Unit = {
     this.synchronized {
       // Only build bitmaps for filters that don't exist.
       val sets = filters
         .filter(filterSets.getIfPresent(_) == null)
         .flatMap { filter =>
           val bitmap = new RoaringBitmap
-          ParquetFilters.createFilter(schema, filter)
+          ParquetFilters.createFilter(schema, filter, int96AsTimestamp)
             .map((filter, _, bitmap))
         }
       var i = 0
       val blockLen = blocks.size
       while (i < blockLen) {
         val bmd = blocks(i)
-        sets.foreach { case (filter, parquetFilter, bitmap) =>
+        sets.foreach { case (_, parquetFilter, bitmap) =>
           if (!StatisticsFilter.canDrop(parquetFilter, bmd.getColumns)) {
             bitmap.add(i)
           }
