@@ -217,6 +217,21 @@ class JDBCSuite extends SparkFunSuite
          |OPTIONS (url '$url', dbtable 'TEST."mixedCaseCols"', user 'testUser', password 'testPass')
       """.stripMargin.replaceAll("\n", " "))
 
+    conn.prepareStatement(
+      """create table test."mixedCaseCols" ("Name" TEXT(32), "Id" INTEGER NOT NULL)""")
+      .executeUpdate()
+    conn.prepareStatement("""insert into test."mixedCaseCols" values ('fred', 1)""").executeUpdate()
+    conn.prepareStatement("""insert into test."mixedCaseCols" values ('mary', 2)""").executeUpdate()
+    conn.prepareStatement("""insert into test."mixedCaseCols" values (null, 3)""").executeUpdate()
+    conn.commit()
+
+    sql(
+      s"""
+         |CREATE TEMPORARY TABLE mixedCaseCols
+         |USING org.apache.spark.sql.jdbc
+         |OPTIONS (url '$url', dbtable 'TEST."mixedCaseCols"', user 'testUser', password 'testPass')
+      """.stripMargin.replaceAll("\n", " "))
+
     // Untested: IDENTITY, OTHER, UUID, ARRAY, and GEOMETRY types.
   }
 
