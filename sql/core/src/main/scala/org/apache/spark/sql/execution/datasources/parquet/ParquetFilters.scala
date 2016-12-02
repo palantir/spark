@@ -32,8 +32,6 @@ private[parquet] object ParquetFilters {
 
   case class SetInFilter[T <: Comparable[T]](valueSet: Set[T])
     extends UserDefinedPredicate[T] with Serializable {
-    private val min: T = valueSet.min
-    private val max: T = valueSet.max
 
     override def keep(value: T): Boolean = {
       value != null && valueSet.contains(value)
@@ -47,7 +45,7 @@ private[parquet] object ParquetFilters {
       !valueSet.exists(value => statRange.contains(value))
     }
 
-    // Can only drop not(in(set)) when we are know that every element is in the set.
+    // Can only drop not(in(set)) when we are know that every element in the block is in valueSet.
     // From the statistics, we can only be assured of this when min == max.
     override def inverseCanDrop(statistics: Statistics[T]): Boolean = {
       val statMax = statistics.getMax

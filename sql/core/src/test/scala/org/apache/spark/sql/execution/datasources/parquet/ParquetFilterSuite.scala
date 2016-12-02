@@ -695,9 +695,9 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
         val path = s"${dir.getCanonicalPath}/table1"
         (1 to 1000).toDF().write.parquet(path)
         val df = spark.read.parquet(path)
-        val filter = (1 to 500).map(i => i.toString).mkString(",")
-        assert(df.where(s"value in (${filter})").count() == 500)
-        assert(df.where(s"value not in (${filter})").count() == 500)
+        val filter = (1 to 499).map(i => i.toString).mkString(",")
+        assert(df.where(s"value in (${filter})").count() == 499)
+        assert(df.where(s"value not in (${filter})").count() == 501)
       }
     }
   }
