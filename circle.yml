@@ -4,7 +4,7 @@ machine:
   environment:
     TERM: dumb
   post:
-   - pyenv global 2.7.11 3.4.4
+   - pyenv global 2.7.11 3.4.4 pypy-4.0.1
    # turn off circle's bundled services to use less memory
    - sudo service postgresql stop
    - sudo service mongod stop
