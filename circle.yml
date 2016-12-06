@@ -45,12 +45,15 @@ test:
 
           case $CIRCLE_NODE_INDEX in
           0)
+            ./dev/run-tests --container 0 --total-containers 3
             publish_artifacts
             ;;
           1)
+            ./dev/run-tests --container 1 --total-containers 3
             make_dist hadoop-2.7 "-Phadoop-2.7 -Pmesos -Pkinesis-asl -Pyarn -Phive-thriftserver -Phive"
             ;;
           2)
+            ./dev/run-tests --container 2 --total-containers 3
             make_dist without-hadoop "-Psparkr -Phadoop-provided -Pyarn -Pmesos"
             ;;
           esac
