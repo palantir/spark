@@ -7,7 +7,7 @@ machine:
    - pyenv global 2.7.11 3.4.4
    # turn off circle's bundled services to use less memory
    - sudo service postgresql stop
-   - sudo service mongodb stop
+   - sudo service mongod stop
 
 
 checkout:
