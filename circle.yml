@@ -3,6 +3,9 @@ machine:
     version: oraclejdk8
   environment:
     TERM: dumb
+  post:
+   - pyenv global 2.7.12 3.4.5
+
 
 checkout:
   post:
