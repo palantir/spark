@@ -123,8 +123,7 @@ def determine_modules_to_test(changed_modules):
     if modules.root in modules_to_test:
         if len(modules_to_test) == 1:
             modules_to_test = modules.all_modules
-        else:
-            modules_to_test = [m for m in modules_to_test if m != modules.root]
+        modules_to_test = [m for m in modules_to_test if m != modules.root]
     return toposort_flatten(
         {m: set(m.dependencies).intersection(modules_to_test) for m in modules_to_test}, sort=True)
 
