@@ -24,7 +24,7 @@ dependencies:
 
 test:
   override:
-    - ./dev/run-tests --container $CIRCLE_NODE_INDEX --total-containers $CIRCLE_NODE_TOTAL:
+    - HADOOP_PROFILE=hadoop-2.7 ./dev/run-tests --container $CIRCLE_NODE_INDEX --total-containers $CIRCLE_NODE_TOTAL:
         parallel: true
         timeout: 1200
     - ? |
