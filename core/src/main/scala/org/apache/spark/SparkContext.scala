@@ -2567,7 +2567,7 @@ object SparkContext extends Logging {
           val cm = factory.newExternalClusterManager(sc, masterUrl)
           val scheduler = cm.maybeCustomTaskScheduler.getOrElse(new TaskSchedulerImpl(sc))
           val backend = cm.maybeCustomSchedulerBackend.getOrElse({
-            val executorProvider  = cm.maybeExecutorProvider.getOrElse(
+            val executorProvider = cm.maybeExecutorProvider.getOrElse(
               throw new SparkException("Custom cluster manager must either provide a custom" +
                 " scheduler backend, or an empty scheduler backend with an executor provider; but" +
                 " both cannot be set at once."))
