@@ -18,6 +18,9 @@ dependencies:
 
 test:
   override:
+    - ./dev/run-tests --container $CIRCLE_NODE_INDEX --total-containers $CIRCLE_NODE_TOTAL:
+        parallel: true
+        timeout: 1200
     - ? |
           set -euo pipefail
           version=$(git describe --tags)
@@ -42,8 +45,6 @@ test:
             ./dev/make-distribution.sh --name $dist_name --tgz $build_flags
             curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T $file_name "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/spark-dist/${dist_version}/${file_name}"
           }
-
-          ./dev/run-tests --container $CIRCLE_NODE_INDEX --total-containers $CIRCLE_NODE_TOTAL
 
           case $CIRCLE_NODE_INDEX in
           0)
