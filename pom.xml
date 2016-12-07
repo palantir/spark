@@ -2591,7 +2591,7 @@
     <profile>
       <id>yarn</id>
       <modules>
-        <module>yarn</module>
+        <module>resource-managers/yarn</module>
         <module>common/network-yarn</module>
       </modules>
     </profile>
@@ -2599,7 +2599,7 @@
     <profile>
       <id>mesos</id>
       <modules>
-        <module>mesos</module>
+        <module>resource-managers/mesos</module>
       </modules>
     </profile>
 
