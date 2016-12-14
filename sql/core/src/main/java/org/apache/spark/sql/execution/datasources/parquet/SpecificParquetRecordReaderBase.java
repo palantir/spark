@@ -107,19 +107,19 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
       // then we need to apply the predicate push down filter
       footer = readFooter(configuration, file, range(split.getStart(), split.getEnd()));
       FilterCompat.Filter filter = getFilter(configuration);
-      ParquetFileReader reader = ParquetFileReader.open(configuration, file, footer);
-      List<RowGroupFilter.FilterLevel> filterLevels =
-              ImmutableList.of(RowGroupFilter.FilterLevel.STATISTICS);
-      if (configuration.getBoolean(DICTIONARY_FILTERING_ENABLED, false)) {
-        filterLevels = ImmutableList.of(RowGroupFilter.FilterLevel.STATISTICS,
-                RowGroupFilter.FilterLevel.DICTIONARY);
+      try (ParquetFileReader reader = ParquetFileReader.open(configuration, file, footer)) {
+        List<RowGroupFilter.FilterLevel> filterLevels =
+                ImmutableList.of(RowGroupFilter.FilterLevel.STATISTICS);
+        if (configuration.getBoolean(DICTIONARY_FILTERING_ENABLED, false)) {
+          filterLevels = ImmutableList.of(RowGroupFilter.FilterLevel.STATISTICS,
+                  RowGroupFilter.FilterLevel.DICTIONARY);
+        }
+        blocks = filterRowGroups(
+                filterLevels,
+                filter,
+                footer.getBlocks(),
+                reader);
       }
-      blocks = filterRowGroups(
-              filterLevels,
-              filter,
-              footer.getBlocks(),
-              reader);
-      reader.close();
     } else {
       // otherwise we find the row groups that were selected on the client
       footer = readFooter(configuration, file, NO_FILTER);
