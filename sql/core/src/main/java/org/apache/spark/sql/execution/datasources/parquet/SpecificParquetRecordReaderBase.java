@@ -119,6 +119,7 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
               filter,
               footer.getBlocks(),
               reader);
+      this.reader = ParquetFileReader.open(configuration, file, new ParquetMetadata(footer.getFileMetaData(), blocks));
     } else {
       // otherwise we find the row groups that were selected on the client
       footer = readFooter(configuration, file, NO_FILTER);
