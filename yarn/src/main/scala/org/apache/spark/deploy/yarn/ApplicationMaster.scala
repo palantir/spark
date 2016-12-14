@@ -41,7 +41,7 @@ import org.apache.spark.deploy.yarn.security.{AMCredentialRenewer, ConfigurableC
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
 import org.apache.spark.rpc._
-import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend, YarnSchedulerBackend}
+import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend, YarnExecutorProvider}
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.util._
 
@@ -384,7 +384,7 @@ private[spark] class ApplicationMaster(
       isClusterMode: Boolean): RpcEndpointRef = {
     val driverEndpoint = rpcEnv.setupEndpointRef(
       RpcAddress(host, port.toInt),
-      YarnSchedulerBackend.ENDPOINT_NAME)
+      YarnExecutorProvider.ENDPOINT_NAME)
     amEndpoint =
       rpcEnv.setupEndpoint("YarnAM", new AMEndpoint(rpcEnv, driverEndpoint, isClusterMode))
     driverEndpoint

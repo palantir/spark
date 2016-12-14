@@ -18,6 +18,8 @@
 package org.apache.spark.scheduler
 
 import org.apache.spark.SparkContext
+import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 
 /**
  * A cluster manager interface to plugin external scheduler.
@@ -43,14 +45,23 @@ private[spark] trait ExternalClusterManager {
   /**
    * Create a scheduler backend for the given SparkContext and scheduler. This is
    * called after task scheduler is created using [[ExternalClusterManager.createTaskScheduler()]].
+   * Return None if the default scheduler backend implementation is to be used; note that the
+   * default scheduler backend will still be customized via the
+   * {@link org.apache.spark.scheduler.ClusterManagerExecutorProvider}.
    * @param sc SparkContext
    * @param masterURL the master URL
    * @param scheduler TaskScheduler that will be used with the scheduler backend.
    * @return SchedulerBackend that works with a TaskScheduler
    */
-  def createSchedulerBackend(sc: SparkContext,
+  def createCustomSchedulerBackend(sc: SparkContext,
       masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend
+      scheduler: TaskScheduler): Option[SchedulerBackend] = None
+
+  def createExecutorProviderFactory(masterURL: String, deployMode: String)
+      : ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider]
+
+  def createDriverLogUrlsProvider(sc: SparkContext): Option[ClusterManagerDriverLogUrlsProvider]
+    = None
 
   /**
    * Initialize task scheduler and backend scheduler. This is called after the

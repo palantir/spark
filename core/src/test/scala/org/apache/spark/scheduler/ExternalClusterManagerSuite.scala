@@ -18,6 +18,7 @@
 package org.apache.spark.scheduler
 
 import org.apache.spark.{LocalSparkContext, SparkConf, SparkContext, SparkFunSuite}
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.AccumulatorV2
@@ -52,15 +53,19 @@ private class DummyExternalClusterManager extends ExternalClusterManager {
   def createTaskScheduler(sc: SparkContext,
       masterURL: String): TaskScheduler = new DummyTaskScheduler
 
-  def createSchedulerBackend(sc: SparkContext,
+  override def createCustomSchedulerBackend(sc: SparkContext,
       masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = new DummySchedulerBackend()
+      scheduler: TaskScheduler): Option[SchedulerBackend] = Some(new DummySchedulerBackend())
 
   def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     scheduler.asInstanceOf[DummyTaskScheduler].initialized = true
     backend.asInstanceOf[DummySchedulerBackend].initialized = true
   }
 
+  override def createExecutorProviderFactory(masterURL: String, deployMode: String)
+      : ClusterManagerExecutorProviderFactory = {
+    throw new UnsupportedOperationException()
+  }
 }
 
 private class DummySchedulerBackend extends SchedulerBackend {

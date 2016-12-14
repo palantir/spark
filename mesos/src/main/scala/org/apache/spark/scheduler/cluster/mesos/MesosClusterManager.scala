@@ -17,7 +17,8 @@
 
 package org.apache.spark.scheduler.cluster.mesos
 
-import org.apache.spark.{SparkContext, SparkException}
+import org.apache.spark.SparkContext
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory
 import org.apache.spark.internal.config._
 import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
 
@@ -25,7 +26,7 @@ import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, Tas
  * Cluster Manager for creation of Yarn scheduler and backend
  */
 private[spark] class MesosClusterManager extends ExternalClusterManager {
-  private val MESOS_REGEX = """mesos://(.*)""".r
+  import MesosClusterManager._
 
   override def canCreate(masterURL: String): Boolean = {
     masterURL.startsWith("mesos")
@@ -35,30 +36,35 @@ private[spark] class MesosClusterManager extends ExternalClusterManager {
     new TaskSchedulerImpl(sc)
   }
 
-  override def createSchedulerBackend(sc: SparkContext,
+  override def createCustomSchedulerBackend(sc: SparkContext,
       masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = {
+      scheduler: TaskScheduler): Option[SchedulerBackend] = {
     require(!sc.conf.get(IO_ENCRYPTION_ENABLED),
       "I/O encryption is currently not supported in Mesos.")
 
     val mesosUrl = MESOS_REGEX.findFirstMatchIn(masterURL).get.group(1)
     val coarse = sc.conf.getBoolean("spark.mesos.coarse", defaultValue = true)
     if (coarse) {
-      new MesosCoarseGrainedSchedulerBackend(
-        scheduler.asInstanceOf[TaskSchedulerImpl],
-        sc,
-        mesosUrl,
-        sc.env.securityManager)
+      None
     } else {
-      new MesosFineGrainedSchedulerBackend(
+      Some(new MesosFineGrainedSchedulerBackend(
         scheduler.asInstanceOf[TaskSchedulerImpl],
         sc,
-        mesosUrl)
+        mesosUrl))
     }
   }
 
   override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     scheduler.asInstanceOf[TaskSchedulerImpl].initialize(backend)
   }
+
+  override def createExecutorProviderFactory(masterUrl: String, deployMode: String)
+      : ClusterManagerExecutorProviderFactory[MesosExecutorProvider] = {
+    new MesosExecutorProviderFactory(masterUrl)
+  }
+}
+
+private[mesos] object MesosClusterManager {
+  val MESOS_REGEX = """mesos://(.*)""".r
 }
 

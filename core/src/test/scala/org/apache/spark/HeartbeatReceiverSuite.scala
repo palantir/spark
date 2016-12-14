@@ -29,6 +29,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito.{mock, spy, verify, when}
 import org.scalatest.{BeforeAndAfterEach, PrivateMethodTester}
 
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.scheduler._
@@ -261,6 +262,40 @@ private class FakeExecutorEndpoint(override val rpcEnv: RpcEnv) extends RpcEndpo
   }
 }
 
+private class FakeExecutorProvider(
+  scheduler: TaskSchedulerImpl,
+  rpcEnv: RpcEnv,
+  clusterManagerEndpoint: RpcEndpointRef) extends ClusterManagerExecutorProvider {
+
+  override def doRequestTotalExecutors(
+      requestedTotal: Int,
+      localityAwareTasks: Int,
+      hostToLocalTaskCount: scala.collection.immutable.Map[String, Int]): Future[Boolean] = {
+    clusterManagerEndpoint.ask[Boolean](
+      RequestExecutors(requestedTotal, localityAwareTasks, hostToLocalTaskCount))
+  }
+
+  override def doKillExecutors(executorIds: Seq[String]): Future[Boolean] = {
+    clusterManagerEndpoint.ask[Boolean](KillExecutors(executorIds))
+  }
+
+  override def minRegisteredRatio: Double = 0.0
+}
+
+private class FakeExecutorProviderFactory(
+  scheduler: TaskSchedulerImpl,
+  rpcEnv: RpcEnv,
+  clusterManagerEndpoint: RpcEndpointRef)
+  extends ClusterManagerExecutorProviderFactory[FakeExecutorProvider] {
+  override def newClusterManagerExecutorProvider(
+      conf: SparkConf,
+      driverEndpoint: SchedulerBackendExecutorLifecycleManager,
+      rpcEnv: RpcEnv,
+      sc: SparkContext): FakeExecutorProvider = {
+    new FakeExecutorProvider(scheduler, rpcEnv, clusterManagerEndpoint)
+  }
+}
+
 /**
  * Dummy scheduler backend to simulate executor allocation requests to the cluster manager.
  */
@@ -268,16 +303,11 @@ private class FakeSchedulerBackend(
     scheduler: TaskSchedulerImpl,
     rpcEnv: RpcEnv,
     clusterManagerEndpoint: RpcEndpointRef)
-  extends CoarseGrainedSchedulerBackend(scheduler, rpcEnv) {
-
-  protected override def doRequestTotalExecutors(requestedTotal: Int): Future[Boolean] = {
-    clusterManagerEndpoint.ask[Boolean](
-      RequestExecutors(requestedTotal, localityAwareTasks, hostToLocalTaskCount))
-  }
-
-  protected override def doKillExecutors(executorIds: Seq[String]): Future[Boolean] = {
-    clusterManagerEndpoint.ask[Boolean](KillExecutors(executorIds))
-  }
+  extends CoarseGrainedSchedulerBackend(
+    scheduler,
+    new FakeExecutorProviderFactory(scheduler, rpcEnv, clusterManagerEndpoint),
+    rpcEnv,
+    scheduler.sc) {
 }
 
 /**

@@ -21,6 +21,7 @@ import scala.collection.mutable
 
 import org.scalatest.{BeforeAndAfter, PrivateMethodTester}
 
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.scheduler._
 import org.apache.spark.scheduler.ExternalClusterManager
@@ -1106,17 +1107,22 @@ private class DummyLocalExternalClusterManager extends ExternalClusterManager {
       sc: SparkContext,
       masterURL: String): TaskScheduler = new TaskSchedulerImpl(sc, 1, isLocal = true)
 
-  override def createSchedulerBackend(
+  override def createCustomSchedulerBackend(
       sc: SparkContext,
       masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = {
+      scheduler: TaskScheduler): Option[SchedulerBackend] = {
     val sb = new LocalSchedulerBackend(sc.getConf, scheduler.asInstanceOf[TaskSchedulerImpl], 1)
-    new DummyLocalSchedulerBackend(sc, sb)
+    Some(new DummyLocalSchedulerBackend(sc, sb))
   }
 
   override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     val sc = scheduler.asInstanceOf[TaskSchedulerImpl]
     sc.initialize(backend)
+  }
+
+  override def createExecutorProviderFactory(masterURL: String, deployMode: String)
+      : ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider] = {
+    throw new UnsupportedOperationException()
   }
 }
 

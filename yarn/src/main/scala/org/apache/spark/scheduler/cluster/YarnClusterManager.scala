@@ -18,6 +18,9 @@
 package org.apache.spark.scheduler.cluster
 
 import org.apache.spark.{SparkContext, SparkException}
+import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory
+import org.apache.spark.deploy.yarn.YarnClusterDriverLogUrlsProvider
 import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
 
 /**
@@ -37,20 +40,20 @@ private[spark] class YarnClusterManager extends ExternalClusterManager {
     }
   }
 
-  override def createSchedulerBackend(sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = {
+  override def createDriverLogUrlsProvider(sc: SparkContext)
+      : Option[ClusterManagerDriverLogUrlsProvider] = {
     sc.deployMode match {
-      case "cluster" =>
-        new YarnClusterSchedulerBackend(scheduler.asInstanceOf[TaskSchedulerImpl], sc)
-      case "client" =>
-        new YarnClientSchedulerBackend(scheduler.asInstanceOf[TaskSchedulerImpl], sc)
-      case  _ =>
-        throw new SparkException(s"Unknown deploy mode '${sc.deployMode}' for Yarn")
+      case "cluster" => Some(new YarnClusterDriverLogUrlsProvider(sc))
+      case _ => super.createDriverLogUrlsProvider(sc)
     }
   }
 
   override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     scheduler.asInstanceOf[TaskSchedulerImpl].initialize(backend)
+  }
+
+  override def createExecutorProviderFactory(masterURL: String, deployMode: String)
+      : ClusterManagerExecutorProviderFactory[YarnExecutorProvider] = {
+    new YarnExecutorProviderFactory(deployMode)
   }
 }

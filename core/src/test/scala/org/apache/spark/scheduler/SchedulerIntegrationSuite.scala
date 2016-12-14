@@ -31,6 +31,7 @@ import org.scalatest.Assertions.AssertionsHelper
 
 import org.apache.spark._
 import org.apache.spark.TaskState._
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util.{CallSite, ThreadUtils, Utils}
@@ -476,20 +477,25 @@ private class MockExternalClusterManager extends ExternalClusterManager {
     new TestTaskScheduler(sc)
  }
 
-  def createSchedulerBackend(
+  override def createCustomSchedulerBackend(
       sc: SparkContext,
       masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = {
+      scheduler: TaskScheduler): Option[SchedulerBackend] = {
     masterURL match {
       case MOCK_REGEX(backendClassName) =>
         val backendClass = Utils.classForName(backendClassName)
         val ctor = backendClass.getConstructor(classOf[SparkConf], classOf[TaskSchedulerImpl])
-        ctor.newInstance(sc.getConf, scheduler).asInstanceOf[SchedulerBackend]
+        Some(ctor.newInstance(sc.getConf, scheduler).asInstanceOf[SchedulerBackend])
     }
   }
 
   def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     scheduler.asInstanceOf[TaskSchedulerImpl].initialize(backend)
+  }
+
+  override def createExecutorProviderFactory(masterURL: String, deployMode: String)
+      : ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider] = {
+    throw new UnsupportedOperationException()
   }
 }
 
