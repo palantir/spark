@@ -155,11 +155,11 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
     ReadSupport.ReadContext readContext = readSupport.init(new InitContext(
         taskAttemptContext.getConfiguration(), toSetMultiMap(fileMetadata), fileSchema));
     this.requestedSchema = readContext.getRequestedSchema();
-    reader.setRequestedSchema(requestedSchema);
+    this.reader = ParquetFileReader.open(configuration, file, new ParquetMetadata(footer.getFileMetaData(), blocks));
+    this.reader.setRequestedSchema(requestedSchema);
     String sparkRequestedSchemaString =
         configuration.get(ParquetReadSupport$.MODULE$.SPARK_ROW_REQUESTED_SCHEMA());
     this.sparkSchema = StructType$.MODULE$.fromString(sparkRequestedSchemaString);
-    this.reader = ParquetFileReader.open(configuration, file, new ParquetMetadata(footer.getFileMetaData(), blocks));
     this.totalRowCount = this.reader.getRecordCount();
     // For test purpose.
     // If the predefined accumulator exists, the row group number to read will be updated
