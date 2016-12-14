@@ -120,7 +120,6 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
               footer.getBlocks(),
               reader);
       this.reader.close();
-      this.reader = ParquetFileReader.open(configuration, file, new ParquetMetadata(footer.getFileMetaData(), blocks));
     } else {
       // otherwise we find the row groups that were selected on the client
       footer = readFooter(configuration, file, NO_FILTER);
@@ -149,7 +148,6 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
                 + " out of: " + Arrays.toString(foundRowGroupOffsets)
                 + " in range " + split.getStart() + ", " + split.getEnd());
       }
-      this.reader = new ParquetFileReader(configuration, file, footer);
     }
     this.fileSchema = footer.getFileMetaData().getSchema();
     Map<String, String> fileMetadata = footer.getFileMetaData().getKeyValueMetaData();
@@ -161,6 +159,7 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
     String sparkRequestedSchemaString =
         configuration.get(ParquetReadSupport$.MODULE$.SPARK_ROW_REQUESTED_SCHEMA());
     this.sparkSchema = StructType$.MODULE$.fromString(sparkRequestedSchemaString);
+    this.reader = ParquetFileReader.open(configuration, file, new ParquetMetadata(footer.getFileMetaData(), blocks));
     this.totalRowCount = this.reader.getRecordCount();
     // For test purpose.
     // If the predefined accumulator exists, the row group number to read will be updated
