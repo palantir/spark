@@ -161,10 +161,7 @@ public abstract class SpecificParquetRecordReaderBase<T> extends RecordReader<Vo
     String sparkRequestedSchemaString =
         configuration.get(ParquetReadSupport$.MODULE$.SPARK_ROW_REQUESTED_SCHEMA());
     this.sparkSchema = StructType$.MODULE$.fromString(sparkRequestedSchemaString);
-    for (BlockMetaData block : blocks) {
-      this.totalRowCount += block.getRowCount();
-    }
-
+    this.totalRowCount = this.reader.getRecordCount();
     // For test purpose.
     // If the predefined accumulator exists, the row group number to read will be updated
     // to the accumulator. So we can check if the row groups are filtered or not in test case.
