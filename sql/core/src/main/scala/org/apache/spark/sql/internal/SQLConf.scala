@@ -213,7 +213,7 @@ object SQLConf {
   val PARQUET_TIMESTAMP_AS_INT96 = SQLConfigBuilder("spark.sql.parquet.timestampAsInt96")
     .doc("Write timestamps as int96 to maintain legacy compatibility")
     .booleanConf
-    .createWithDefault(true)
+    .createWithDefault(false)
 
   val PARQUET_CACHE_METADATA = SQLConfigBuilder("spark.sql.parquet.cacheMetadata")
     .doc("Turns on caching of Parquet schema metadata. Can speed up querying of static data.")
