@@ -769,7 +769,6 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSQLContext {
           System.currentTimeMillis() + step * 20L, step).map(new Timestamp(_))
         makeParquetFile(timestamps.map(i => Tuple1(Option(i))), dir)
 
-
         val stat = FileSystem.get(new Configuration()).getFileStatus(new Path(dir.getCanonicalPath))
         val footer = ParquetFileReader.readFooters(new Configuration(), stat, true).get(0)
         val tsType = Types.primitive(PrimitiveTypeName.INT96, Type.Repetition.OPTIONAL).named("_1")
