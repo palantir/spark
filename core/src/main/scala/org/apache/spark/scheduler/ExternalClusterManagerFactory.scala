@@ -16,20 +16,10 @@
  */
 package org.apache.spark.scheduler
 
-import scala.concurrent.Future
-import scala.reflect.ClassTag
+import org.apache.spark.SparkContext
 
-import org.apache.spark.rpc.RpcAddress
-
-/**
- * Defines an API for sending messages to the SchedulerBackend, mainly for managing the behavior
- * of executors from the context of a cluster-manager specific context.
- */
-trait SchedulerBackendExecutorLifecycleManager {
-  def askRemoveExecutor[T: ClassTag](executorId: String, lossReason: ExecutorLossReason): Future[T]
-  def disableExecutor(executorId: String): Boolean
-  def setExecutorDisconnectedListener(listener: ((String, RpcAddress) => Any))
-  def getCurrentExecutorId: Int
-  def clusterManagerError(message: String): Unit
-  def reset(): Unit
+trait ExternalClusterManagerFactory {
+  def canCreate(masterURL: String): Boolean
+  def newExternalClusterManager(sc: SparkContext, masterURL: String): ExternalClusterManager
+  def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit
 }

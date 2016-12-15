@@ -19,20 +19,20 @@ package org.apache.spark.scheduler.cluster.mesos
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.SchedulerBackendExecutorLifecycleManager
+import org.apache.spark.scheduler.SchedulerBackendHooks
 
 private[mesos] class MesosExecutorProviderFactory(
     masterUrl: String) extends ClusterManagerExecutorProviderFactory[MesosExecutorProvider] {
 
   override def newClusterManagerExecutorProvider(
       conf: SparkConf,
-      driverEndpoint: SchedulerBackendExecutorLifecycleManager,
+      schedulerBackendHooks: SchedulerBackendHooks,
       rpcEnv: RpcEnv,
       sc: SparkContext): MesosExecutorProvider = {
     val mesosUrl = MesosClusterManager.MESOS_REGEX.findFirstMatchIn(masterUrl).get.group(1)
     new MesosExecutorProvider(
       conf,
-      driverEndpoint,
+      schedulerBackendHooks,
       rpcEnv,
       sc,
       sc.env.securityManager,

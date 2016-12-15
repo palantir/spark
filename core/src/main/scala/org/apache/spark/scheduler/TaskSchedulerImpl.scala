@@ -133,7 +133,7 @@ private[spark] class TaskSchedulerImpl(
     this.dagScheduler = dagScheduler
   }
 
-  def initialize(backend: SchedulerBackend) {
+  override def initializeBackend(backend: SchedulerBackend) {
     this.backend = backend
     // temporarily set rootPool name to empty
     rootPool = new Pool("", schedulingMode, 0, 0)

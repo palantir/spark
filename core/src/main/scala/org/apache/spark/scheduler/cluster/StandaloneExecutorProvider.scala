@@ -39,7 +39,7 @@ private[spark] class StandaloneExecutorProvider(
     scheduler: TaskSchedulerImpl,
     sc: SparkContext,
     conf: SparkConf,
-    executorLifecycleManager: SchedulerBackendExecutorLifecycleManager,
+    schedulerBackendHooks: SchedulerBackendHooks,
     masters: Array[String])
   extends ClusterManagerExecutorProvider
   with StandaloneAppClientListener
@@ -165,7 +165,7 @@ private[spark] class StandaloneExecutorProvider(
       case None => SlaveLost(message, workerLost = workerLost)
     }
     logInfo("Executor %s removed: %s".format(fullId, message))
-    executorLifecycleManager.askRemoveExecutor(fullId.split("/")(1), reason).onFailure { case t =>
+    schedulerBackendHooks.askRemoveExecutor(fullId.split("/")(1), reason).onFailure { case t =>
       logError(t.getMessage, t)
     }(ThreadUtils.sameThread)
   }

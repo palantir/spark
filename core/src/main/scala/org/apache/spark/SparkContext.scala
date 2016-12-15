@@ -44,6 +44,7 @@ import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFor
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorLifecycleHandler
 import org.apache.spark.deploy.{LocalSparkCluster, SparkHadoopUtil}
 import org.apache.spark.input.{FixedLengthBinaryInputFormat, PortableDataStream, StreamInputFormat, WholeTextFileInputFormat}
 import org.apache.spark.internal.Logging
@@ -2499,7 +2500,7 @@ object SparkContext extends Logging {
       case "local" =>
         val scheduler = new TaskSchedulerImpl(sc, MAX_LOCAL_TASK_FAILURES, isLocal = true)
         val backend = new LocalSchedulerBackend(sc.getConf, scheduler, 1)
-        scheduler.initialize(backend)
+        scheduler.initializeBackend(backend)
         (backend, scheduler, DEFAULT_LOG_URLS_PROVIDER)
 
       case LOCAL_N_REGEX(threads) =>
@@ -2511,7 +2512,7 @@ object SparkContext extends Logging {
         }
         val scheduler = new TaskSchedulerImpl(sc, MAX_LOCAL_TASK_FAILURES, isLocal = true)
         val backend = new LocalSchedulerBackend(sc.getConf, scheduler, threadCount)
-        scheduler.initialize(backend)
+        scheduler.initializeBackend(backend)
         (backend, scheduler, DEFAULT_LOG_URLS_PROVIDER)
 
       case LOCAL_N_FAILURES_REGEX(threads, maxFailures) =>
@@ -2521,7 +2522,7 @@ object SparkContext extends Logging {
         val threadCount = if (threads == "*") localCpuCount else threads.toInt
         val scheduler = new TaskSchedulerImpl(sc, maxFailures.toInt, isLocal = true)
         val backend = new LocalSchedulerBackend(sc.getConf, scheduler, threadCount)
-        scheduler.initialize(backend)
+        scheduler.initializeBackend(backend)
         (backend, scheduler, DEFAULT_LOG_URLS_PROVIDER)
 
       case SPARK_REGEX(sparkUrl) =>
@@ -2530,8 +2531,9 @@ object SparkContext extends Logging {
         val executorProviderFactory = new StandaloneExecutorProviderFactory(
           scheduler, sc, masterUrls)
         val backend = new CoarseGrainedSchedulerBackend(
-          scheduler, executorProviderFactory, sc.env.rpcEnv, sc)
-        scheduler.initialize(backend)
+          scheduler, executorProviderFactory, ClusterManagerExecutorLifecycleHandler.DEFAULT,
+          sc.env.rpcEnv, sc)
+        scheduler.initializeBackend(backend)
         (backend, scheduler, DEFAULT_LOG_URLS_PROVIDER)
 
       case LOCAL_CLUSTER_REGEX(numSlaves, coresPerSlave, memoryPerSlave) =>
@@ -2550,24 +2552,35 @@ object SparkContext extends Logging {
         val executorProviderFactory = new LocalClusterExecutorProviderFactory(
           scheduler, sc, localCluster, masterUrls)
         val backend = new CoarseGrainedSchedulerBackend(
-          scheduler, executorProviderFactory, sc.env.rpcEnv, sc)
-        scheduler.initialize(backend)
+          scheduler, executorProviderFactory, ClusterManagerExecutorLifecycleHandler.DEFAULT,
+          sc.env.rpcEnv, sc)
+        scheduler.initializeBackend(backend)
         (backend, scheduler, DEFAULT_LOG_URLS_PROVIDER)
 
       case masterUrl =>
-        val cm = getClusterManager(masterUrl) match {
+        val factory = getClusterManagerFactory(masterUrl) match {
           case Some(clusterMgr) => clusterMgr
           case None => throw new SparkException("Could not parse Master URL: '" + master + "'")
         }
         try {
-          val scheduler = cm.createTaskScheduler(sc, masterUrl)
-          val backend = cm.createCustomSchedulerBackend(sc, masterUrl, scheduler).getOrElse {
-            val executorProviderFactory = cm.createExecutorProviderFactory(masterUrl, sc.deployMode)
-            new CoarseGrainedSchedulerBackend(scheduler.asInstanceOf[TaskSchedulerImpl],
-              executorProviderFactory, sc.env.rpcEnv, sc)
-          }
-          cm.initialize(scheduler, backend)
-          val driverLogUrlsProvider = cm.createDriverLogUrlsProvider(sc)
+          val cm = factory.newExternalClusterManager(sc, masterUrl)
+          val scheduler = cm.taskScheduler
+          val backend = cm.maybeCustomSchedulerBackend.getOrElse({
+            val executorProviderFactory = cm.maybeExecutorProviderFactory.getOrElse(
+              throw new SparkException("Custom cluster manager must either provide a custom" +
+                " scheduler backend, or an empty scheduler backend with an executor provider; but" +
+                " both cannot be set at once."))
+            val executorLifecycleHandler = cm.maybeCustomExecutorLifecycleHandler.getOrElse(
+              ClusterManagerExecutorLifecycleHandler.DEFAULT)
+            new CoarseGrainedSchedulerBackend(
+              cm.taskScheduler.asInstanceOf[TaskSchedulerImpl],
+              executorProviderFactory,
+              executorLifecycleHandler,
+              sc.env.rpcEnv,
+              sc)
+          })
+          factory.initializeScheduler(scheduler, backend)
+          val driverLogUrlsProvider = cm.maybeDriverLogUrlsProvider
             .getOrElse(DEFAULT_LOG_URLS_PROVIDER)
           (backend, scheduler, driverLogUrlsProvider)
         } catch {
@@ -2578,10 +2591,12 @@ object SparkContext extends Logging {
     }
   }
 
-  private def getClusterManager(url: String): Option[ExternalClusterManager] = {
+  private def getClusterManagerFactory(url: String): Option[ExternalClusterManagerFactory] = {
     val loader = Utils.getContextOrSparkClassLoader
     val serviceLoaders =
-      ServiceLoader.load(classOf[ExternalClusterManager], loader).asScala.filter(_.canCreate(url))
+      ServiceLoader.load(classOf[ExternalClusterManagerFactory], loader)
+        .asScala
+        .filter(_.canCreate(url))
     if (serviceLoaders.size > 1) {
       throw new SparkException(s"Multiple Cluster Managers ($serviceLoaders) registered " +
           s"for the url $url:")

@@ -26,7 +26,8 @@ import scala.concurrent.Future
 import scala.reflect.ClassTag
 
 import org.apache.spark.{ExecutorAllocationClient, SparkContext, SparkEnv, SparkException, TaskState}
-import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorLifecycleHandler, ClusterManagerExecutorProvider}
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory.GenericExecutorProviderFactory
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc._
 import org.apache.spark.scheduler._
@@ -44,8 +45,8 @@ import org.apache.spark.util.{RpcUtils, SerializableBuffer, ThreadUtils, Utils}
  */
 private[spark] class CoarseGrainedSchedulerBackend(
     scheduler: TaskSchedulerImpl,
-    executorProviderFactory:
-      ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider],
+    executorProviderFactory: GenericExecutorProviderFactory,
+    customExecutorLifecycleHandler: ClusterManagerExecutorLifecycleHandler,
     val rpcEnv: RpcEnv,
     sc: SparkContext)
   extends ExecutorAllocationClient with SchedulerBackend with Logging
@@ -94,7 +95,7 @@ private[spark] class CoarseGrainedSchedulerBackend(
   protected var localityAwareTasks = 0
 
   // The num of current max ExecutorId used to re-register appMaster
-  @volatile protected var currentExecutorIdCounter = 0
+  @volatile protected var currentExecutorIdCounter = new AtomicInteger(0)
 
   class DriverEndpoint(override val rpcEnv: RpcEnv, sparkProperties: Seq[(String, String)])
     extends ThreadSafeRpcEndpoint with Logging {
@@ -175,8 +176,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
           // in this block are read when requesting executors
           CoarseGrainedSchedulerBackend.this.synchronized {
             executorDataMap.put(executorId, data)
-            if (currentExecutorIdCounter < executorId.toInt) {
-              currentExecutorIdCounter = executorId.toInt
+            if (currentExecutorIdCounter.get < executorId.toInt) {
+              currentExecutorIdCounter.set(executorId.toInt)
             }
             if (numPendingExecutors > 0) {
               numPendingExecutors -= 1
@@ -214,6 +215,9 @@ private[spark] class CoarseGrainedSchedulerBackend(
         val reply = SparkAppConfig(sparkProperties,
           SparkEnv.get.securityManager.getIOEncryptionKey())
         context.reply(reply)
+
+      case RetrieveLastAllocatedExecutorId =>
+        context.reply(currentExecutorIdCounter.get)
     }
 
     // Make fake resource offers on all executors
@@ -303,7 +307,6 @@ private[spark] class CoarseGrainedSchedulerBackend(
     /**
      * Stop making resource offers for the given executor. The executor is marked as lost with
      * the loss reason still pending.
-     *
      * @return Whether executor should be disabled
      */
     def disableExecutor(executorId: String): Boolean = {
@@ -332,8 +335,12 @@ private[spark] class CoarseGrainedSchedulerBackend(
 
     override def onDisconnected(remoteAddress: RpcAddress): Unit = {
       addressToExecutorId.get(remoteAddress).foreach(executorId => {
-        executorLifecycleCallbacks.executorDisconnectedListener match {
-          case Some(listener) => listener(executorId, remoteAddress)
+        customExecutorLifecycleHandler.executorLossReasonRetriever(ThreadUtils.sameThread) match {
+          case Some(retriever) =>
+            if (disableExecutor(executorId)) {
+              val futureReason = retriever(executorId, remoteAddress)
+              futureReason.map(CoarseGrainedSchedulerBackend.this.removeExecutor(executorId, _))
+            }
           case None =>
             removeExecutor(executorId, SlaveLost("Remote RPC client disassociated. Likely due to " +
               "containers exceeding thresholds, or network issues. Check driver logs for WARN " +
@@ -349,31 +356,14 @@ private[spark] class CoarseGrainedSchedulerBackend(
   // Visible for testing
   private[spark] var driverEndpointImpl: DriverEndpoint = null
   private[spark] var driverEndpoint: RpcEndpointRef = null
-  private[spark] var executorLifecycleCallbacks: SchedulerBackendExecutorLifecycleManagerImpl = null
+  private[spark] var schedulerBackendLegacyHooks: SchedulerBackendHooksImpl = null
 
-  private[CoarseGrainedSchedulerBackend] class SchedulerBackendExecutorLifecycleManagerImpl
-      extends SchedulerBackendExecutorLifecycleManager {
-
-    private[CoarseGrainedSchedulerBackend] var executorDisconnectedListener
-        : Option[((String, RpcAddress) => Any)] = None
+  private[CoarseGrainedSchedulerBackend] class SchedulerBackendHooksImpl
+      extends SchedulerBackendHooks {
 
     override def askRemoveExecutor[T: ClassTag](executorId: String,
         lossReason: ExecutorLossReason): Future[T] = {
       driverEndpoint.ask[T](RemoveExecutor(executorId, lossReason))
-    }
-    override def disableExecutor(executorId: String): Boolean = {
-      driverEndpointImpl.disableExecutor(executorId)
-    }
-    override def getCurrentExecutorId: Int = currentExecutorIdCounter
-
-    override def setExecutorDisconnectedListener(listener: ((String, RpcAddress) => Any)): Unit = {
-      SchedulerBackendExecutorLifecycleManagerImpl.this.synchronized {
-        if (executorDisconnectedListener.isDefined) {
-          throw new IllegalStateException("Should not be overriding the executor disconnected" +
-            " listener more than once.")
-        }
-        executorDisconnectedListener = Some(listener)
-      }
     }
 
     override def reset(): Unit = {
@@ -383,7 +373,7 @@ private[spark] class CoarseGrainedSchedulerBackend(
     override def clusterManagerError(message: String): Unit = scheduler.error(message)
   }
 
-  override def start() {
+  private def initializeDriverEndpoint(): Unit = {
     val properties = new ArrayBuffer[(String, String)]
     for ((key, value) <- scheduler.sc.conf.getAll) {
       if (key.startsWith("spark.")) {
@@ -394,9 +384,13 @@ private[spark] class CoarseGrainedSchedulerBackend(
     // TODO (prashant) send conf instead of properties
     driverEndpointImpl = createDriverEndpoint(properties)
     driverEndpoint = createDriverEndpointRef(driverEndpointImpl)
-    executorLifecycleCallbacks = new SchedulerBackendExecutorLifecycleManagerImpl
+    schedulerBackendLegacyHooks = new SchedulerBackendHooksImpl
     executorProvider = executorProviderFactory
-        .newClusterManagerExecutorProvider(conf, executorLifecycleCallbacks, rpcEnv, sc)
+      .newClusterManagerExecutorProvider(conf, schedulerBackendLegacyHooks, rpcEnv, sc)
+  }
+  initializeDriverEndpoint()
+
+  override def start(): Unit = {
     executorProvider.start()
   }
 
@@ -410,10 +404,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
 
   def stopExecutors() {
     try {
-      if (executorLifecycleCallbacks != null) {
-        logInfo("Shutting down all executors")
-        driverEndpoint.askWithRetry[Boolean](StopExecutors)
-      }
+      logInfo("Shutting down all executors")
+      driverEndpoint.askWithRetry[Boolean](StopExecutors)
     } catch {
       case e: Exception =>
         throw new SparkException("Error asking standalone scheduler to shut down executors", e)
@@ -502,8 +494,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
 
   /**
    * Request an additional number of executors from the cluster manager.
-    *
-    * @return whether the request is acknowledged.
+   *
+   * @return whether the request is acknowledged.
    */
   final override def requestExecutors(numAdditionalExecutors: Int): Boolean = {
     if (numAdditionalExecutors < 0) {
@@ -528,8 +520,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
   /**
    * Update the cluster manager on our scheduling needs. Three bits of information are included
    * to help it make decisions.
-    *
-    * @param numExecutors The total number of executors we'd like to have. The cluster manager
+   *
+   * @param numExecutors The total number of executors we'd like to have. The cluster manager
    *                     shouldn't kill any running executor to reach this number, but,
    *                     if all existing executors were to die, this is the number of executors
    *                     we'd want to be allocated.
@@ -566,8 +558,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
 
   /**
    * Request that the cluster manager kill the specified executors.
-    *
-    * @return whether the kill request is acknowledged. If list to kill is empty, it will return
+   *
+   * @return whether the kill request is acknowledged. If list to kill is empty, it will return
    *         false.
    */
   final override def killExecutors(executorIds: Seq[String]): Seq[String] = {

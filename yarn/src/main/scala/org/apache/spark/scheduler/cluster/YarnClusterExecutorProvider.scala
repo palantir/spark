@@ -20,14 +20,15 @@ package org.apache.spark.scheduler.cluster
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.deploy.yarn.{ApplicationMaster, YarnSparkHadoopUtil}
 import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.SchedulerBackendExecutorLifecycleManager
+import org.apache.spark.scheduler.SchedulerBackendHooks
 
 private[spark] class YarnClusterExecutorProvider(
     conf: SparkConf,
-    executorLifecycleManager: SchedulerBackendExecutorLifecycleManager,
+    schedulerBackendHooks: SchedulerBackendHooks,
+    amRegistrationEndpoint: AMRegistrationEndpoint,
     rpcEnv: RpcEnv,
     sc: SparkContext)
-  extends YarnExecutorProvider(conf, executorLifecycleManager, rpcEnv, sc) {
+  extends YarnExecutorProvider(conf, schedulerBackendHooks, amRegistrationEndpoint, rpcEnv, sc) {
 
   override def start() {
     val attemptId = ApplicationMaster.getAttemptId

@@ -31,8 +31,6 @@ trait ClusterManagerExecutorProvider {
 
   def stop(): Unit = {}
 
-  def reset(): Unit = {}
-
   /**
    * Request executors from the cluster manager by specifying the total number desired,
    * including existing pending and running executors.

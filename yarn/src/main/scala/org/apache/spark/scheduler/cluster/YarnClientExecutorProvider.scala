@@ -26,14 +26,16 @@ import org.apache.spark.deploy.yarn.{Client, ClientArguments, YarnSparkHadoopUti
 import org.apache.spark.internal.Logging
 import org.apache.spark.launcher.SparkAppHandle
 import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.SchedulerBackendExecutorLifecycleManager
+import org.apache.spark.scheduler.SchedulerBackendHooks
 
 private[spark] class YarnClientExecutorProvider(
     conf: SparkConf,
-    executorLifecycleManager: SchedulerBackendExecutorLifecycleManager,
+    schedulerBackendHooks: SchedulerBackendHooks,
+    amRegistrationEndpoint: AMRegistrationEndpoint,
     rpcEnv: RpcEnv,
     sc: SparkContext)
-  extends YarnExecutorProvider(conf, executorLifecycleManager, rpcEnv, sc)
+  extends YarnExecutorProvider(conf, schedulerBackendHooks, amRegistrationEndpoint, rpcEnv,
+    sc)
   with Logging {
 
   private var client: Client = null

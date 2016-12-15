@@ -19,7 +19,7 @@ package org.apache.spark.scheduler.cluster
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.{SchedulerBackendExecutorLifecycleManager, TaskSchedulerImpl}
+import org.apache.spark.scheduler.{SchedulerBackendHooks, TaskSchedulerImpl}
 
 class StandaloneExecutorProviderFactory(
     taskScheduler: TaskSchedulerImpl,
@@ -29,9 +29,9 @@ class StandaloneExecutorProviderFactory(
 
   override def newClusterManagerExecutorProvider(
       conf: SparkConf,
-      driverEndpoint: SchedulerBackendExecutorLifecycleManager,
+      schedulerBackendHooks: SchedulerBackendHooks,
       rpcEnv: RpcEnv,
       sc: SparkContext): StandaloneExecutorProvider = {
-    new StandaloneExecutorProvider(taskScheduler, sc, conf, driverEndpoint, masterUrls)
+    new StandaloneExecutorProvider(taskScheduler, sc, conf, schedulerBackendHooks, masterUrls)
   }
 }

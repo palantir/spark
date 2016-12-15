@@ -19,19 +19,24 @@ package org.apache.spark.scheduler.cluster
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory
 import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.SchedulerBackendExecutorLifecycleManager
+import org.apache.spark.scheduler.SchedulerBackendHooks
 
-private[spark] class YarnExecutorProviderFactory(deployMode: String)
-    extends ClusterManagerExecutorProviderFactory[YarnExecutorProvider] {
+private[spark] class YarnExecutorProviderFactory(
+    amRegistrationEndpoint: AMRegistrationEndpoint, deployMode: String)
+  extends ClusterManagerExecutorProviderFactory[YarnExecutorProvider] {
 
   override def newClusterManagerExecutorProvider(
       conf: SparkConf,
-      driverEndpoint: SchedulerBackendExecutorLifecycleManager,
+      schedulerBackendHooks: SchedulerBackendHooks,
       rpcEnv: RpcEnv,
       sc: SparkContext): YarnExecutorProvider = {
     deployMode.toLowerCase match {
-      case "client" => new YarnClientExecutorProvider(conf, driverEndpoint, rpcEnv, sc)
-      case "cluster" => new YarnClusterExecutorProvider(conf, driverEndpoint, rpcEnv, sc)
+      case "client" =>
+        new YarnClientExecutorProvider(conf, schedulerBackendHooks, amRegistrationEndpoint,
+          rpcEnv, sc)
+      case "cluster" =>
+        new YarnClusterExecutorProvider(conf, schedulerBackendHooks, amRegistrationEndpoint,
+          rpcEnv, sc)
       case invalid => throw new IllegalArgumentException("Cannot create an executor provider" +
         s" for deploy mode $deployMode")
     }

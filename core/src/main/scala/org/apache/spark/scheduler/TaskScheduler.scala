@@ -38,6 +38,8 @@ private[spark] trait TaskScheduler {
 
   def schedulingMode: SchedulingMode
 
+  def initializeBackend(backend: SchedulerBackend): Unit = {}
+
   def start(): Unit
 
   // Invoked after system has successfully initialized (typically in spark context).

@@ -41,7 +41,7 @@ import org.apache.spark.deploy.yarn.security.{AMCredentialRenewer, ConfigurableC
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
 import org.apache.spark.rpc._
-import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend, YarnExecutorProvider}
+import org.apache.spark.scheduler.cluster.{AMRegistrationEndpoint, CoarseGrainedSchedulerBackend, YarnExecutorProvider}
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.util._
 
@@ -327,12 +327,8 @@ private[spark] class ApplicationMaster(
     sparkContextPromise.success(sc)
   }
 
-  private def registerAM(
-      _sparkConf: SparkConf,
-      _rpcEnv: RpcEnv,
-      driverRef: RpcEndpointRef,
-      uiAddress: String,
-      securityMgr: SecurityManager) = {
+  private def registerAM(_sparkConf: SparkConf, _rpcEnv: RpcEnv, driverRef: RpcEndpointRef,
+      uiAddress: String, securityMgr: SecurityManager) = {
     val appId = client.getAttemptId().getApplicationId().toString()
     val attemptId = client.getAttemptId().getAttemptId().toString()
     val historyAddress =
@@ -357,14 +353,8 @@ private[spark] class ApplicationMaster(
       dummyRunner.launchContextDebugInfo()
     }
 
-    allocator = client.register(driverUrl,
-      driverRef,
-      yarnConf,
-      _sparkConf,
-      uiAddress,
-      historyAddress,
-      securityMgr,
-      localResources)
+    allocator = client.register(driverUrl, driverRef, yarnConf, _sparkConf, uiAddress,
+      historyAddress, securityMgr, localResources)
 
     allocator.allocateResources()
     reporterThread = launchReporterThread()
@@ -375,19 +365,24 @@ private[spark] class ApplicationMaster(
    *
    * In cluster mode, the AM and the driver belong to same process
    * so the AMEndpoint need not monitor lifecycle of the driver.
-   *
    * @return A reference to the driver's RPC endpoint.
    */
   private def runAMEndpoint(
       host: String,
       port: String,
       isClusterMode: Boolean): RpcEndpointRef = {
-    val driverEndpoint = rpcEnv.setupEndpointRef(
+    val driverRef = rpcEnv.setupEndpointRef(
+      RpcAddress(host, port.toInt),
+      CoarseGrainedSchedulerBackend.ENDPOINT_NAME)
+    val driverYarnSchedulerRef = rpcEnv.setupEndpointRef(
       RpcAddress(host, port.toInt),
       YarnExecutorProvider.ENDPOINT_NAME)
-    amEndpoint =
-      rpcEnv.setupEndpoint("YarnAM", new AMEndpoint(rpcEnv, driverEndpoint, isClusterMode))
-    driverEndpoint
+    val driverRegistrationRef = rpcEnv.setupEndpointRef(
+      RpcAddress(host, port.toInt),
+      AMRegistrationEndpoint.ENDPOINT_NAME)
+    amEndpoint = rpcEnv.setupEndpoint("YarnAM", new AMEndpoint(rpcEnv, driverYarnSchedulerRef,
+      driverRegistrationRef, isClusterMode))
+    driverRef
   }
 
   private def runDriver(securityMgr: SecurityManager): Unit = {
@@ -408,7 +403,7 @@ private[spark] class ApplicationMaster(
           sc.getConf.get("spark.driver.port"),
           isClusterMode = true)
         registerAM(sc.getConf, rpcEnv, driverRef, sc.ui.map(_.webUrl).getOrElse(""),
-          securityMgr)
+            securityMgr)
       } else {
         // Sanity check; should never happen in normal operation, since sc should only be null
         // if the user app did not create a SparkContext.
@@ -434,8 +429,8 @@ private[spark] class ApplicationMaster(
       clientMode = true)
     val driverRef = waitForSparkDriver()
     addAmIpFilter()
-    registerAM(sparkConf, rpcEnv, driverRef, sparkConf.get("spark.driver.appUIAddress", ""),
-      securityMgr)
+    registerAM(sparkConf, rpcEnv, driverRef,
+      sparkConf.get("spark.driver.appUIAddress", ""), securityMgr)
 
     // In client mode the actor will stop the reporter thread.
     reporterThread.join()
@@ -678,17 +673,20 @@ private[spark] class ApplicationMaster(
    * An [[RpcEndpoint]] that communicates with the driver's scheduler backend.
    */
   private class AMEndpoint(
-      override val rpcEnv: RpcEnv, driver: RpcEndpointRef, isClusterMode: Boolean)
+      override val rpcEnv: RpcEnv,
+      driverYarnScheduler: RpcEndpointRef,
+      driverRegistration: RpcEndpointRef,
+      isClusterMode: Boolean)
     extends RpcEndpoint with Logging {
 
     override def onStart(): Unit = {
-      driver.send(RegisterClusterManager(self))
+      driverRegistration.send(RegisterClusterManager(self))
     }
 
     override def receive: PartialFunction[Any, Unit] = {
       case x: AddWebUIFilter =>
         logInfo(s"Add WebUI Filter. $x")
-        driver.send(x)
+        driverYarnScheduler.send(x)
     }
 
     override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
@@ -775,7 +773,6 @@ object ApplicationMaster extends Logging {
   private[spark] def getAttemptId(): ApplicationAttemptId = {
     master.getAttemptId
   }
-
 }
 
 /**

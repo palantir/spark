@@ -33,7 +33,7 @@ import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorP
 import org.apache.spark.network.netty.SparkTransportConf
 import org.apache.spark.network.shuffle.mesos.MesosExternalShuffleClient
 import org.apache.spark.rpc.{RpcEndpointAddress, RpcEnv}
-import org.apache.spark.scheduler.{SchedulerBackendExecutorLifecycleManager, SlaveLost}
+import org.apache.spark.scheduler.{SchedulerBackendHooks, SlaveLost}
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.util.Utils
 
@@ -49,7 +49,7 @@ import org.apache.spark.util.Utils
  */
 private[spark] class MesosExecutorProvider(
     protected val conf: SparkConf,
-    executorLifecycleManager: SchedulerBackendExecutorLifecycleManager,
+    schedulerBackendHooks: SchedulerBackendHooks,
     rpcEnv: RpcEnv,
     sc: SparkContext,
     securityManager: SecurityManager,
@@ -555,7 +555,7 @@ private[spark] class MesosExecutorProvider(
 
   override def error(d: org.apache.mesos.SchedulerDriver, message: String) {
     logError(s"Mesos error: $message")
-    executorLifecycleManager.clusterManagerError(message)
+    schedulerBackendHooks.clusterManagerError(message)
   }
 
   override def stop() {
@@ -610,7 +610,7 @@ private[spark] class MesosExecutorProvider(
       // removeExecutor() internally will send a message to the driver endpoint but
       // the driver endpoint is not available now, otherwise an exception will be thrown.
       if (!stopCalled) {
-        executorLifecycleManager.askRemoveExecutor(taskId, SlaveLost(reason))
+        schedulerBackendHooks.askRemoveExecutor(taskId, SlaveLost(reason))
       }
       slaves(slaveId).taskIDs.remove(taskId)
     }

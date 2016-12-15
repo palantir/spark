@@ -18,25 +18,32 @@
 package org.apache.spark.scheduler.cluster.mesos
 
 import org.apache.spark.SparkContext
-import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory
 import org.apache.spark.internal.config._
-import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
+import org.apache.spark.scheduler.{ExternalClusterManager, ExternalClusterManagerFactory, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
 
-/**
- * Cluster Manager for creation of Yarn scheduler and backend
- */
-private[spark] class MesosClusterManager extends ExternalClusterManager {
+private[spark] class MesosClusterManagerFactory extends ExternalClusterManagerFactory {
   import MesosClusterManager._
 
   override def canCreate(masterURL: String): Boolean = {
     masterURL.startsWith("mesos")
   }
 
-  override def createTaskScheduler(sc: SparkContext, masterURL: String): TaskScheduler = {
-    new TaskSchedulerImpl(sc)
+  override def newExternalClusterManager(
+      sc: SparkContext, masterURL: String): ExternalClusterManager = {
+    val scheduler = new TaskSchedulerImpl(sc)
+    val maybeSchedulerBackend = createCustomSchedulerBackend(sc, masterURL, scheduler)
+    val maybeExecutorProviderFactory = maybeSchedulerBackend match {
+      case Some(_) => Option.empty[MesosExecutorProviderFactory]
+      case None => Some(new MesosExecutorProviderFactory(masterURL))
+    }
+    ExternalClusterManager(
+      taskScheduler = scheduler,
+      maybeCustomSchedulerBackend = maybeSchedulerBackend,
+      maybeExecutorProviderFactory = maybeExecutorProviderFactory,
+      maybeDriverLogUrlsProvider = None)
   }
 
-  override def createCustomSchedulerBackend(sc: SparkContext,
+  private def createCustomSchedulerBackend(sc: SparkContext,
       masterURL: String,
       scheduler: TaskScheduler): Option[SchedulerBackend] = {
     require(!sc.conf.get(IO_ENCRYPTION_ENABLED),
@@ -54,13 +61,8 @@ private[spark] class MesosClusterManager extends ExternalClusterManager {
     }
   }
 
-  override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
-    scheduler.asInstanceOf[TaskSchedulerImpl].initialize(backend)
-  }
-
-  override def createExecutorProviderFactory(masterUrl: String, deployMode: String)
-      : ClusterManagerExecutorProviderFactory[MesosExecutorProvider] = {
-    new MesosExecutorProviderFactory(masterUrl)
+  override def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
+    scheduler.initializeBackend(backend)
   }
 }
 

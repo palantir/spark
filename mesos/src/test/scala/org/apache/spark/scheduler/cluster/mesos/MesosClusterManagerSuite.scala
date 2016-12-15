@@ -22,24 +22,20 @@ import org.apache.spark.internal.config._
 
 class MesosClusterManagerSuite extends SparkFunSuite with LocalSparkContext {
   def testURL(masterURL: String, expectedSchedulerClass: Option[Class[_]] = None,
-              expectedExecutorProviderFactoryClass: Option[Class[_]] = None,
-              coarse: Boolean) {
+        expectedExecutorProviderFactoryClass: Option[Class[_]] = None, coarse: Boolean) {
     require(expectedSchedulerClass.isDefined || expectedExecutorProviderFactoryClass.isDefined)
     val conf = new SparkConf().set("spark.mesos.coarse", coarse.toString)
     sc = new SparkContext("local", "test", conf)
-    val clusterManager = new MesosClusterManager()
-
-    assert(clusterManager.canCreate(masterURL))
-    val taskScheduler = clusterManager.createTaskScheduler(sc, masterURL)
-    val sched = clusterManager.createCustomSchedulerBackend(sc, masterURL, taskScheduler)
+    val clusterManagerFactory = new MesosClusterManagerFactory()
+    assert(clusterManagerFactory.canCreate(masterURL))
+    val clusterManager = clusterManagerFactory.newExternalClusterManager(sc, masterURL)
+    val sched = clusterManager.maybeCustomSchedulerBackend
     sched match {
       case Some(impl) => assert(impl.getClass === expectedSchedulerClass.get)
       case None =>
         require(expectedExecutorProviderFactoryClass.isDefined)
-        val clusterMode = clusterManager.createExecutorProviderFactory(masterURL, "cluster")
-        assert(clusterMode.getClass === expectedExecutorProviderFactoryClass.get)
-        val clientMode = clusterManager.createExecutorProviderFactory(masterURL, "client")
-        assert(clientMode.getClass === expectedExecutorProviderFactoryClass.get)
+        val executorProviderFactory = clusterManager.maybeExecutorProviderFactory.get
+        assert(executorProviderFactory.getClass === expectedExecutorProviderFactoryClass.get)
     }
   }
 

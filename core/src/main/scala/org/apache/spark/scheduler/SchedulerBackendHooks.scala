@@ -14,25 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.clustermanager.plugins.scheduler
+package org.apache.spark.scheduler
 
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.SchedulerBackendHooks
+import scala.concurrent.Future
+import scala.reflect.ClassTag
 
 /**
- * Responsible for creating a {@link ClusterManagerExecutorProvider} that is specific to the
- * cluster manager being used.
+ * Defines an API for sending messages to the SchedulerBackend, mainly for managing the behavior
+ * of executors from the context of a cluster-manager specific context.
  */
-trait ClusterManagerExecutorProviderFactory[T <: ClusterManagerExecutorProvider] {
-  def newClusterManagerExecutorProvider(
-    conf: SparkConf,
-    schedulerBackendHooks: SchedulerBackendHooks,
-    rpcEnv: RpcEnv,
-    sc: SparkContext): T
-}
-
-object ClusterManagerExecutorProviderFactory {
-  type GenericExecutorProviderFactory =
-    ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider]
+trait SchedulerBackendHooks {
+  def askRemoveExecutor[T: ClassTag](executorId: String, lossReason: ExecutorLossReason): Future[T]
+  def clusterManagerError(message: String): Unit
+  def reset(): Unit
 }

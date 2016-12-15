@@ -20,7 +20,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory
 import org.apache.spark.deploy.LocalSparkCluster
 import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.{SchedulerBackendExecutorLifecycleManager, TaskSchedulerImpl}
+import org.apache.spark.scheduler.{SchedulerBackendHooks, TaskSchedulerImpl}
 
 class LocalClusterExecutorProviderFactory(
     taskScheduler: TaskSchedulerImpl,
@@ -31,11 +31,11 @@ class LocalClusterExecutorProviderFactory(
 
   override def newClusterManagerExecutorProvider(
       conf: SparkConf,
-      driverEndpoint: SchedulerBackendExecutorLifecycleManager,
+      schedulerBackendHooks: SchedulerBackendHooks,
       rpcEnv: RpcEnv,
       sc: SparkContext): StandaloneExecutorProvider = {
     val allocator = new StandaloneExecutorProvider(
-      taskScheduler, sc, conf, driverEndpoint, masterUrls)
+      taskScheduler, sc, conf, schedulerBackendHooks, masterUrls)
     allocator.shutdownCallback = (backend: StandaloneExecutorProvider) => {
       localCluster.stop()
     }

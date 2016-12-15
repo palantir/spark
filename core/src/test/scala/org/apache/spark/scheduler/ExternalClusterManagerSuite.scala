@@ -46,25 +46,20 @@ class ExternalClusterManagerSuite extends SparkFunSuite with LocalSparkContext {
  * Note that if you want a special ClusterManager for tests, you are probably much more interested
  * in [[MockExternalClusterManager]] and the corresponding [[SchedulerIntegrationSuite]]
  */
-private class DummyExternalClusterManager extends ExternalClusterManager {
+private class DummyExternalClusterManagerFactory extends ExternalClusterManagerFactory {
+
+  override def newExternalClusterManager(sc: SparkContext, masterURL: String)
+      : ExternalClusterManager = {
+    ExternalClusterManager(
+      taskScheduler = new DummyTaskScheduler,
+      maybeCustomSchedulerBackend = Some(new DummySchedulerBackend))
+  }
 
   def canCreate(masterURL: String): Boolean = masterURL == "myclusterManager"
 
-  def createTaskScheduler(sc: SparkContext,
-      masterURL: String): TaskScheduler = new DummyTaskScheduler
-
-  override def createCustomSchedulerBackend(sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): Option[SchedulerBackend] = Some(new DummySchedulerBackend())
-
-  def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
+  def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     scheduler.asInstanceOf[DummyTaskScheduler].initialized = true
     backend.asInstanceOf[DummySchedulerBackend].initialized = true
-  }
-
-  override def createExecutorProviderFactory(masterURL: String, deployMode: String)
-      : ClusterManagerExecutorProviderFactory = {
-    throw new UnsupportedOperationException()
   }
 }
 

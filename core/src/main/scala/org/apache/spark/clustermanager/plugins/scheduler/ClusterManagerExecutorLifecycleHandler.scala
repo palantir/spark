@@ -16,23 +16,16 @@
  */
 package org.apache.spark.clustermanager.plugins.scheduler
 
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.SchedulerBackendHooks
+import scala.concurrent.{ExecutionContext, Future}
 
-/**
- * Responsible for creating a {@link ClusterManagerExecutorProvider} that is specific to the
- * cluster manager being used.
- */
-trait ClusterManagerExecutorProviderFactory[T <: ClusterManagerExecutorProvider] {
-  def newClusterManagerExecutorProvider(
-    conf: SparkConf,
-    schedulerBackendHooks: SchedulerBackendHooks,
-    rpcEnv: RpcEnv,
-    sc: SparkContext): T
+import org.apache.spark.rpc.RpcAddress
+import org.apache.spark.scheduler.ExecutorLossReason
+
+trait ClusterManagerExecutorLifecycleHandler {
+  def executorLossReasonRetriever(implicit ec: ExecutionContext)
+      : Option[((String, RpcAddress) => Future[ExecutorLossReason])] = None
 }
 
-object ClusterManagerExecutorProviderFactory {
-  type GenericExecutorProviderFactory =
-    ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider]
+object ClusterManagerExecutorLifecycleHandler {
+  val DEFAULT = new ClusterManagerExecutorLifecycleHandler {}
 }

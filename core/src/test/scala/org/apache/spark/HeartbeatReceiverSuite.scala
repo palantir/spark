@@ -29,7 +29,7 @@ import org.mockito.Matchers._
 import org.mockito.Mockito.{mock, spy, verify, when}
 import org.scalatest.{BeforeAndAfterEach, PrivateMethodTester}
 
-import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorLifecycleHandler, ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.scheduler._
@@ -283,13 +283,13 @@ private class FakeExecutorProvider(
 }
 
 private class FakeExecutorProviderFactory(
-  scheduler: TaskSchedulerImpl,
-  rpcEnv: RpcEnv,
-  clusterManagerEndpoint: RpcEndpointRef)
+    scheduler: TaskSchedulerImpl,
+    rpcEnv: RpcEnv,
+    clusterManagerEndpoint: RpcEndpointRef)
   extends ClusterManagerExecutorProviderFactory[FakeExecutorProvider] {
   override def newClusterManagerExecutorProvider(
       conf: SparkConf,
-      driverEndpoint: SchedulerBackendExecutorLifecycleManager,
+      schedulerBackendHooks: SchedulerBackendHooks,
       rpcEnv: RpcEnv,
       sc: SparkContext): FakeExecutorProvider = {
     new FakeExecutorProvider(scheduler, rpcEnv, clusterManagerEndpoint)
@@ -306,6 +306,7 @@ private class FakeSchedulerBackend(
   extends CoarseGrainedSchedulerBackend(
     scheduler,
     new FakeExecutorProviderFactory(scheduler, rpcEnv, clusterManagerEndpoint),
+    ClusterManagerExecutorLifecycleHandler.DEFAULT,
     rpcEnv,
     scheduler.sc) {
 }

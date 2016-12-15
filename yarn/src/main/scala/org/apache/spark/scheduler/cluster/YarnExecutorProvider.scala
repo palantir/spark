@@ -40,7 +40,8 @@ import org.apache.spark.util.{RpcUtils, ThreadUtils}
  */
 private[spark] abstract class YarnExecutorProvider(
     protected val conf: SparkConf,
-    executorLifecycleManager: SchedulerBackendExecutorLifecycleManager,
+    schedulerBackendHooks: SchedulerBackendHooks,
+    amRegistrationEndpoint: AMRegistrationEndpoint,
     rpcEnv: RpcEnv,
     sc: SparkContext)
   extends ClusterManagerExecutorProvider with Logging {
@@ -69,9 +70,30 @@ private[spark] abstract class YarnExecutorProvider(
   // Flag to specify whether this schedulerBackend should be reset.
   private var shouldResetOnAmRegister = false
 
+  private var amEndpoint: Option[RpcEndpointRef] = None
+
+  amRegistrationEndpoint.subscribeToAMRegistration(new AMEventListener {
+    override def onConnected(am: RpcEndpointRef): Unit = {
+      amEndpoint = Option(am)
+      if (!shouldResetOnAmRegister) {
+        shouldResetOnAmRegister = true
+      } else {
+        // AM is already registered before, this potentially means that AM failed and
+        // a new one registered after the failure. This will only happen in yarn-client mode.
+        schedulerBackendHooks.reset()
+      }
+    }
+
+    override def onDisconnected(remoteAddress: RpcAddress): Unit = {
+      if (amEndpoint.exists(_.address == remoteAddress)) {
+        logWarning(s"ApplicationMaster has disassociated: $remoteAddress")
+        amEndpoint = None
+      }
+    }
+  })
+
   /**
    * Bind to YARN. This *must* be done before calling [[start()]].
-   *
    * @param appId YARN application ID
    * @param attemptId Optional YARN attempt ID
    */
@@ -82,7 +104,6 @@ private[spark] abstract class YarnExecutorProvider(
 
   override def start() {
     require(appId.isDefined, "application ID unset")
-    executorLifecycleManager.setExecutorDisconnectedListener(handleExecutorDisconnected)
     val binding = SchedulerExtensionServiceBinding(sc, appId.get, attemptId)
     services.start(binding)
     super.start()
@@ -103,7 +124,6 @@ private[spark] abstract class YarnExecutorProvider(
    * Get the attempt ID for this run, if the cluster manager supports multiple
    * attempts. Applications run in client mode will not have attempt IDs.
    * This attempt ID only includes attempt counter, like "1", "2".
-   *
    * @return The application attempt id, if available.
    */
   override def applicationAttemptId(): Option[String] = {
@@ -114,7 +134,6 @@ private[spark] abstract class YarnExecutorProvider(
    * Get an application ID associated with the job.
    * This returns the string value of [[appId]] if set, otherwise
    * the locally-generated ID from the superclass.
- *
    * @return The application ID
    */
   override def applicationId(): String = {
@@ -172,85 +191,15 @@ private[spark] abstract class YarnExecutorProvider(
   }
 
   /**
-   * Reset the state of SchedulerBackend to the initial state. This is happened when AM is failed
-   * and re-registered itself to driver after a failure. The stale state in driver should be
-   * cleaned.
-   */
-  override def reset(): Unit = {
-    executorLifecycleManager.reset()
-  }
-
-  private def handleExecutorDisconnected(executorId: String, remoteAddress: RpcAddress): Boolean = {
-    if (executorLifecycleManager.disableExecutor(executorId)) {
-      yarnSchedulerEndpoint.handleExecutorDisconnectedFromDriver(executorId, remoteAddress)
-      true
-    } else {
-      false
-    }
-  }
-
-  /**
    * An [[RpcEndpoint]] that communicates with the ApplicationMaster.
    */
   private class YarnSchedulerEndpoint(override val rpcEnv: RpcEnv)
     extends ThreadSafeRpcEndpoint with Logging {
-    private var amEndpoint: Option[RpcEndpointRef] = None
-
-    private[YarnExecutorProvider] def handleExecutorDisconnectedFromDriver(
-        executorId: String,
-        executorRpcAddress: RpcAddress): Unit = {
-      val removeExecutorMessage = amEndpoint match {
-        case Some(am) =>
-          val lossReasonRequest = GetExecutorLossReason(executorId)
-          am.ask[ExecutorLossReason](lossReasonRequest, askTimeout)
-            .map { reason => RemoveExecutor(executorId, reason) }(ThreadUtils.sameThread)
-            .recover {
-              case NonFatal(e) =>
-                logWarning(s"Attempted to get executor loss reason" +
-                  s" for executor id ${executorId} at RPC address ${executorRpcAddress}," +
-                  s" but got no response. Marking as slave lost.", e)
-                RemoveExecutor(executorId, SlaveLost())
-            }(ThreadUtils.sameThread)
-        case None =>
-          logWarning("Attempted to check for an executor loss reason" +
-            " before the AM has registered!")
-          Future.successful(RemoveExecutor(executorId, SlaveLost("AM is not yet registered.")))
-      }
-
-      removeExecutorMessage
-        .flatMap { message =>
-          executorLifecycleManager.askRemoveExecutor[Boolean](message.executorId, message.reason)
-        }(ThreadUtils.sameThread)
-        .onFailure {
-          case NonFatal(e) => logError(
-            s"Error requesting driver to remove executor $executorId after disconnection.", e)
-        }(ThreadUtils.sameThread)
-    }
 
     override def receive: PartialFunction[Any, Unit] = {
-      case RegisterClusterManager(am) =>
-        logInfo(s"ApplicationMaster registered as $am")
-        amEndpoint = Option(am)
-        if (!shouldResetOnAmRegister) {
-          shouldResetOnAmRegister = true
-        } else {
-          // AM is already registered before, this potentially means that AM failed and
-          // a new one registered after the failure. This will only happen in yarn-client mode.
-          reset()
-        }
-
       case AddWebUIFilter(filterName, filterParams, proxyBase) =>
         addWebUIFilter(filterName, filterParams, proxyBase)
-
-      case r @ RemoveExecutor(executorId, reason) =>
-        logWarning(reason.toString)
-        executorLifecycleManager.askRemoveExecutor[Boolean](executorId, reason).onFailure {
-          case e =>
-            logError("Error requesting driver to remove executor" +
-              s" $executorId for reason $reason", e)
-        }(ThreadUtils.sameThread)
     }
-
 
     override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
       case r: RequestExecutors =>
@@ -280,16 +229,6 @@ private[spark] abstract class YarnExecutorProvider(
             logWarning("Attempted to kill executors before the AM has registered!")
             context.reply(false)
         }
-
-      case RetrieveLastAllocatedExecutorId =>
-        context.reply(executorLifecycleManager.getCurrentExecutorId)
-    }
-
-    override def onDisconnected(remoteAddress: RpcAddress): Unit = {
-      if (amEndpoint.exists(_.address == remoteAddress)) {
-        logWarning(s"ApplicationMaster has disassociated: $remoteAddress")
-        amEndpoint = None
-      }
     }
   }
 }

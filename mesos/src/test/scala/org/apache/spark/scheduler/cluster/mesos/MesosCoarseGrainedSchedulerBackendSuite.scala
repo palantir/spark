@@ -34,11 +34,11 @@ import org.scalatest.mock.MockitoSugar
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.{LocalSparkContext, SecurityManager, SparkConf, SparkContext, SparkFunSuite}
-import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorLifecycleHandler, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.internal.config._
 import org.apache.spark.network.shuffle.mesos.MesosExternalShuffleClient
 import org.apache.spark.rpc.{RpcEndpointRef, RpcEnv, ThreadSafeRpcEndpoint}
-import org.apache.spark.scheduler.{SchedulerBackendExecutorLifecycleManager, TaskSchedulerImpl}
+import org.apache.spark.scheduler.{SchedulerBackendHooks, TaskSchedulerImpl}
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.RemoveExecutor
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.scheduler.cluster.mesos.Utils._
@@ -316,7 +316,7 @@ class MesosCoarseGrainedSchedulerBackendSuite extends SparkFunSuite
 
     val newExecutorProvider = new MesosExecutorProvider(
         sparkConf,
-        backend.executorLifecycleCallbacks,
+        backend.schedulerBackendLegacyHooks,
         sc.env.rpcEnv,
         sc,
         securityManager,
@@ -548,10 +548,10 @@ class MesosCoarseGrainedSchedulerBackendSuite extends SparkFunSuite
     val executorProviderFactory = new ClusterManagerExecutorProviderFactory[MesosExecutorProvider] {
       override def newClusterManagerExecutorProvider(
           conf: SparkConf,
-          driverEndpoint: SchedulerBackendExecutorLifecycleManager,
+          schedulerBackendHooks: SchedulerBackendHooks,
           rpcEnv: RpcEnv,
-          sc: SparkContext): ClusterManagerExecutorProvider[MesosExecutorProvider] = {
-        new MesosExecutorProvider(conf, driverEndpoint, rpcEnv, sc, securityManager, "master") {
+          sc: SparkContext): MesosExecutorProvider = {
+        new MesosExecutorProvider(conf, schedulerBackendHooks, rpcEnv, sc, securityManager, "master") {
           override protected def createSchedulerDriver(
             masterUrl: String,
             scheduler: Scheduler,
@@ -569,15 +569,14 @@ class MesosCoarseGrainedSchedulerBackendSuite extends SparkFunSuite
           override def startScheduler(newDriver: SchedulerDriver): Unit = {
             mesosDriver = newDriver
           }
-
           markRegistered()
-
         }
       }
     }
     val configuredBackend = new CoarseGrainedSchedulerBackend(
       taskScheduler,
       executorProviderFactory,
+      ClusterManagerExecutorLifecycleHandler.DEFAULT,
       sc.env.rpcEnv,
       sc
     ) {

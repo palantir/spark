@@ -17,57 +17,33 @@
 
 package org.apache.spark.scheduler
 
-import org.apache.spark.SparkContext
 import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
-import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorLifecycleHandler
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory.GenericExecutorProviderFactory
 
 /**
  * A cluster manager interface to plugin external scheduler.
  */
-private[spark] trait ExternalClusterManager {
+private[spark] case class ExternalClusterManager(
+  taskScheduler: TaskScheduler,
+  maybeCustomExecutorLifecycleHandler: Option[ClusterManagerExecutorLifecycleHandler] = None,
+  maybeCustomSchedulerBackend: Option[SchedulerBackend] = None,
+  maybeExecutorProviderFactory: Option[GenericExecutorProviderFactory] = None,
+  maybeDriverLogUrlsProvider: Option[ClusterManagerDriverLogUrlsProvider] = None) {
 
-  /**
-   * Check if this cluster manager instance can create scheduler components
-   * for a certain master URL.
-   * @param masterURL the master URL
-   * @return True if the cluster manager can create scheduler backend/
-   */
-  def canCreate(masterURL: String): Boolean
+  validate()
 
-  /**
-   * Create a task scheduler instance for the given SparkContext
-   * @param sc SparkContext
-   * @param masterURL the master URL
-   * @return TaskScheduler that will be responsible for task handling
-   */
-  def createTaskScheduler(sc: SparkContext, masterURL: String): TaskScheduler
+  private def validate(): Unit = {
+    require(maybeCustomSchedulerBackend.isDefined || maybeExecutorProviderFactory.isDefined,
+      "Either a custom scheduler backend or an executor provider factory must be set.")
+    maybeCustomSchedulerBackend.foreach { _ =>
+      require(maybeExecutorProviderFactory.isEmpty, "Should not provide both a custom scheduler" +
+        " backend and an executor provider factory.")
+    }
+    maybeExecutorProviderFactory.foreach {_ =>
+      require(maybeCustomSchedulerBackend.isEmpty, "Should not provider both a custom scheduler" +
+        " backend and an executor provider factory.")
+    }
+  }
 
-  /**
-   * Create a scheduler backend for the given SparkContext and scheduler. This is
-   * called after task scheduler is created using [[ExternalClusterManager.createTaskScheduler()]].
-   * Return None if the default scheduler backend implementation is to be used; note that the
-   * default scheduler backend will still be customized via the
-   * {@link org.apache.spark.scheduler.ClusterManagerExecutorProvider}.
-   * @param sc SparkContext
-   * @param masterURL the master URL
-   * @param scheduler TaskScheduler that will be used with the scheduler backend.
-   * @return SchedulerBackend that works with a TaskScheduler
-   */
-  def createCustomSchedulerBackend(sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): Option[SchedulerBackend] = None
-
-  def createExecutorProviderFactory(masterURL: String, deployMode: String)
-      : ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider]
-
-  def createDriverLogUrlsProvider(sc: SparkContext): Option[ClusterManagerDriverLogUrlsProvider]
-    = None
-
-  /**
-   * Initialize task scheduler and backend scheduler. This is called after the
-   * scheduler components are created
-   * @param scheduler TaskScheduler that will be responsible for task handling
-   * @param backend SchedulerBackend that works with a TaskScheduler
-   */
-  def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit
 }

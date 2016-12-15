@@ -1099,30 +1099,21 @@ private object ExecutorAllocationManagerSuite extends PrivateMethodTester {
  * A cluster manager which wraps around the scheduler and backend for local mode. It is used for
  * testing the dynamic allocation policy.
  */
-private class DummyLocalExternalClusterManager extends ExternalClusterManager {
+private class DummyLocalExternalClusterManagerFactory extends ExternalClusterManagerFactory {
 
   def canCreate(masterURL: String): Boolean = masterURL == "myDummyLocalExternalClusterManager"
 
-  override def createTaskScheduler(
-      sc: SparkContext,
-      masterURL: String): TaskScheduler = new TaskSchedulerImpl(sc, 1, isLocal = true)
-
-  override def createCustomSchedulerBackend(
-      sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): Option[SchedulerBackend] = {
-    val sb = new LocalSchedulerBackend(sc.getConf, scheduler.asInstanceOf[TaskSchedulerImpl], 1)
-    Some(new DummyLocalSchedulerBackend(sc, sb))
+  override def newExternalClusterManager(sc: SparkContext, masterURL: String)
+      : ExternalClusterManager = {
+    val scheduler = new TaskSchedulerImpl(sc, 1, isLocal = true)
+    val sb = new LocalSchedulerBackend(sc.getConf, scheduler, 1)
+    ExternalClusterManager(
+      taskScheduler = new TaskSchedulerImpl(sc, 1, isLocal = true),
+      maybeCustomSchedulerBackend = Some(new DummyLocalSchedulerBackend(sc, sb)))
   }
 
-  override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
-    val sc = scheduler.asInstanceOf[TaskSchedulerImpl]
-    sc.initialize(backend)
-  }
-
-  override def createExecutorProviderFactory(masterURL: String, deployMode: String)
-      : ClusterManagerExecutorProviderFactory[_ <: ClusterManagerExecutorProvider] = {
-    throw new UnsupportedOperationException()
+  override def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
+    scheduler.initializeBackend(backend)
   }
 }
 
