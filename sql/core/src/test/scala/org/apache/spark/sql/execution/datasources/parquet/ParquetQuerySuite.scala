@@ -801,7 +801,6 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
       SQLConf.PARQUET_INT96_AS_TIMESTAMP.key -> "false") {
       withTempPath { path =>
-        implicit val encoder = Encoders.TIMESTAMP
         val ts = new Timestamp(System.currentTimeMillis())
         spark.createDataset(Seq(ts)).write.parquet(path.getCanonicalPath)
 
@@ -822,7 +821,6 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
       SQLConf.PARQUET_INT96_AS_TIMESTAMP.key -> "false") {
       withTempPath { path =>
-        implicit val encoder = Encoders.DATE
         val date = new Date(2016, 1, 1)
         spark.createDataset(Seq(date)).write.parquet(path.getCanonicalPath)
 

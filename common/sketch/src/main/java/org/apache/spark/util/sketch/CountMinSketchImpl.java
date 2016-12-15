@@ -262,15 +262,6 @@ class CountMinSketchImpl extends CountMinSketch implements Serializable {
     return res;
   }
 
-  private long estimateCountForBinaryItem(byte[] item) {
-    long res = Long.MAX_VALUE;
-    int[] buckets = getHashBuckets(item, depth, width);
-    for (int i = 0; i < depth; ++i) {
-      res = Math.min(res, table[i][buckets[i]]);
-    }
-    return res;
-  }
-
   @Override
   public CountMinSketch mergeInPlace(CountMinSketch other) throws IncompatibleMergeException {
     if (other == null) {
