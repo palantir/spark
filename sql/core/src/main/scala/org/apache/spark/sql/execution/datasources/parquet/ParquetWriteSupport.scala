@@ -161,9 +161,7 @@ private[parquet] class ParquetWriteSupport extends WriteSupport[InternalRow] wit
           recordConsumer.addBinary(
             Binary.fromReusedByteArray(row.getUTF8String(ordinal).getBytes))
 
-      case TimestampType =>
-        (row: SpecializedGetters, ordinal: Int) =>
-          recordConsumer.addLong(row.getLong(ordinal))
+      case TimestampType => makeTimestampWriter()
 
       case BinaryType =>
         (row: SpecializedGetters, ordinal: Int) =>

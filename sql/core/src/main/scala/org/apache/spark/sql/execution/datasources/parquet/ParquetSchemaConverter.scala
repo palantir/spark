@@ -51,6 +51,8 @@ import org.apache.spark.sql.types._
  *        and prior versions when converting a Catalyst [[StructType]] to a Parquet [[MessageType]].
  *        When set to false, use standard format defined in parquet-format spec.  This argument only
  *        affects Parquet write path.
+ * @param writeTimestampAsInt96 Whether to use serialize Timestamps in legacy INT96 format for
+ *        forwards compatibility.
  */
 private[parquet] class ParquetSchemaConverter(
     assumeBinaryIsString: Boolean = SQLConf.PARQUET_BINARY_AS_STRING.defaultValue.get,
