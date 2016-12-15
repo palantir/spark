@@ -778,8 +778,34 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSQLContext {
         withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "false") {
           readParquetFile(dir.getCanonicalPath) { df =>
             assert(df.schema.head.dataType == DataTypes.TimestampType)
-            assert(df.collect().map(_.getTimestamp(0)) sameElements
-              timestamps.toArray[Timestamp])
+            val results = df.collect().map(_.getTimestamp(0))
+            assert(results sameElements timestamps.toArray[Timestamp])
+          }
+        }
+      }
+    }
+  }
+
+
+  test("Timestamp as INT64") {
+    withTempPath { dir =>
+      withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "false") {
+        val step = 1000L
+        val timestamps = Range.Long(System.currentTimeMillis(),
+          System.currentTimeMillis() + step * 20L, step).map(new Timestamp(_))
+        makeParquetFile(timestamps.map(i => Tuple1(Option(i))), dir)
+
+        val stat = FileSystem.get(new Configuration()).getFileStatus(new Path(dir.getCanonicalPath))
+        val footer = ParquetFileReader.readFooters(new Configuration(), stat, true).get(0)
+        val tsType = Types.primitive(PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL).named("_1")
+        val schema = footer.getParquetMetadata.getFileMetaData.getSchema
+
+        assert(schema.getType(0).equals(tsType))
+        withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "true") {
+          readParquetFile(dir.getCanonicalPath) { df =>
+            assert(df.schema.head.dataType == DataTypes.TimestampType)
+            val results = df.collect().map(_.getTimestamp(0))
+            assert(results sameElements timestamps.toArray[Timestamp])
           }
         }
       }
