@@ -44,14 +44,14 @@ class ExternalClusterManagerSuite extends SparkFunSuite with LocalSparkContext {
  * Super basic ExternalClusterManager, just to verify ExternalClusterManagers can be configured.
  *
  * Note that if you want a special ClusterManager for tests, you are probably much more interested
- * in [[MockExternalClusterManager]] and the corresponding [[SchedulerIntegrationSuite]]
+ * in [[MockExternalClusterManagerFactory]] and the corresponding [[SchedulerIntegrationSuite]]
  */
 private class DummyExternalClusterManagerFactory extends ExternalClusterManagerFactory {
 
   override def newExternalClusterManager(sc: SparkContext, masterURL: String)
       : ExternalClusterManager = {
     ExternalClusterManager(
-      taskScheduler = new DummyTaskScheduler,
+      maybeCustomTaskScheduler = Some(new DummyTaskScheduler),
       maybeCustomSchedulerBackend = Some(new DummySchedulerBackend))
   }
 

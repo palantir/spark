@@ -474,7 +474,7 @@ private class MockExternalClusterManagerFactory extends ExternalClusterManagerFa
     val taskScheduler = new TestTaskScheduler(sc)
     val schedulerBackend = createCustomSchedulerBackend(sc, masterURL, taskScheduler)
     ExternalClusterManager(
-      taskScheduler = taskScheduler,
+      maybeCustomTaskScheduler = Some(taskScheduler),
       maybeCustomSchedulerBackend = schedulerBackend)
   }
 

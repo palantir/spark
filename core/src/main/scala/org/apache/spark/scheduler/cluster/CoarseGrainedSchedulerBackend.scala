@@ -335,7 +335,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
 
     override def onDisconnected(remoteAddress: RpcAddress): Unit = {
       addressToExecutorId.get(remoteAddress).foreach(executorId => {
-        customExecutorLifecycleHandler.executorLossReasonRetriever(ThreadUtils.sameThread) match {
+        implicit val ec = ThreadUtils.sameThread
+        customExecutorLifecycleHandler.executorLossReasonRetriever match {
           case Some(retriever) =>
             if (disableExecutor(executorId)) {
               val futureReason = retriever(executorId, remoteAddress)

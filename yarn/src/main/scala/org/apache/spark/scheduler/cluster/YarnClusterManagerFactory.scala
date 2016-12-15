@@ -40,11 +40,17 @@ class YarnClusterManagerFactory extends ExternalClusterManagerFactory {
       case "client" => (new YarnScheduler(sc), Option.empty[ClusterManagerDriverLogUrlsProvider])
       case _ => throw new SparkException(s"Unknown deploy mode: ${sc.deployMode}")
     }
+    val schedulerBackend = new CoarseGrainedSchedulerBackend(
+      taskScheduler.asInstanceOf[TaskSchedulerImpl],
+      executorProviderFactory,
+      executorLifecycleHandler,
+      sc.env.rpcEnv,
+      sc)
     ExternalClusterManager(
       maybeCustomExecutorLifecycleHandler = Some(executorLifecycleHandler),
-      maybeCustomSchedulerBackend = None,
+      maybeCustomSchedulerBackend = Some(schedulerBackend),
       maybeExecutorProviderFactory = Some(executorProviderFactory),
-      taskScheduler = taskScheduler,
+      maybeCustomTaskScheduler = Some(taskScheduler),
       maybeDriverLogUrlsProvider = driverLogUrlsProvider)
   }
 

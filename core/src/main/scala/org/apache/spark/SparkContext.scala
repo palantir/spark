@@ -2564,7 +2564,7 @@ object SparkContext extends Logging {
         }
         try {
           val cm = factory.newExternalClusterManager(sc, masterUrl)
-          val scheduler = cm.taskScheduler
+          val scheduler = cm.maybeCustomTaskScheduler.getOrElse(new TaskSchedulerImpl(sc))
           val backend = cm.maybeCustomSchedulerBackend.getOrElse({
             val executorProviderFactory = cm.maybeExecutorProviderFactory.getOrElse(
               throw new SparkException("Custom cluster manager must either provide a custom" +
@@ -2573,7 +2573,7 @@ object SparkContext extends Logging {
             val executorLifecycleHandler = cm.maybeCustomExecutorLifecycleHandler.getOrElse(
               ClusterManagerExecutorLifecycleHandler.DEFAULT)
             new CoarseGrainedSchedulerBackend(
-              cm.taskScheduler.asInstanceOf[TaskSchedulerImpl],
+              cm.maybeCustomTaskScheduler.asInstanceOf[TaskSchedulerImpl],
               executorProviderFactory,
               executorLifecycleHandler,
               sc.env.rpcEnv,

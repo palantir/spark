@@ -1108,7 +1108,7 @@ private class DummyLocalExternalClusterManagerFactory extends ExternalClusterMan
     val scheduler = new TaskSchedulerImpl(sc, 1, isLocal = true)
     val sb = new LocalSchedulerBackend(sc.getConf, scheduler, 1)
     ExternalClusterManager(
-      taskScheduler = new TaskSchedulerImpl(sc, 1, isLocal = true),
+      maybeCustomTaskScheduler = Some(new TaskSchedulerImpl(sc, 1, isLocal = true)),
       maybeCustomSchedulerBackend = Some(new DummyLocalSchedulerBackend(sc, sb)))
   }
 

@@ -37,7 +37,6 @@ private[spark] class MesosClusterManagerFactory extends ExternalClusterManagerFa
       case None => Some(new MesosExecutorProviderFactory(masterURL))
     }
     ExternalClusterManager(
-      taskScheduler = scheduler,
       maybeCustomSchedulerBackend = maybeSchedulerBackend,
       maybeExecutorProviderFactory = maybeExecutorProviderFactory,
       maybeDriverLogUrlsProvider = None)
@@ -45,7 +44,7 @@ private[spark] class MesosClusterManagerFactory extends ExternalClusterManagerFa
 
   private def createCustomSchedulerBackend(sc: SparkContext,
       masterURL: String,
-      scheduler: TaskScheduler): Option[SchedulerBackend] = {
+      scheduler: TaskSchedulerImpl): Option[SchedulerBackend] = {
     require(!sc.conf.get(IO_ENCRYPTION_ENABLED),
       "I/O encryption is currently not supported in Mesos.")
 
@@ -55,7 +54,7 @@ private[spark] class MesosClusterManagerFactory extends ExternalClusterManagerFa
       None
     } else {
       Some(new MesosFineGrainedSchedulerBackend(
-        scheduler.asInstanceOf[TaskSchedulerImpl],
+        scheduler,
         sc,
         mesosUrl))
     }

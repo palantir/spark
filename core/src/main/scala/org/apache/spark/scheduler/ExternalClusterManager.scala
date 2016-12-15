@@ -25,12 +25,11 @@ import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorP
  * A cluster manager interface to plugin external scheduler.
  */
 private[spark] case class ExternalClusterManager(
-  taskScheduler: TaskScheduler,
-  maybeCustomExecutorLifecycleHandler: Option[ClusterManagerExecutorLifecycleHandler] = None,
-  maybeCustomSchedulerBackend: Option[SchedulerBackend] = None,
-  maybeExecutorProviderFactory: Option[GenericExecutorProviderFactory] = None,
-  maybeDriverLogUrlsProvider: Option[ClusterManagerDriverLogUrlsProvider] = None) {
-
+    maybeCustomTaskScheduler: Option[TaskScheduler] = None,
+    maybeCustomExecutorLifecycleHandler: Option[ClusterManagerExecutorLifecycleHandler] = None,
+    maybeCustomSchedulerBackend: Option[SchedulerBackend] = None,
+    maybeExecutorProviderFactory: Option[GenericExecutorProviderFactory] = None,
+    maybeDriverLogUrlsProvider: Option[ClusterManagerDriverLogUrlsProvider] = None) {
   validate()
 
   private def validate(): Unit = {
@@ -44,6 +43,10 @@ private[spark] case class ExternalClusterManager(
       require(maybeCustomSchedulerBackend.isEmpty, "Should not provider both a custom scheduler" +
         " backend and an executor provider factory.")
     }
+    require(maybeCustomSchedulerBackend.isDefined || maybeCustomTaskScheduler.isEmpty,
+        "When not providing a custom scheduler backend, using a custom task scheduler" +
+          " is not supported since the default scheduler backend must use a fixed scheduler" +
+          " implementation.")
   }
 
 }
