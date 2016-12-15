@@ -71,7 +71,8 @@ private[parquet] class ParquetSchemaConverter(
     assumeInt96IsTimestamp = conf.get(SQLConf.PARQUET_INT96_AS_TIMESTAMP.key).toBoolean,
     writeLegacyParquetFormat = conf.get(SQLConf.PARQUET_WRITE_LEGACY_FORMAT.key,
       SQLConf.PARQUET_WRITE_LEGACY_FORMAT.defaultValue.get.toString).toBoolean,
-    writeTimestampAsInt96 = conf.get(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key).toBoolean)
+    writeTimestampAsInt96 = conf.get(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key,
+      SQLConf.PARQUET_TIMESTAMP_AS_INT96.defaultValue.get.toString).toBoolean)
 
   /**
    * Converts Parquet [[MessageType]] `parquetSchema` to a Spark SQL [[StructType]].

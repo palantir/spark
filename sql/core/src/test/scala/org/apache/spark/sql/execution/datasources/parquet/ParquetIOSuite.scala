@@ -23,20 +23,21 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeTag
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.mapreduce.{JobContext, TaskAttemptContext}
 import org.apache.parquet.column.{Encoding, ParquetProperties}
 import org.apache.parquet.example.data.{Group, GroupWriter}
 import org.apache.parquet.example.data.simple.SimpleGroup
-import org.apache.parquet.format.converter.ParquetMetadataConverter
 import org.apache.parquet.hadoop._
 import org.apache.parquet.hadoop.api.WriteSupport
 import org.apache.parquet.hadoop.api.WriteSupport.WriteContext
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.apache.parquet.io.api.RecordConsumer
-import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
 import org.apache.parquet.schema.{MessageType, MessageTypeParser, Type, Types}
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
+
 import org.apache.spark.SparkException
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.{InternalRow, ScalaReflection}
@@ -765,17 +766,21 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSQLContext {
       withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "true") {
         val step = 1000L
         val timestamps = Range.Long(System.currentTimeMillis(),
-          System.currentTimeMillis() + step * 20L, step)
+          System.currentTimeMillis() + step * 20L, step).map(new Timestamp(_))
         makeParquetFile(timestamps.map(i => Tuple1(Option(i))), dir)
-        val footer = ParquetFileReader.readFooter(new Configuration(),
-          new Path(dir.getCanonicalPath), ParquetMetadataConverter.NO_FILTER)
-        val tsType = Types.primitive(PrimitiveTypeName.INT96, Type.Repetition.REQUIRED).named("_1")
-        assert(footer.getFileMetaData.getSchema.getType(0).isInstanceOf[tsType.type])
+
+
+        val stat = FileSystem.get(new Configuration()).getFileStatus(new Path(dir.getCanonicalPath))
+        val footer = ParquetFileReader.readFooters(new Configuration(), stat, true).get(0)
+        val tsType = Types.primitive(PrimitiveTypeName.INT96, Type.Repetition.OPTIONAL).named("_1")
+        val schema = footer.getParquetMetadata.getFileMetaData.getSchema
+
+        assert(schema.getType(0).equals(tsType))
         withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "false") {
           readParquetFile(dir.getCanonicalPath) { df =>
             assert(df.schema.head.dataType == DataTypes.TimestampType)
             assert(df.collect().map(_.getTimestamp(0)) sameElements
-              timestamps.map(new Timestamp(_)).toArray[Timestamp])
+              timestamps.toArray[Timestamp])
           }
         }
       }
