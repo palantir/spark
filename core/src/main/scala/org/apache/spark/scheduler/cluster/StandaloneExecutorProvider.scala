@@ -30,7 +30,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.launcher.{LauncherBackend, SparkAppHandle}
 import org.apache.spark.rpc.RpcEndpointAddress
 import org.apache.spark.scheduler._
-import org.apache.spark.util.{ThreadUtils, Utils}
+import org.apache.spark.util.Utils
 
 /**
  * A [[SchedulerBackend]] implementation for Spark's standalone cluster manager.
@@ -39,7 +39,6 @@ private[spark] class StandaloneExecutorProvider(
     scheduler: TaskSchedulerImpl,
     sc: SparkContext,
     conf: SparkConf,
-    schedulerBackendHooks: SchedulerBackendHooks,
     masters: Array[String])
   extends ClusterManagerExecutorProvider
   with StandaloneAppClientListener
@@ -160,14 +159,7 @@ private[spark] class StandaloneExecutorProvider(
 
   override def executorRemoved(
       fullId: String, message: String, exitStatus: Option[Int], workerLost: Boolean) {
-    val reason: ExecutorLossReason = exitStatus match {
-      case Some(code) => ExecutorExited(code, exitCausedByApp = true, message)
-      case None => SlaveLost(message, workerLost = workerLost)
-    }
     logInfo("Executor %s removed: %s".format(fullId, message))
-    schedulerBackendHooks.askRemoveExecutor(fullId.split("/")(1), reason).onFailure { case t =>
-      logError(t.getMessage, t)
-    }(ThreadUtils.sameThread)
   }
 
   override def minRegisteredRatio: Double = _minRegisteredRatio

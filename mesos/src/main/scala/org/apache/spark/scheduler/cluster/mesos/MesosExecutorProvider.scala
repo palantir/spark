@@ -49,7 +49,7 @@ import org.apache.spark.util.Utils
  */
 private[spark] class MesosExecutorProvider(
     protected val conf: SparkConf,
-    schedulerBackendHooks: SchedulerBackendHooks,
+    schedulerErrorHandler: MesosSchedulerErrorHandler,
     rpcEnv: RpcEnv,
     sc: SparkContext,
     securityManager: SecurityManager,
@@ -59,6 +59,8 @@ private[spark] class MesosExecutorProvider(
   with MesosSchedulerUtils {
 
   val MAX_SLAVE_FAILURES = 2     // Blacklist a slave after this many failures
+
+  private var schedulerBackendHooks: SchedulerBackendHooks = _
 
   private val _minRegisteredRatio =
     math.min(1, conf.getDouble("spark.scheduler.minRegisteredResourcesRatio", 0))
@@ -155,6 +157,10 @@ private[spark] class MesosExecutorProvider(
     val id = nextMesosTaskId
     nextMesosTaskId += 1
     id.toString
+  }
+
+  def initialize(schedulerBackendHooks: SchedulerBackendHooks): Unit = {
+    this.schedulerBackendHooks = schedulerBackendHooks
   }
 
   override def start() {
@@ -554,8 +560,7 @@ private[spark] class MesosExecutorProvider(
   }
 
   override def error(d: org.apache.mesos.SchedulerDriver, message: String) {
-    logError(s"Mesos error: $message")
-    schedulerBackendHooks.clusterManagerError(message)
+    schedulerErrorHandler.handleError(message)
   }
 
   override def stop() {
@@ -610,7 +615,7 @@ private[spark] class MesosExecutorProvider(
       // removeExecutor() internally will send a message to the driver endpoint but
       // the driver endpoint is not available now, otherwise an exception will be thrown.
       if (!stopCalled) {
-        schedulerBackendHooks.askRemoveExecutor(taskId, SlaveLost(reason))
+        schedulerBackendHooks.removeExecutor(taskId, SlaveLost(reason))
       }
       slaves(slaveId).taskIDs.remove(taskId)
     }

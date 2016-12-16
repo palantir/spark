@@ -45,11 +45,12 @@ import org.apache.spark.util.{RpcUtils, SerializableBuffer, ThreadUtils, Utils}
  */
 private[spark] class CoarseGrainedSchedulerBackend(
     scheduler: TaskSchedulerImpl,
-    executorProviderFactory: GenericExecutorProviderFactory,
+    // Visible for testing
+    val executorProvider: ClusterManagerExecutorProvider,
     customExecutorLifecycleHandler: ClusterManagerExecutorLifecycleHandler,
     val rpcEnv: RpcEnv,
     sc: SparkContext)
-  extends ExecutorAllocationClient with SchedulerBackend with Logging
+  extends ExecutorAllocationClient with SchedulerBackend with SchedulerBackendHooks with Logging
 {
   // Use an atomic variable to track total number of cores in the cluster for simplicity and speed
   protected val totalCoreCount = new AtomicInteger(0)
@@ -63,9 +64,6 @@ private[spark] class CoarseGrainedSchedulerBackend(
   private val maxRegisteredWaitingTimeMs =
     conf.getTimeAsMs("spark.scheduler.maxRegisteredResourcesWaitingTime", "30s")
   private val createTime = System.currentTimeMillis()
-
-  // Visible for testing
-  private[spark] var executorProvider: ClusterManagerExecutorProvider = _
 
   // Accessing `executorDataMap` in `DriverEndpoint.receive/receiveAndReply` doesn't need any
   // protection. But accessing `executorDataMap` out of `DriverEndpoint.receive/receiveAndReply`
@@ -309,7 +307,7 @@ private[spark] class CoarseGrainedSchedulerBackend(
      * the loss reason still pending.
      * @return Whether executor should be disabled
      */
-    def disableExecutor(executorId: String): Boolean = {
+    private def disableExecutor(executorId: String): Boolean = {
       val shouldDisable = CoarseGrainedSchedulerBackend.this.synchronized {
         if (executorIsAlive(executorId)) {
           executorsPendingLossReason += executorId
@@ -357,22 +355,6 @@ private[spark] class CoarseGrainedSchedulerBackend(
   // Visible for testing
   private[spark] var driverEndpointImpl: DriverEndpoint = null
   private[spark] var driverEndpoint: RpcEndpointRef = null
-  private[spark] var schedulerBackendLegacyHooks: SchedulerBackendHooksImpl = null
-
-  private[CoarseGrainedSchedulerBackend] class SchedulerBackendHooksImpl
-      extends SchedulerBackendHooks {
-
-    override def askRemoveExecutor[T: ClassTag](executorId: String,
-        lossReason: ExecutorLossReason): Future[T] = {
-      driverEndpoint.ask[T](RemoveExecutor(executorId, lossReason))
-    }
-
-    override def reset(): Unit = {
-      CoarseGrainedSchedulerBackend.this.reset()
-    }
-
-    override def clusterManagerError(message: String): Unit = scheduler.error(message)
-  }
 
   private def initializeDriverEndpoint(): Unit = {
     val properties = new ArrayBuffer[(String, String)]
@@ -385,9 +367,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
     // TODO (prashant) send conf instead of properties
     driverEndpointImpl = createDriverEndpoint(properties)
     driverEndpoint = createDriverEndpointRef(driverEndpointImpl)
-    schedulerBackendLegacyHooks = new SchedulerBackendHooksImpl
-    executorProvider = executorProviderFactory
-      .newClusterManagerExecutorProvider(conf, schedulerBackendLegacyHooks, rpcEnv, sc)
+    logInfo(s"Scheduler endpoint is now listening on ${driverEndpoint.address} with" +
+      s" endpoint name $ENDPOINT_NAME")
   }
   initializeDriverEndpoint()
 
@@ -429,8 +410,8 @@ private[spark] class CoarseGrainedSchedulerBackend(
   /**
    * Reset the state of CoarseGrainedSchedulerBackend to the initial state. Currently it will only
    * be called in the yarn-client mode when AM re-registers after a failure.
-   * */
-  private def reset(): Unit = {
+   */
+  private[spark] def reset(): Unit = {
     val executors = synchronized {
       numPendingExecutors = 0
       executorsPendingToRemove.clear()
@@ -460,7 +441,7 @@ private[spark] class CoarseGrainedSchedulerBackend(
    * Called by subclasses when notified of a lost worker. It just fires the message and returns
    * at once.
    */
-  private def removeExecutor(executorId: String, reason: ExecutorLossReason): Unit = {
+  def removeExecutor(executorId: String, reason: ExecutorLossReason): Unit = {
     // Only log the failure since we don't care about the result.
     driverEndpoint.ask(RemoveExecutor(executorId, reason)).onFailure { case t =>
       logError(t.getMessage, t)

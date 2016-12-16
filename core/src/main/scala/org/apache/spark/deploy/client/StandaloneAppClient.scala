@@ -31,6 +31,7 @@ import org.apache.spark.deploy.DeployMessages._
 import org.apache.spark.deploy.master.Master
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc._
+import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.util.{RpcUtils, ThreadUtils}
 
 /**
@@ -38,7 +39,6 @@ import org.apache.spark.util.{RpcUtils, ThreadUtils}
  *
  * Takes a master URL, an app description, and a listener for cluster events, and calls
  * back the listener when various events occur.
- *
  * @param masterUrls Each url should look like spark://host:port.
  */
 private[spark] class StandaloneAppClient(
@@ -288,7 +288,6 @@ private[spark] class StandaloneAppClient(
   /**
    * Request executors from the Master by specifying the total number desired,
    * including existing pending and running executors.
-   *
    * @return whether the request is acknowledged.
    */
   def requestTotalExecutors(requestedTotal: Int): Future[Boolean] = {

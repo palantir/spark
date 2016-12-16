@@ -16,15 +16,9 @@
  */
 package org.apache.spark.scheduler
 
-import scala.concurrent.Future
-import scala.reflect.ClassTag
-
 /**
- * Defines an API for sending messages to the SchedulerBackend, mainly for managing the behavior
- * of executors from the context of a cluster-manager specific context.
+ * Minimal API for removing executors via the CoarseGrainedSchedulerBackend.
  */
 trait SchedulerBackendHooks {
-  def askRemoveExecutor[T: ClassTag](executorId: String, lossReason: ExecutorLossReason): Future[T]
-  def clusterManagerError(message: String): Unit
-  def reset(): Unit
+  def removeExecutor(executorId: String, lossReason: ExecutorLossReason): Unit
 }

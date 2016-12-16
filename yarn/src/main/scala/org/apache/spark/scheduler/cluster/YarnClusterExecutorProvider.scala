@@ -24,11 +24,10 @@ import org.apache.spark.scheduler.SchedulerBackendHooks
 
 private[spark] class YarnClusterExecutorProvider(
     conf: SparkConf,
-    schedulerBackendHooks: SchedulerBackendHooks,
     amRegistrationEndpoint: AMRegistrationEndpoint,
     rpcEnv: RpcEnv,
     sc: SparkContext)
-  extends YarnExecutorProvider(conf, schedulerBackendHooks, amRegistrationEndpoint, rpcEnv, sc) {
+  extends YarnExecutorProvider(conf, amRegistrationEndpoint, rpcEnv, sc) {
 
   override def start() {
     val attemptId = ApplicationMaster.getAttemptId

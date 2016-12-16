@@ -16,6 +16,8 @@
  */
 package org.apache.spark.scheduler.cluster
 
+import javax.annotation.concurrent.GuardedBy
+
 import scala.collection.mutable
 
 import org.apache.spark.internal.Logging
@@ -25,8 +27,10 @@ import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.RegisterC
 private[spark] class AMRegistrationEndpoint(override val rpcEnv: RpcEnv)
     extends ThreadSafeRpcEndpoint with Logging {
 
-  private var amEndpoint: Option[RpcEndpointRef] = None
+  private val AM_ENDPOINT_LOCK = new Object
 
+  @GuardedBy("AM_ENDPOINT_LOCK")
+  private var amEndpoint: Option[RpcEndpointRef] = None
   private val registrationListeners = mutable.Buffer.empty[AMEventListener]
 
   def subscribeToAMRegistration(listener: AMEventListener): Unit = {
@@ -36,13 +40,26 @@ private[spark] class AMRegistrationEndpoint(override val rpcEnv: RpcEnv)
   override def receive: PartialFunction[Any, Unit] = {
     case RegisterClusterManager(am) =>
       logInfo(s"ApplicationMaster registered as $am")
-      amEndpoint = Option(am)
+      AM_ENDPOINT_LOCK.synchronized {
+        amEndpoint = Option(am)
+      }
       registrationListeners.foreach(_.onConnected(am))
   }
 
   override def onDisconnected(remoteAddress: RpcAddress): Unit = {
-    registrationListeners.foreach(_.onDisconnected(remoteAddress))
-    amEndpoint = None
+    if (amEndpoint.exists(_.address == remoteAddress)) {
+      logWarning(s"ApplicationMaster has disassociated: $remoteAddress")
+      AM_ENDPOINT_LOCK.synchronized {
+        amEndpoint = None
+      }
+      registrationListeners.foreach(_.onDisconnected(remoteAddress))
+    }
+  }
+
+  def getCurrentlySetAmEndpoint: Option[RpcEndpointRef] = {
+    AM_ENDPOINT_LOCK.synchronized {
+      amEndpoint
+    }
   }
 }
 

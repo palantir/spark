@@ -30,12 +30,10 @@ import org.apache.spark.scheduler.SchedulerBackendHooks
 
 private[spark] class YarnClientExecutorProvider(
     conf: SparkConf,
-    schedulerBackendHooks: SchedulerBackendHooks,
     amRegistrationEndpoint: AMRegistrationEndpoint,
     rpcEnv: RpcEnv,
     sc: SparkContext)
-  extends YarnExecutorProvider(conf, schedulerBackendHooks, amRegistrationEndpoint, rpcEnv,
-    sc)
+  extends YarnExecutorProvider(conf, amRegistrationEndpoint, rpcEnv, sc)
   with Logging {
 
   private var client: Client = null

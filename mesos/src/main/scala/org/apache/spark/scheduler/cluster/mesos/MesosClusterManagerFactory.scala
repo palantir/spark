@@ -18,46 +18,56 @@
 package org.apache.spark.scheduler.cluster.mesos
 
 import org.apache.spark.SparkContext
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorLifecycleHandler
+import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
 import org.apache.spark.scheduler.{ExternalClusterManager, ExternalClusterManagerFactory, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
+import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 
 private[spark] class MesosClusterManagerFactory extends ExternalClusterManagerFactory {
-  import MesosClusterManager._
-
   override def canCreate(masterURL: String): Boolean = {
     masterURL.startsWith("mesos")
   }
 
   override def newExternalClusterManager(
       sc: SparkContext, masterURL: String): ExternalClusterManager = {
-    val scheduler = new TaskSchedulerImpl(sc)
-    val maybeSchedulerBackend = createCustomSchedulerBackend(sc, masterURL, scheduler)
-    val maybeExecutorProviderFactory = maybeSchedulerBackend match {
-      case Some(_) => Option.empty[MesosExecutorProviderFactory]
-      case None => Some(new MesosExecutorProviderFactory(masterURL))
-    }
-    ExternalClusterManager(
-      maybeCustomSchedulerBackend = maybeSchedulerBackend,
-      maybeExecutorProviderFactory = maybeExecutorProviderFactory,
-      maybeDriverLogUrlsProvider = None)
-  }
-
-  private def createCustomSchedulerBackend(sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskSchedulerImpl): Option[SchedulerBackend] = {
     require(!sc.conf.get(IO_ENCRYPTION_ENABLED),
       "I/O encryption is currently not supported in Mesos.")
-
-    val mesosUrl = MESOS_REGEX.findFirstMatchIn(masterURL).get.group(1)
+    val scheduler = new TaskSchedulerImpl(sc)
+    val mesosSchedulerErrorHandler = new MesosSchedulerErrorHandler with Logging {
+      override def handleError(message: String): Unit = {
+        logError(s"Mesos error: $message")
+        scheduler.error(message)
+      }
+    }
+    val mesosUrl = MesosClusterManagerFactory.MESOS_REGEX.findFirstMatchIn(masterURL).get.group(1)
     val coarse = sc.conf.getBoolean("spark.mesos.coarse", defaultValue = true)
-    if (coarse) {
-      None
+    val (schedulerBackend, executorProvider) = if (coarse) {
+      val executorProvider = new MesosExecutorProvider(
+        sc.conf,
+        mesosSchedulerErrorHandler,
+        sc.env.rpcEnv,
+        sc,
+        sc.env.securityManager,
+        mesosUrl)
+      val coarseGrainedBackend = new CoarseGrainedSchedulerBackend(
+        scheduler,
+        executorProvider,
+        ClusterManagerExecutorLifecycleHandler.DEFAULT,
+        sc.env.rpcEnv,
+        sc)
+      executorProvider.initialize(coarseGrainedBackend)
+      (Some(coarseGrainedBackend), Some(executorProvider))
     } else {
-      Some(new MesosFineGrainedSchedulerBackend(
+      (Some(new MesosFineGrainedSchedulerBackend(
         scheduler,
         sc,
-        mesosUrl))
+        mesosUrl)), Option.empty[MesosExecutorProvider])
     }
+    ExternalClusterManager(
+      maybeCustomSchedulerBackend = schedulerBackend,
+      maybeExecutorProvider = executorProvider,
+      maybeDriverLogUrlsProvider = None)
   }
 
   override def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
@@ -65,7 +75,7 @@ private[spark] class MesosClusterManagerFactory extends ExternalClusterManagerFa
   }
 }
 
-private[mesos] object MesosClusterManager {
+private[mesos] object MesosClusterManagerFactory {
   val MESOS_REGEX = """mesos://(.*)""".r
 }
 

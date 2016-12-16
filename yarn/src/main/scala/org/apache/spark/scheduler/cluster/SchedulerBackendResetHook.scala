@@ -16,22 +16,19 @@
  */
 package org.apache.spark.scheduler.cluster
 
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
-import org.apache.spark.rpc.RpcEnv
-import org.apache.spark.scheduler.{SchedulerBackendHooks, TaskSchedulerImpl}
+import java.util.concurrent.atomic.AtomicBoolean
 
-class StandaloneExecutorProviderFactory(
-    taskScheduler: TaskSchedulerImpl,
-    sc: SparkContext,
-    masterUrls: Array[String])
-    extends ClusterManagerExecutorProviderFactory[StandaloneExecutorProvider] {
+import org.apache.spark.rpc.{RpcAddress, RpcEndpointRef}
 
-  override def newClusterManagerExecutorProvider(
-      conf: SparkConf,
-      schedulerBackendHooks: SchedulerBackendHooks,
-      rpcEnv: RpcEnv,
-      sc: SparkContext): StandaloneExecutorProvider = {
-    new StandaloneExecutorProvider(taskScheduler, sc, conf, masterUrls)
-  }
+private[spark] class SchedulerBackendResetHook(schedulerBackend: CoarseGrainedSchedulerBackend)
+    extends AMEventListener {
+   private val shouldResetOnAmRegister = new AtomicBoolean(false)
+
+   override def onConnected(am: RpcEndpointRef): Unit = {
+      if (shouldResetOnAmRegister.getAndSet(true)) {
+         schedulerBackend.reset()
+      }
+   }
+
+   override def onDisconnected(remoteAddress: RpcAddress): Unit = {}
 }

@@ -31,19 +31,7 @@ private[spark] class YarnExecutorLifecycleHandler(
     amRegistrationEndpoint: AMRegistrationEndpoint,
     conf: SparkConf) extends ClusterManagerExecutorLifecycleHandler with Logging {
 
-  private var amEndpoint: Option[RpcEndpointRef] = None
   private implicit val askTimeout = RpcUtils.askRpcTimeout(conf)
-
-  amRegistrationEndpoint.subscribeToAMRegistration(new AMEventListener {
-    override def onConnected(am: RpcEndpointRef): Unit = {
-      amEndpoint = Some(am)
-    }
-
-    override def onDisconnected(remoteAddress: RpcAddress): Unit = {
-      amEndpoint = None
-    }
-  })
-
   override def executorLossReasonRetriever(implicit ec: ExecutionContext)
       : Option[((String, RpcAddress) => Future[ExecutorLossReason])] = {
     Some(new GetExecutorLossReasonFunction(ec))
@@ -55,7 +43,7 @@ private[spark] class YarnExecutorLifecycleHandler(
 
     override def apply(executorId: String, executorAddress: RpcAddress)
         : Future[ExecutorLossReason] = {
-      amEndpoint match {
+      amRegistrationEndpoint.getCurrentlySetAmEndpoint match {
         case Some(am) =>
           val lossReasonRequest = GetExecutorLossReason(executorId)
           am.ask[ExecutorLossReason](lossReasonRequest, askTimeout)

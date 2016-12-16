@@ -34,11 +34,10 @@ class LocalClusterExecutorProviderFactory(
       schedulerBackendHooks: SchedulerBackendHooks,
       rpcEnv: RpcEnv,
       sc: SparkContext): StandaloneExecutorProvider = {
-    val allocator = new StandaloneExecutorProvider(
-      taskScheduler, sc, conf, schedulerBackendHooks, masterUrls)
-    allocator.shutdownCallback = (backend: StandaloneExecutorProvider) => {
+    val provider = new StandaloneExecutorProvider(taskScheduler, sc, conf, masterUrls)
+    provider.shutdownCallback = (backend: StandaloneExecutorProvider) => {
       localCluster.stop()
     }
-    allocator
+    provider
   }
 }

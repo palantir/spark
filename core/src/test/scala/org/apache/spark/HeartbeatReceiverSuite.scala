@@ -282,20 +282,6 @@ private class FakeExecutorProvider(
   override def minRegisteredRatio: Double = 0.0
 }
 
-private class FakeExecutorProviderFactory(
-    scheduler: TaskSchedulerImpl,
-    rpcEnv: RpcEnv,
-    clusterManagerEndpoint: RpcEndpointRef)
-  extends ClusterManagerExecutorProviderFactory[FakeExecutorProvider] {
-  override def newClusterManagerExecutorProvider(
-      conf: SparkConf,
-      schedulerBackendHooks: SchedulerBackendHooks,
-      rpcEnv: RpcEnv,
-      sc: SparkContext): FakeExecutorProvider = {
-    new FakeExecutorProvider(scheduler, rpcEnv, clusterManagerEndpoint)
-  }
-}
-
 /**
  * Dummy scheduler backend to simulate executor allocation requests to the cluster manager.
  */
@@ -305,7 +291,7 @@ private class FakeSchedulerBackend(
     clusterManagerEndpoint: RpcEndpointRef)
   extends CoarseGrainedSchedulerBackend(
     scheduler,
-    new FakeExecutorProviderFactory(scheduler, rpcEnv, clusterManagerEndpoint),
+    new FakeExecutorProvider(scheduler, rpcEnv, clusterManagerEndpoint),
     ClusterManagerExecutorLifecycleHandler.DEFAULT,
     rpcEnv,
     scheduler.sc) {

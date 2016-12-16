@@ -18,8 +18,7 @@
 package org.apache.spark.scheduler
 
 import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
-import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorLifecycleHandler
-import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory.GenericExecutorProviderFactory
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorLifecycleHandler, ClusterManagerExecutorProvider}
 
 /**
  * A cluster manager interface to plugin external scheduler.
@@ -28,18 +27,18 @@ private[spark] case class ExternalClusterManager(
     maybeCustomTaskScheduler: Option[TaskScheduler] = None,
     maybeCustomExecutorLifecycleHandler: Option[ClusterManagerExecutorLifecycleHandler] = None,
     maybeCustomSchedulerBackend: Option[SchedulerBackend] = None,
-    maybeExecutorProviderFactory: Option[GenericExecutorProviderFactory] = None,
+    maybeExecutorProvider: Option[ClusterManagerExecutorProvider] = None,
     maybeDriverLogUrlsProvider: Option[ClusterManagerDriverLogUrlsProvider] = None) {
   validate()
 
   private def validate(): Unit = {
-    require(maybeCustomSchedulerBackend.isDefined || maybeExecutorProviderFactory.isDefined,
+    require(maybeCustomSchedulerBackend.isDefined || maybeExecutorProvider.isDefined,
       "Either a custom scheduler backend or an executor provider factory must be set.")
     maybeCustomSchedulerBackend.foreach { _ =>
-      require(maybeExecutorProviderFactory.isEmpty, "Should not provide both a custom scheduler" +
+      require(maybeExecutorProvider.isEmpty, "Should not provide both a custom scheduler" +
         " backend and an executor provider factory.")
     }
-    maybeExecutorProviderFactory.foreach {_ =>
+    maybeExecutorProvider.foreach { _ =>
       require(maybeCustomSchedulerBackend.isEmpty, "Should not provider both a custom scheduler" +
         " backend and an executor provider factory.")
     }

@@ -31,25 +31,30 @@ class YarnClusterManagerFactory extends ExternalClusterManagerFactory {
       masterURL: String): ExternalClusterManager = {
     val amRegistrationEndpoint = new AMRegistrationEndpoint(sc.env.rpcEnv)
     sc.env.rpcEnv.setupEndpoint(AMRegistrationEndpoint.ENDPOINT_NAME, amRegistrationEndpoint)
-    val executorProviderFactory = new YarnExecutorProviderFactory(amRegistrationEndpoint,
-      sc.deployMode)
     val executorLifecycleHandler = new YarnExecutorLifecycleHandler(amRegistrationEndpoint, sc.conf)
-    val (taskScheduler, driverLogUrlsProvider) = sc.deployMode.toLowerCase match {
-      case "cluster" =>
-        (new YarnClusterScheduler(sc), Some(new YarnClusterDriverLogUrlsProvider(sc)))
-      case "client" => (new YarnScheduler(sc), Option.empty[ClusterManagerDriverLogUrlsProvider])
+    val (executorProvider, taskScheduler, driverLogUrlsProvider) = sc.deployMode.toLowerCase match {
+      case "cluster" => (
+        new YarnClusterExecutorProvider(sc.conf, amRegistrationEndpoint, sc.env.rpcEnv, sc),
+        new YarnClusterScheduler(sc),
+        Some(new YarnClusterDriverLogUrlsProvider(sc)))
+      case "client" => (
+        new YarnClientExecutorProvider(sc.conf, amRegistrationEndpoint, sc.env.rpcEnv, sc),
+        new YarnScheduler(sc),
+        Option.empty[ClusterManagerDriverLogUrlsProvider])
       case _ => throw new SparkException(s"Unknown deploy mode: ${sc.deployMode}")
     }
     val schedulerBackend = new CoarseGrainedSchedulerBackend(
-      taskScheduler.asInstanceOf[TaskSchedulerImpl],
-      executorProviderFactory,
+      taskScheduler,
+      executorProvider,
       executorLifecycleHandler,
       sc.env.rpcEnv,
       sc)
+    amRegistrationEndpoint.subscribeToAMRegistration(
+      new SchedulerBackendResetHook(schedulerBackend))
     ExternalClusterManager(
       maybeCustomExecutorLifecycleHandler = Some(executorLifecycleHandler),
       maybeCustomSchedulerBackend = Some(schedulerBackend),
-      maybeExecutorProviderFactory = Some(executorProviderFactory),
+      maybeExecutorProvider = Some(executorProvider),
       maybeCustomTaskScheduler = Some(taskScheduler),
       maybeDriverLogUrlsProvider = driverLogUrlsProvider)
   }

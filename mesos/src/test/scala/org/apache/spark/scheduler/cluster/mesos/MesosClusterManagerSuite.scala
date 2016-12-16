@@ -22,8 +22,8 @@ import org.apache.spark.internal.config._
 
 class MesosClusterManagerSuite extends SparkFunSuite with LocalSparkContext {
   def testURL(masterURL: String, expectedSchedulerClass: Option[Class[_]] = None,
-        expectedExecutorProviderFactoryClass: Option[Class[_]] = None, coarse: Boolean) {
-    require(expectedSchedulerClass.isDefined || expectedExecutorProviderFactoryClass.isDefined)
+              expectedExecutorProviderClass: Option[Class[_]] = None, coarse: Boolean) {
+    require(expectedSchedulerClass.isDefined || expectedExecutorProviderClass.isDefined)
     val conf = new SparkConf().set("spark.mesos.coarse", coarse.toString)
     sc = new SparkContext("local", "test", conf)
     val clusterManagerFactory = new MesosClusterManagerFactory()
@@ -33,9 +33,9 @@ class MesosClusterManagerSuite extends SparkFunSuite with LocalSparkContext {
     sched match {
       case Some(impl) => assert(impl.getClass === expectedSchedulerClass.get)
       case None =>
-        require(expectedExecutorProviderFactoryClass.isDefined)
-        val executorProviderFactory = clusterManager.maybeExecutorProviderFactory.get
-        assert(executorProviderFactory.getClass === expectedExecutorProviderFactoryClass.get)
+        require(expectedExecutorProviderClass.isDefined)
+        val executorProvider = clusterManager.maybeExecutorProvider.get
+        assert(executorProvider.getClass === expectedExecutorProviderClass.get)
     }
   }
 
@@ -47,7 +47,7 @@ class MesosClusterManagerSuite extends SparkFunSuite with LocalSparkContext {
 
   test("mesos coarse-grained") {
     testURL("mesos://localhost:1234",
-      expectedExecutorProviderFactoryClass = Some(classOf[MesosExecutorProviderFactory]),
+      expectedExecutorProviderClass = Some(classOf[MesosExecutorProvider]),
       coarse = true)
   }
 

@@ -37,8 +37,8 @@ import org.apache.spark.{LocalSparkContext, SecurityManager, SparkConf, SparkCon
 import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorLifecycleHandler, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.internal.config._
 import org.apache.spark.network.shuffle.mesos.MesosExternalShuffleClient
-import org.apache.spark.rpc.{RpcEndpointRef, RpcEnv, ThreadSafeRpcEndpoint}
-import org.apache.spark.scheduler.{SchedulerBackendHooks, TaskSchedulerImpl}
+import org.apache.spark.rpc.{RpcEndpointRef, ThreadSafeRpcEndpoint}
+import org.apache.spark.scheduler.TaskSchedulerImpl
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.RemoveExecutor
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.scheduler.cluster.mesos.Utils._
@@ -316,7 +316,7 @@ class MesosCoarseGrainedSchedulerBackendSuite extends SparkFunSuite
 
     val newExecutorProvider = new MesosExecutorProvider(
         sparkConf,
-        backend.schedulerBackendLegacyHooks,
+        getSchedulerErrorHandler(taskScheduler),
         sc.env.rpcEnv,
         sc,
         securityManager,
@@ -545,41 +545,29 @@ class MesosCoarseGrainedSchedulerBackendSuite extends SparkFunSuite
       shuffleClient: MesosExternalShuffleClient,
       endpoint: RpcEndpointRef): CoarseGrainedSchedulerBackend = {
     val securityManager = mock[SecurityManager]
-    val executorProviderFactory = new ClusterManagerExecutorProviderFactory[MesosExecutorProvider] {
-      override def newClusterManagerExecutorProvider(
-          conf: SparkConf,
-          schedulerBackendHooks: SchedulerBackendHooks,
-          rpcEnv: RpcEnv,
-          sc: SparkContext): MesosExecutorProvider = {
-        new MesosExecutorProvider(conf, schedulerBackendHooks, rpcEnv, sc, securityManager, "master") {
-          override protected def createSchedulerDriver(
-            masterUrl: String,
-            scheduler: Scheduler,
-            sparkUser: String,
-            appName: String,
-            conf: SparkConf,
-            webuiUrl: Option[String] = None,
-            checkpoint: Option[Boolean] = None,
-            failoverTimeout: Option[Double] = None,
-            frameworkId: Option[String] = None): SchedulerDriver = driver
+    val executorProvider = new MesosExecutorProvider(
+        sc.conf,
+        new MesosSchedulerErrorHandler {
+          override def handleError(message: String): Unit = taskScheduler.error(message)
+        },
+        sc.env.rpcEnv,
+        sc,
+        securityManager,
+        "local[1]") {
+      override protected def getShuffleClient(): MesosExternalShuffleClient = shuffleClient
 
-          override protected def getShuffleClient(): MesosExternalShuffleClient = shuffleClient
-
-          // override to avoid race condition with the driver thread on `mesosDriver`
-          override def startScheduler(newDriver: SchedulerDriver): Unit = {
-            mesosDriver = newDriver
-          }
-          markRegistered()
-        }
+      // override to avoid race condition with the driver thread on `mesosDriver`
+      override def startScheduler(newDriver: SchedulerDriver): Unit = {
+        mesosDriver = newDriver
       }
+      markRegistered()
     }
     val configuredBackend = new CoarseGrainedSchedulerBackend(
-      taskScheduler,
-      executorProviderFactory,
-      ClusterManagerExecutorLifecycleHandler.DEFAULT,
-      sc.env.rpcEnv,
-      sc
-    ) {
+        taskScheduler,
+        executorProvider,
+        ClusterManagerExecutorLifecycleHandler.DEFAULT,
+        sc.env.rpcEnv,
+        sc) {
       override def stopExecutors(): Unit = {
         stopCalled = true
       }
@@ -618,5 +606,12 @@ class MesosCoarseGrainedSchedulerBackendSuite extends SparkFunSuite
 
     backend = createSchedulerBackend(taskScheduler, driver, externalShuffleClient, driverEndpoint)
     executorProvider = backend.executorProvider.asInstanceOf[MesosExecutorProvider]
+  }
+
+  private def getSchedulerErrorHandler(taskScheduler: TaskSchedulerImpl)
+      : MesosSchedulerErrorHandler = {
+    new MesosSchedulerErrorHandler {
+      override def handleError(message: String): Unit = taskScheduler.error(message)
+    }
   }
 }

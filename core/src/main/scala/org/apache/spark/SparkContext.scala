@@ -54,7 +54,7 @@ import org.apache.spark.partial.{ApproximateEvaluator, PartialResult}
 import org.apache.spark.rdd._
 import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.scheduler._
-import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend, LocalClusterExecutorProviderFactory, StandaloneExecutorProviderFactory}
+import org.apache.spark.scheduler.cluster.{StandaloneExecutorProvider, CoarseGrainedSchedulerBackend, LocalClusterExecutorProviderFactory, StandaloneExecutorProviderFactory}
 import org.apache.spark.scheduler.local.LocalSchedulerBackend
 import org.apache.spark.storage._
 import org.apache.spark.storage.BlockManagerMessages.TriggerThreadDump
@@ -2528,10 +2528,9 @@ object SparkContext extends Logging {
       case SPARK_REGEX(sparkUrl) =>
         val scheduler = new TaskSchedulerImpl(sc)
         val masterUrls = sparkUrl.split(",").map("spark://" + _)
-        val executorProviderFactory = new StandaloneExecutorProviderFactory(
-          scheduler, sc, masterUrls)
+        val executorProvider = new StandaloneExecutorProvider(scheduler, sc, sc.conf, masterUrls)
         val backend = new CoarseGrainedSchedulerBackend(
-          scheduler, executorProviderFactory, ClusterManagerExecutorLifecycleHandler.DEFAULT,
+          scheduler, executorProvider, ClusterManagerExecutorLifecycleHandler.DEFAULT,
           sc.env.rpcEnv, sc)
         scheduler.initializeBackend(backend)
         (backend, scheduler, DEFAULT_LOG_URLS_PROVIDER)
@@ -2549,10 +2548,12 @@ object SparkContext extends Logging {
         val localCluster = new LocalSparkCluster(
           numSlaves.toInt, coresPerSlave.toInt, memoryPerSlaveInt, sc.conf)
         val masterUrls = localCluster.start()
-        val executorProviderFactory = new LocalClusterExecutorProviderFactory(
-          scheduler, sc, localCluster, masterUrls)
+        val executorProvider = new StandaloneExecutorProvider(scheduler, sc, sc.conf, masterUrls)
+        executorProvider.shutdownCallback = (backend: StandaloneExecutorProvider) => {
+          localCluster.stop()
+        }
         val backend = new CoarseGrainedSchedulerBackend(
-          scheduler, executorProviderFactory, ClusterManagerExecutorLifecycleHandler.DEFAULT,
+          scheduler, executorProvider, ClusterManagerExecutorLifecycleHandler.DEFAULT,
           sc.env.rpcEnv, sc)
         scheduler.initializeBackend(backend)
         (backend, scheduler, DEFAULT_LOG_URLS_PROVIDER)
@@ -2566,7 +2567,7 @@ object SparkContext extends Logging {
           val cm = factory.newExternalClusterManager(sc, masterUrl)
           val scheduler = cm.maybeCustomTaskScheduler.getOrElse(new TaskSchedulerImpl(sc))
           val backend = cm.maybeCustomSchedulerBackend.getOrElse({
-            val executorProviderFactory = cm.maybeExecutorProviderFactory.getOrElse(
+            val executorProvider  = cm.maybeExecutorProvider.getOrElse(
               throw new SparkException("Custom cluster manager must either provide a custom" +
                 " scheduler backend, or an empty scheduler backend with an executor provider; but" +
                 " both cannot be set at once."))
@@ -2574,7 +2575,7 @@ object SparkContext extends Logging {
               ClusterManagerExecutorLifecycleHandler.DEFAULT)
             new CoarseGrainedSchedulerBackend(
               cm.maybeCustomTaskScheduler.asInstanceOf[TaskSchedulerImpl],
-              executorProviderFactory,
+              executorProvider,
               executorLifecycleHandler,
               sc.env.rpcEnv,
               sc)

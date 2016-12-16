@@ -29,7 +29,6 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProvider
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc._
-import org.apache.spark.scheduler._
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.ui.JettyUtils
 import org.apache.spark.util.{RpcUtils, ThreadUtils}
@@ -40,7 +39,6 @@ import org.apache.spark.util.{RpcUtils, ThreadUtils}
  */
 private[spark] abstract class YarnExecutorProvider(
     protected val conf: SparkConf,
-    schedulerBackendHooks: SchedulerBackendHooks,
     amRegistrationEndpoint: AMRegistrationEndpoint,
     rpcEnv: RpcEnv,
     sc: SparkContext)
@@ -66,31 +64,6 @@ private[spark] abstract class YarnExecutorProvider(
 
   /** Scheduler extension services. */
   private val services: SchedulerExtensionServices = new SchedulerExtensionServices()
-
-  // Flag to specify whether this schedulerBackend should be reset.
-  private var shouldResetOnAmRegister = false
-
-  private var amEndpoint: Option[RpcEndpointRef] = None
-
-  amRegistrationEndpoint.subscribeToAMRegistration(new AMEventListener {
-    override def onConnected(am: RpcEndpointRef): Unit = {
-      amEndpoint = Option(am)
-      if (!shouldResetOnAmRegister) {
-        shouldResetOnAmRegister = true
-      } else {
-        // AM is already registered before, this potentially means that AM failed and
-        // a new one registered after the failure. This will only happen in yarn-client mode.
-        schedulerBackendHooks.reset()
-      }
-    }
-
-    override def onDisconnected(remoteAddress: RpcAddress): Unit = {
-      if (amEndpoint.exists(_.address == remoteAddress)) {
-        logWarning(s"ApplicationMaster has disassociated: $remoteAddress")
-        amEndpoint = None
-      }
-    }
-  })
 
   /**
    * Bind to YARN. This *must* be done before calling [[start()]].
@@ -203,7 +176,7 @@ private[spark] abstract class YarnExecutorProvider(
 
     override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
       case r: RequestExecutors =>
-        amEndpoint match {
+        amRegistrationEndpoint.getCurrentlySetAmEndpoint match {
           case Some(am) =>
             am.ask[Boolean](r).andThen {
               case Success(b) => context.reply(b)
@@ -217,7 +190,7 @@ private[spark] abstract class YarnExecutorProvider(
         }
 
       case k: KillExecutors =>
-        amEndpoint match {
+        amRegistrationEndpoint.getCurrentlySetAmEndpoint match {
           case Some(am) =>
             am.ask[Boolean](k).andThen {
               case Success(b) => context.reply(b)
