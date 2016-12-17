@@ -2574,7 +2574,7 @@ object SparkContext extends Logging {
             val executorLifecycleHandler = cm.maybeCustomExecutorLifecycleHandler.getOrElse(
               ClusterManagerExecutorLifecycleHandler.DEFAULT)
             new CoarseGrainedSchedulerBackend(
-              cm.maybeCustomTaskScheduler.asInstanceOf[TaskSchedulerImpl],
+              scheduler.asInstanceOf[TaskSchedulerImpl],
               executorProvider,
               executorLifecycleHandler,
               sc.env.rpcEnv,
