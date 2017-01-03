@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution.datasources.parquet
 
+import java.sql.Timestamp
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -33,7 +35,8 @@ import org.apache.parquet.hadoop.api.WriteSupport
 import org.apache.parquet.hadoop.api.WriteSupport.WriteContext
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.apache.parquet.io.api.RecordConsumer
-import org.apache.parquet.schema.{MessageType, MessageTypeParser}
+import org.apache.parquet.schema.{MessageType, MessageTypeParser, Type, Types}
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
 
 import org.apache.spark.SparkException
 import org.apache.spark.sql._
@@ -741,6 +744,71 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSQLContext {
     withSQLConf(SQLConf.PARQUET_COMPRESSION.key -> "snappy") {
       val option = new ParquetOptions(Map("Compression" -> "uncompressed"), spark.sessionState.conf)
       assert(option.compressionCodecClassName == "UNCOMPRESSED")
+    }
+  }
+
+  test("Pruned blocks within a file split do not get used") {
+    withSQLConf(ParquetOutputFormat.BLOCK_SIZE -> "1",
+      SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
+      withTempPath { f =>
+        // Create many blocks that will fit within the maxSplitSize.
+        // Ensure that non-contiguous blocks properly get removed within the vectorized reader.
+        val data = sparkContext.parallelize((1 to 100) ++ (100 to 200) ++ (1 to 100), 1).toDF()
+        data.write.parquet(f.getCanonicalPath)
+        val df = spark.read.parquet(f.getCanonicalPath)
+        assert(df.filter("value <=> 1").count() == 2)
+      }
+    }
+  }
+
+  test("Timestamp as INT96") {
+    withTempPath { dir =>
+      withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "true") {
+        val step = 1000L
+        val timestamps = Range.Long(System.currentTimeMillis(),
+          System.currentTimeMillis() + step * 20L, step).map(new Timestamp(_))
+        makeParquetFile(timestamps.map(i => Tuple1(Option(i))), dir)
+
+        val stat = FileSystem.get(new Configuration()).getFileStatus(new Path(dir.getCanonicalPath))
+        val footer = ParquetFileReader.readFooters(new Configuration(), stat, true).get(0)
+        val tsType = Types.primitive(PrimitiveTypeName.INT96, Type.Repetition.OPTIONAL).named("_1")
+        val schema = footer.getParquetMetadata.getFileMetaData.getSchema
+
+        assert(schema.getType(0).equals(tsType))
+        withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "false") {
+          readParquetFile(dir.getCanonicalPath) { df =>
+            assert(df.schema.head.dataType == DataTypes.TimestampType)
+            val results = df.collect().map(_.getTimestamp(0))
+            assert(results sameElements timestamps.toArray[Timestamp])
+          }
+        }
+      }
+    }
+  }
+
+
+  test("Timestamp as INT64") {
+    withTempPath { dir =>
+      withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "false") {
+        val step = 1000L
+        val timestamps = Range.Long(System.currentTimeMillis(),
+          System.currentTimeMillis() + step * 20L, step).map(new Timestamp(_))
+        makeParquetFile(timestamps.map(i => Tuple1(Option(i))), dir)
+
+        val stat = FileSystem.get(new Configuration()).getFileStatus(new Path(dir.getCanonicalPath))
+        val footer = ParquetFileReader.readFooters(new Configuration(), stat, true).get(0)
+        val tsType = Types.primitive(PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL).named("_1")
+        val schema = footer.getParquetMetadata.getFileMetaData.getSchema
+
+        assert(schema.getType(0).equals(tsType))
+        withSQLConf(SQLConf.PARQUET_TIMESTAMP_AS_INT96.key -> "true") {
+          readParquetFile(dir.getCanonicalPath) { df =>
+            assert(df.schema.head.dataType == DataTypes.TimestampType)
+            val results = df.collect().map(_.getTimestamp(0))
+            assert(results sameElements timestamps.toArray[Timestamp])
+          }
+        }
+      }
     }
   }
 }
