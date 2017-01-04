@@ -2589,6 +2589,16 @@
     </profile>
 
     <profile>
+      <id>hadoop-palantir</id>
+      <properties>
+        <hadoop.version>2.9.0-SNAPSHOT-palantir2</hadoop.version>
+        <jets3t.version>0.9.3</jets3t.version>
+        <zookeeper.version>3.4.6</zookeeper.version>
+        <curator.version>2.6.0</curator.version>
+      </properties>
+    </profile>
+
+    <profile>
       <id>yarn</id>
       <modules>
         <module>yarn</module>
