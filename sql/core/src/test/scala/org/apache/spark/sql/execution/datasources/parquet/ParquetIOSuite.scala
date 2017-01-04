@@ -812,7 +812,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSQLContext {
     }
   }
 
-  test("Timeestamp INT64 Dictionary encoding") {
+  test("Timestamp INT64 Dictionary encoding") {
     val data = (1 to 1000).map { i =>
       if (i < 500) {
         Row(new java.sql.Timestamp(10))
@@ -822,18 +822,15 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSQLContext {
     }
     val schema = StructType(List(StructField("time", TimestampType, false)).toArray)
     withSQLConf(ParquetOutputFormat.DICTIONARY_PAGE_SIZE -> "64",
-      ParquetOutputFormat.PAGE_SIZE -> "128") {
-        withTempPath { file =>
-          val df = spark.createDataFrame(sparkContext.parallelize(data), schema)
-          df.coalesce(1).write.parquet(file.getCanonicalPath)
-          ("true" :: Nil).foreach { vectorized =>
-            withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> vectorized) {
-              val df2 = spark.read.parquet(file.getCanonicalPath)
-              checkAnswer(df2, df.collect().toSeq)
-            }
-          }
-        }
+        ParquetOutputFormat.PAGE_SIZE -> "128",
+        SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
+      withTempPath { file =>
+        val df = spark.createDataFrame(sparkContext.parallelize(data), schema)
+        df.coalesce(1).write.parquet(file.getCanonicalPath)
+        val df2 = spark.read.parquet(file.getCanonicalPath)
+        checkAnswer(df2, df.collect().toSeq)
       }
+    }
   }
 }
 
