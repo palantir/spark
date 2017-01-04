@@ -3,6 +3,12 @@ machine:
     version: oraclejdk8
   environment:
     TERM: dumb
+  post:
+   - pyenv global 2.7.11 3.4.4 pypy-4.0.1
+   # turn off circle's bundled services to use less memory
+   - sudo service postgresql stop
+   - sudo service mongod stop
+
 
 checkout:
   post:
@@ -18,6 +24,9 @@ dependencies:
 
 test:
   override:
+    - HADOOP_PROFILE=hadoop2.7 ./dev/run-tests --container $CIRCLE_NODE_INDEX --total-containers $CIRCLE_NODE_TOTAL:
+        parallel: true
+        timeout: 1200
     - ? |
           set -euo pipefail
           version=$(git describe --tags)
