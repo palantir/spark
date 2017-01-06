@@ -46,9 +46,9 @@ import org.apache.spark.util.{RpcUtils, SerializableBuffer, ThreadUtils, Utils}
 private[spark] class CoarseGrainedSchedulerBackend(
     scheduler: TaskSchedulerImpl,
     // Visible for testing
-    val executorProvider: ClusterManagerExecutorProvider,
+    executorProvider: ClusterManagerExecutorProvider,
     customExecutorLifecycleHandler: ClusterManagerExecutorLifecycleHandler,
-    val rpcEnv: RpcEnv,
+    rpcEnv: RpcEnv,
     sc: SparkContext)
   extends ExecutorAllocationClient with SchedulerBackend with SchedulerBackendHooks with Logging
 {
@@ -93,7 +93,7 @@ private[spark] class CoarseGrainedSchedulerBackend(
   protected var localityAwareTasks = 0
 
   // The num of current max ExecutorId used to re-register appMaster
-  @volatile protected var currentExecutorIdCounter = new AtomicInteger(0)
+  protected val currentExecutorIdCounter = new AtomicInteger(0)
 
   class DriverEndpoint(override val rpcEnv: RpcEnv, sparkProperties: Seq[(String, String)])
     extends ThreadSafeRpcEndpoint with Logging {
@@ -387,7 +387,9 @@ private[spark] class CoarseGrainedSchedulerBackend(
   def stopExecutors() {
     try {
       logInfo("Shutting down all executors")
-      driverEndpoint.askWithRetry[Boolean](StopExecutors)
+      if (driverEndpoint != null) {
+        driverEndpoint.askWithRetry[Boolean](StopExecutors)
+      }
     } catch {
       case e: Exception =>
         throw new SparkException("Error asking standalone scheduler to shut down executors", e)
@@ -476,7 +478,6 @@ private[spark] class CoarseGrainedSchedulerBackend(
 
   /**
    * Request an additional number of executors from the cluster manager.
-   *
    * @return whether the request is acknowledged.
    */
   final override def requestExecutors(numAdditionalExecutors: Int): Boolean = {
@@ -502,7 +503,6 @@ private[spark] class CoarseGrainedSchedulerBackend(
   /**
    * Update the cluster manager on our scheduling needs. Three bits of information are included
    * to help it make decisions.
-   *
    * @param numExecutors The total number of executors we'd like to have. The cluster manager
    *                     shouldn't kill any running executor to reach this number, but,
    *                     if all existing executors were to die, this is the number of executors
@@ -540,7 +540,6 @@ private[spark] class CoarseGrainedSchedulerBackend(
 
   /**
    * Request that the cluster manager kill the specified executors.
-   *
    * @return whether the kill request is acknowledged. If list to kill is empty, it will return
    *         false.
    */
@@ -554,7 +553,6 @@ private[spark] class CoarseGrainedSchedulerBackend(
    * When asking the executor to be replaced, the executor loss is considered a failure, and
    * killed tasks that are running on the executor will count towards the failure limits. If no
    * replacement is being requested, then the tasks will not count towards the limit.
-   *
    * @param executorIds identifiers of executors to kill
    * @param replace whether to replace the killed executors with new ones
    * @param force whether to force kill busy executors
