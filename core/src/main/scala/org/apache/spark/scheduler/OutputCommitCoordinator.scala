@@ -27,6 +27,7 @@ private sealed trait OutputCommitCoordinationMessage extends Serializable
 
 private case object StopCoordinator extends OutputCommitCoordinationMessage
 private case class AskPermissionToCommitOutput(stage: Int, partition: Int, attemptNumber: Int)
+private case class AskAlreadyCommitted(stage: Int, partition: Int, attemptNumber: Int)
 
 /**
  * Authority that decides whether tasks can commit output to HDFS. Uses a "first committer wins"
@@ -92,6 +93,21 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
       case None =>
         logError(
           "canCommit called after coordinator was stopped (is SparkEnv shutdown in progress)?")
+        false
+    }
+  }
+
+  def alreadyCommitted(
+      stage: StageId,
+      partition: PartitionId,
+      attemptNumber: TaskAttemptNumber): Boolean = {
+    val msg = AskAlreadyCommitted(stage, partition, attemptNumber)
+    coordinatorRef match {
+      case Some(endpointRef) =>
+        endpointRef.askWithRetry[Boolean](msg)
+      case None =>
+        logError(
+          "alreadyCommitted called after coordinator was stopped (is SparkEnv shutdown in progress)?")
         false
     }
   }
@@ -164,11 +180,6 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
               s"partition=$partition")
             authorizedCommitters(partition) = attemptNumber
             true
-          case existingCommitter if existingCommitter == attemptNumber =>
-            logWarning(s"Authorizing duplicate request to commit for " +
-              s"attemptNumber=$attemptNumber to commit for stage=$stage, partition=$partition; " +
-              s"existingCommitter = $existingCommitter. This can indicate dropped network traffic.")
-            true
           case existingCommitter =>
             logDebug(s"Denying attemptNumber=$attemptNumber to commit for stage=$stage, " +
               s"partition=$partition; existingCommitter = $existingCommitter")
@@ -177,6 +188,25 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
       case None =>
         logDebug(s"Stage $stage has completed, so not allowing attempt number $attemptNumber of" +
           s"partition $partition to commit")
+        false
+    }
+  }
+
+  private[scheduler] def handleAskAlreadyCommitted(
+      stage: StageId,
+      partition: PartitionId,
+      attemptNumber: TaskAttemptNumber): Boolean = synchronized {
+    authorizedCommittersByStage.get(stage) match {
+      case Some(authorizedCommitters) =>
+        authorizedCommitters(partition) match {
+          case NO_AUTHORIZED_COMMITTER =>
+            false
+          case existingCommitter =>
+            true
+        }
+      case None =>
+        logDebug(s"Stage $stage has completed, so not allowing attempt number $attemptNumber of" +
+          s"partition $partition to ask for already commited")
         false
     }
   }
@@ -201,6 +231,9 @@ private[spark] object OutputCommitCoordinator {
       case AskPermissionToCommitOutput(stage, partition, attemptNumber) =>
         context.reply(
           outputCommitCoordinator.handleAskPermissionToCommit(stage, partition, attemptNumber))
+      case AskAlreadyCommitted(stage, partition, attemptNumber) =>
+        context.reply(
+          outputCommitCoordinator.handleAskAlreadyCommitted(stage, partition, attemptNumber))
     }
   }
 }
