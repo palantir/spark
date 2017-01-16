@@ -52,8 +52,8 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
   private type TaskAttemptNumber = Int
 
   private val NO_AUTHORIZED_COMMITTER: TaskAttemptNumber = -1
-  // TODO: get below from config?
-  private val MAX_WAIT_FOR_COMMIT = 120000L
+  // Timeout to release the lock on a task in milliseconds
+  private val MAX_WAIT_FOR_COMMIT = conf.getLong("spark.scheduler.outputCommitCoordinator.waitTimeout", 120000L);
 
   /**
    * Map from active stages's id => partition id => task attempt with exclusive lock on committing
@@ -168,19 +168,20 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
           case CommitState(NO_AUTHORIZED_COMMITTER, _) =>
             logDebug(s"Authorizing attemptNumber=$attemptNumber to commit for stage=$stage, " +
               s"partition=$partition")
-            authorizedCommitters(partition) = CommitState(
-              attemptNumber, System.currentTimeMillis())
+            authorizedCommitters(partition) = CommitState(attemptNumber, System.currentTimeMillis())
             true
           case CommitState(existingCommitter, startTime)
             if System.currentTimeMillis() - startTime > MAX_WAIT_FOR_COMMIT =>
-            logDebug(s"Authorizing attemptNumber=$attemptNumber to commit for stage=$stage, " +
-              s"partition=$partition; maxWaitTime reached for attempId=$existingCommitter")
+            logWarning(s"Authorizing attemptNumber=$attemptNumber to commit for stage=$stage, " +
+              s"partition=$partition; maxWaitTime=$MAX_WAIT_FOR_COMMIT " +
+              s"reached and prior lock released for attemptId=$existingCommitter")
             authorizedCommitters(partition) = CommitState(
               attemptNumber, System.currentTimeMillis())
             true
-          case CommitState(existingCommitter, _) =>
+          case CommitState(existingCommitter, startTime) =>
             logDebug(s"Denying attemptNumber=$attemptNumber to commit for stage=$stage, " +
-              s"partition=$partition; existingCommitter = $existingCommitter")
+              s"partition=$partition; existingCommitter = $existingCommitter with " +
+              s"startTime=$startTime and currentTime=${System.currentTimeMillis()}")
             false
         }
       case None =>
