@@ -240,7 +240,8 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
     authorizedCommittersByStage.get(stage) match {
       case Some(authorizedCommitters) =>
         authorizedCommitters(partition) match {
-          case CommitState(existingCommitter, startTime, Committing) =>
+          case CommitState(existingCommitter, startTime, Committing)
+            if attemptNumber == existingCommitter =>
             logDebug(s"Marking attemptNumber=$attemptNumber for stage=$stage, " +
               s"partition=$partition as committed")
             authorizedCommitters(partition) = CommitState(
