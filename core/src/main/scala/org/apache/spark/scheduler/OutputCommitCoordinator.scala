@@ -25,7 +25,6 @@ import org.apache.spark.rpc.{RpcCallContext, RpcEndpoint, RpcEndpointRef, RpcEnv
 
 private sealed trait OutputCommitCoordinationMessage extends Serializable
 
-
 private case object StopCoordinator extends OutputCommitCoordinationMessage
 private case class AskPermissionToCommitOutput(stage: Int, partition: Int, attemptNumber: Int)
 private case class InformCommitDone(stage: Int, partition: Int, attemptNumber: Int)
@@ -60,10 +59,10 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
   private type TaskAttemptNumber = Int
 
   private val NO_AUTHORIZED_COMMITTER: TaskAttemptNumber = -1
-  // Timeout to release the lock on a task in milliseconds
+  // Timeout to release the lock on a task in milliseconds, defaults to 120 seconds
   private val MAX_WAIT_FOR_COMMIT = conf.getLong(
     "spark.scheduler.outputCommitCoordinator.maxWaitTime", 120000L
-  );
+  ) * 1e6.toLong
 
   /**
    * Map from active stages's id => partition id => task attempt with exclusive lock on committing
@@ -204,26 +203,26 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
             logDebug(s"Authorizing attemptNumber=$attemptNumber to commit for stage=$stage, " +
               s"partition=$partition")
             authorizedCommitters(partition) = CommitState(
-              attemptNumber, System.currentTimeMillis(), Committing
+              attemptNumber, System.nanoTime(), Committing
             )
             true
           case CommitState(existingCommitter, _, Committed) =>
-            logDebug(s"Denying attemptNumber=$attemptNumber to commit for stage=$stage, " +
+            logWarning(s"Denying attemptNumber=$attemptNumber to commit for stage=$stage, " +
               s"partition=$partition; it is already committed")
             false
           case CommitState(existingCommitter, startTime, Committing)
-            if System.currentTimeMillis() - startTime > MAX_WAIT_FOR_COMMIT =>
+            if System.nanoTime() - startTime > MAX_WAIT_FOR_COMMIT =>
             logWarning(s"Authorizing attemptNumber=$attemptNumber to commit for stage=$stage, " +
               s"partition=$partition; maxWaitTime=$MAX_WAIT_FOR_COMMIT " +
               s"reached and prior lock released for attemptId=$existingCommitter")
             authorizedCommitters(partition) = CommitState(
-              attemptNumber, System.currentTimeMillis(), Committing
+              attemptNumber, System.nanoTime(), Committing
             )
             true
           case CommitState(existingCommitter, startTime, _) =>
             logDebug(s"Denying attemptNumber=$attemptNumber to commit for stage=$stage, " +
               s"partition=$partition; existingCommitter = $existingCommitter with " +
-              s"startTime=$startTime and currentTime=${System.currentTimeMillis()}")
+              s"startTime=$startTime and currentTime=${System.nanoTime()}")
             false
         }
       case None =>
