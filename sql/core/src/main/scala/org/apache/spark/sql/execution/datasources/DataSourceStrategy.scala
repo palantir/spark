@@ -24,16 +24,15 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.{CatalystConf, CatalystTypeConverters, InternalRow, TableIdentifier}
+import org.apache.spark.sql.catalyst.{CatalystConf, CatalystTypeConverters, InternalRow, expressions}
 import org.apache.spark.sql.catalyst.CatalystTypeConverters.convertToScala
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTablePartition, SimpleCatalogRelation}
 import org.apache.spark.sql.catalyst.catalog.CatalogTypes.TablePartitionSpec
-import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical
-import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project, Union}
+import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project}
 import org.apache.spark.sql.catalyst.plans.physical.{HashPartitioning, UnknownPartitioning}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.{RowDataSourceScanExec, SparkPlan}
@@ -182,10 +181,11 @@ case class DataSourceAnalysis(conf: CatalystConf) extends Rule[LogicalPlan] {
           "Cannot overwrite a path that is also being read from.")
       }
 
+      val sparkSession = SparkSession.getActiveSession.get
       val partitionSchema = query.resolve(
-        t.partitionSchema, t.sparkSession.sessionState.analyzer.resolver)
+        t.partitionSchema, sparkSession.sessionState.analyzer.resolver)
       val partitionsTrackedByCatalog =
-        t.sparkSession.sessionState.conf.manageFilesourcePartitions &&
+        sparkSession.sessionState.conf.manageFilesourcePartitions &&
         l.catalogTable.isDefined && l.catalogTable.get.partitionColumnNames.nonEmpty &&
         l.catalogTable.get.tracksPartitionsInCatalog
 
@@ -195,11 +195,11 @@ case class DataSourceAnalysis(conf: CatalystConf) extends Rule[LogicalPlan] {
       // When partitions are tracked by the catalog, compute all custom partition locations that
       // may be relevant to the insertion job.
       if (partitionsTrackedByCatalog) {
-        val matchingPartitions = t.sparkSession.sessionState.catalog.listPartitions(
+        val matchingPartitions = sparkSession.sessionState.catalog.listPartitions(
           l.catalogTable.get.identifier, Some(overwrite.staticPartitionKeys))
         initialMatchingPartitions = matchingPartitions.map(_.spec)
         customPartitionLocations = getCustomPartitionLocations(
-          t.sparkSession, l.catalogTable.get, outputPath, matchingPartitions)
+          sparkSession, l.catalogTable.get, outputPath, matchingPartitions)
       }
 
       // Callback for updating metastore partition metadata after the insertion job completes.
@@ -210,14 +210,14 @@ case class DataSourceAnalysis(conf: CatalystConf) extends Rule[LogicalPlan] {
           if (newPartitions.nonEmpty) {
             AlterTableAddPartitionCommand(
               l.catalogTable.get.identifier, newPartitions.toSeq.map(p => (p, None)),
-              ifNotExists = true).run(t.sparkSession)
+              ifNotExists = true).run(sparkSession)
           }
           if (overwrite.enabled) {
             val deletedPartitions = initialMatchingPartitions.toSet -- updatedPartitions
             if (deletedPartitions.nonEmpty) {
               AlterTableDropPartitionCommand(
                 l.catalogTable.get.identifier, deletedPartitions.toSeq,
-                ifExists = true, purge = true).run(t.sparkSession)
+                ifExists = true, purge = true).run(sparkSession)
             }
           }
         }
