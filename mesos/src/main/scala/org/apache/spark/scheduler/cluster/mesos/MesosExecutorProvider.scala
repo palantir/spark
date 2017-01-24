@@ -19,6 +19,7 @@ package org.apache.spark.scheduler.cluster.mesos
 
 import java.io.File
 import java.util.{Collections, List => JList}
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 
 import scala.collection.JavaConverters._
@@ -27,11 +28,12 @@ import scala.concurrent.Future
 
 import org.apache.mesos.Protos.{TaskInfo => MesosTaskInfo, _}
 
-import org.apache.spark.{SecurityManager, SparkContext, SparkException, TaskState}
+import org.apache.spark.{SecurityManager, SparkConf, SparkContext, SparkException, TaskState}
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProvider
 import org.apache.spark.network.netty.SparkTransportConf
 import org.apache.spark.network.shuffle.mesos.MesosExternalShuffleClient
-import org.apache.spark.rpc.RpcEndpointAddress
-import org.apache.spark.scheduler.{SlaveLost, TaskSchedulerImpl}
+import org.apache.spark.rpc.{RpcEndpointAddress, RpcEnv}
+import org.apache.spark.scheduler.{SchedulerBackendHooks, SlaveLost}
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.util.Utils
 
@@ -45,16 +47,23 @@ import org.apache.spark.util.Utils
  * Unfortunately this has a bit of duplication from [[MesosFineGrainedSchedulerBackend]],
  * but it seems hard to remove this.
  */
-private[spark] class MesosCoarseGrainedSchedulerBackend(
-    scheduler: TaskSchedulerImpl,
+private[spark] class MesosExecutorProvider(
+    protected val conf: SparkConf,
+    schedulerErrorHandler: MesosSchedulerErrorHandler,
+    rpcEnv: RpcEnv,
     sc: SparkContext,
-    master: String,
-    securityManager: SecurityManager)
-  extends CoarseGrainedSchedulerBackend(scheduler, sc.env.rpcEnv)
+    securityManager: SecurityManager,
+    master: String)
+  extends ClusterManagerExecutorProvider
   with org.apache.mesos.Scheduler
   with MesosSchedulerUtils {
 
   val MAX_SLAVE_FAILURES = 2     // Blacklist a slave after this many failures
+
+  private var schedulerBackendHooks: SchedulerBackendHooks = _
+
+  private val _minRegisteredRatio =
+    math.min(1, conf.getDouble("spark.scheduler.minRegisteredResourcesRatio", 0))
 
   // Maximum number of cores to acquire (TODO: we'll need more flexible controls here)
   val maxCores = conf.get("spark.cores.max", Int.MaxValue.toString).toInt
@@ -150,11 +159,15 @@ private[spark] class MesosCoarseGrainedSchedulerBackend(
     id.toString
   }
 
+  def initialize(schedulerBackendHooks: SchedulerBackendHooks): Unit = {
+    this.schedulerBackendHooks = schedulerBackendHooks
+  }
+
   override def start() {
     super.start()
     val driver = createSchedulerDriver(
       master,
-      MesosCoarseGrainedSchedulerBackend.this,
+      MesosExecutorProvider.this,
       sc.sparkUser,
       sc.appName,
       sc.conf,
@@ -256,7 +269,8 @@ private[spark] class MesosCoarseGrainedSchedulerBackend(
     markRegistered()
   }
 
-  override def sufficientResourcesRegistered(): Boolean = {
+  override def sufficientResourcesRegistered(
+      totalCoreCount: AtomicInteger, totalRegisteredExecutors: AtomicInteger): Boolean = {
     totalCoresAcquired >= maxCores * minRegisteredRatio
   }
 
@@ -546,8 +560,7 @@ private[spark] class MesosCoarseGrainedSchedulerBackend(
   }
 
   override def error(d: org.apache.mesos.SchedulerDriver, message: String) {
-    logError(s"Mesos error: $message")
-    scheduler.error(message)
+    schedulerErrorHandler.handleError(message)
   }
 
   override def stop() {
@@ -602,7 +615,7 @@ private[spark] class MesosCoarseGrainedSchedulerBackend(
       // removeExecutor() internally will send a message to the driver endpoint but
       // the driver endpoint is not available now, otherwise an exception will be thrown.
       if (!stopCalled) {
-        removeExecutor(taskId, SlaveLost(reason))
+        schedulerBackendHooks.removeExecutor(taskId, SlaveLost(reason))
       }
       slaves(slaveId).taskIDs.remove(taskId)
     }
@@ -623,7 +636,10 @@ private[spark] class MesosCoarseGrainedSchedulerBackend(
       super.applicationId
     }
 
-  override def doRequestTotalExecutors(requestedTotal: Int): Future[Boolean] = Future.successful {
+  override def doRequestTotalExecutors(
+      requestedTotal: Int,
+      localityAwareTasks: Int,
+      hostToLocalTaskCount: Map[String, Int]): Future[Boolean] = Future.successful {
     // We don't truly know if we can fulfill the full amount of executors
     // since at coarse grain it depends on the amount of slaves available.
     logInfo("Capping the total amount of executors to " + requestedTotal)
@@ -659,6 +675,8 @@ private[spark] class MesosCoarseGrainedSchedulerBackend(
       offer.getHostname
     }
   }
+
+  override def minRegisteredRatio: Double = _minRegisteredRatio
 }
 
 private class Slave(val hostname: String) {

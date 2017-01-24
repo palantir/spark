@@ -19,9 +19,10 @@ package org.apache.spark
 
 import org.scalatest.PrivateMethodTester
 
+import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
-import org.apache.spark.scheduler.cluster.StandaloneSchedulerBackend
+import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend, StandaloneExecutorProvider}
 import org.apache.spark.scheduler.local.LocalSchedulerBackend
 
 
@@ -42,8 +43,9 @@ class SparkContextSchedulerCreationSuite
     // real schedulers, so we don't want to create a full SparkContext with the desired scheduler.
     sc = new SparkContext("local", "test", conf)
     val createTaskSchedulerMethod =
-      PrivateMethod[Tuple2[SchedulerBackend, TaskScheduler]]('createTaskScheduler)
-    val (_, sched) = SparkContext invokePrivate createTaskSchedulerMethod(sc, master, deployMode)
+      PrivateMethod[Tuple3[SchedulerBackend, TaskScheduler, ClusterManagerDriverLogUrlsProvider]](
+        'createClusterManagerSpecificComponents)
+    val (_, sched, _) = SparkContext invokePrivate createTaskSchedulerMethod(sc, master, deployMode)
     sched.asInstanceOf[TaskSchedulerImpl]
   }
 
@@ -125,7 +127,17 @@ class SparkContextSchedulerCreationSuite
 
   test("local-cluster") {
     createTaskScheduler("local-cluster[3, 14, 1024]").backend match {
-      case s: StandaloneSchedulerBackend => // OK
+      case s: CoarseGrainedSchedulerBackend =>
+        // OK
+        s.start()
+        try {
+          s.executorProvider match {
+            case p: StandaloneExecutorProvider => // OK
+            case _ => fail()
+          }
+        } finally {
+          s.stop()
+        }
       case _ => fail()
     }
   }

@@ -1,0 +1,3 @@
+org.apache.spark.scheduler.DummyExternalClusterManagerFactory
+org.apache.spark.scheduler.MockExternalClusterManagerFactory
+org.apache.spark.DummyLocalExternalClusterManagerFactory

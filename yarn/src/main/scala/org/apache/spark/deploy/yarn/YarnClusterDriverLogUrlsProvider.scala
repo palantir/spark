@@ -14,29 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.spark.scheduler.cluster
+package org.apache.spark.deploy.yarn
 
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 
 import org.apache.spark.SparkContext
-import org.apache.spark.deploy.yarn.{ApplicationMaster, YarnSparkHadoopUtil}
-import org.apache.spark.scheduler.TaskSchedulerImpl
+import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
+import org.apache.spark.internal.Logging
 import org.apache.spark.util.Utils
 
-private[spark] class YarnClusterSchedulerBackend(
-    scheduler: TaskSchedulerImpl,
-    sc: SparkContext)
-  extends YarnSchedulerBackend(scheduler, sc) {
-
-  override def start() {
-    val attemptId = ApplicationMaster.getAttemptId
-    bindToYarn(attemptId.getApplicationId(), Some(attemptId))
-    super.start()
-    totalExpectedExecutors = YarnSparkHadoopUtil.getInitialTargetExecutorNumber(sc.conf)
-  }
-
+private[spark] class YarnClusterDriverLogUrlsProvider(sc: SparkContext)
+  extends ClusterManagerDriverLogUrlsProvider with Logging {
   override def getDriverLogUrls: Option[Map[String, String]] = {
     var driverLogs: Option[Map[String, String]] = None
     try {

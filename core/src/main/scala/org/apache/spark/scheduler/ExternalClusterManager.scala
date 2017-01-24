@@ -17,46 +17,35 @@
 
 package org.apache.spark.scheduler
 
-import org.apache.spark.SparkContext
+import org.apache.spark.clustermanager.plugins.driverlogs.ClusterManagerDriverLogUrlsProvider
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorLifecycleHandler, ClusterManagerExecutorProvider}
 
 /**
  * A cluster manager interface to plugin external scheduler.
  */
-private[spark] trait ExternalClusterManager {
+private[spark] case class ExternalClusterManager(
+    maybeCustomTaskScheduler: Option[TaskScheduler] = None,
+    maybeCustomExecutorLifecycleHandler: Option[ClusterManagerExecutorLifecycleHandler] = None,
+    maybeCustomSchedulerBackend: Option[SchedulerBackend] = None,
+    maybeExecutorProvider: Option[ClusterManagerExecutorProvider] = None,
+    maybeDriverLogUrlsProvider: Option[ClusterManagerDriverLogUrlsProvider] = None) {
+  validate()
 
-  /**
-   * Check if this cluster manager instance can create scheduler components
-   * for a certain master URL.
-   * @param masterURL the master URL
-   * @return True if the cluster manager can create scheduler backend/
-   */
-  def canCreate(masterURL: String): Boolean
+  private def validate(): Unit = {
+    require(maybeCustomSchedulerBackend.isDefined || maybeExecutorProvider.isDefined,
+      "Either a custom scheduler backend or an executor provider factory must be set.")
+    maybeCustomSchedulerBackend.foreach { _ =>
+      require(maybeExecutorProvider.isEmpty, "Should not provide both a custom scheduler" +
+        " backend and an executor provider factory.")
+    }
+    maybeExecutorProvider.foreach { _ =>
+      require(maybeCustomSchedulerBackend.isEmpty, "Should not provider both a custom scheduler" +
+        " backend and an executor provider factory.")
+    }
+    require(maybeCustomSchedulerBackend.isDefined || maybeCustomTaskScheduler.isEmpty,
+        "When not providing a custom scheduler backend, using a custom task scheduler" +
+          " is not supported since the default scheduler backend must use a fixed scheduler" +
+          " implementation.")
+  }
 
-  /**
-   * Create a task scheduler instance for the given SparkContext
-   * @param sc SparkContext
-   * @param masterURL the master URL
-   * @return TaskScheduler that will be responsible for task handling
-   */
-  def createTaskScheduler(sc: SparkContext, masterURL: String): TaskScheduler
-
-  /**
-   * Create a scheduler backend for the given SparkContext and scheduler. This is
-   * called after task scheduler is created using [[ExternalClusterManager.createTaskScheduler()]].
-   * @param sc SparkContext
-   * @param masterURL the master URL
-   * @param scheduler TaskScheduler that will be used with the scheduler backend.
-   * @return SchedulerBackend that works with a TaskScheduler
-   */
-  def createSchedulerBackend(sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend
-
-  /**
-   * Initialize task scheduler and backend scheduler. This is called after the
-   * scheduler components are created
-   * @param scheduler TaskScheduler that will be responsible for task handling
-   * @param backend SchedulerBackend that works with a TaskScheduler
-   */
-  def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit
 }

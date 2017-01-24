@@ -21,6 +21,7 @@ import scala.collection.mutable
 
 import org.scalatest.{BeforeAndAfter, PrivateMethodTester}
 
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.scheduler._
 import org.apache.spark.scheduler.ExternalClusterManager
@@ -1098,25 +1099,21 @@ private object ExecutorAllocationManagerSuite extends PrivateMethodTester {
  * A cluster manager which wraps around the scheduler and backend for local mode. It is used for
  * testing the dynamic allocation policy.
  */
-private class DummyLocalExternalClusterManager extends ExternalClusterManager {
+private class DummyLocalExternalClusterManagerFactory extends ExternalClusterManagerFactory {
 
   def canCreate(masterURL: String): Boolean = masterURL == "myDummyLocalExternalClusterManager"
 
-  override def createTaskScheduler(
-      sc: SparkContext,
-      masterURL: String): TaskScheduler = new TaskSchedulerImpl(sc, 1, isLocal = true)
-
-  override def createSchedulerBackend(
-      sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = {
-    val sb = new LocalSchedulerBackend(sc.getConf, scheduler.asInstanceOf[TaskSchedulerImpl], 1)
-    new DummyLocalSchedulerBackend(sc, sb)
+  override def newExternalClusterManager(sc: SparkContext, masterURL: String)
+      : ExternalClusterManager = {
+    val scheduler = new TaskSchedulerImpl(sc, 1, isLocal = true)
+    val sb = new LocalSchedulerBackend(sc.getConf, scheduler, 1)
+    ExternalClusterManager(
+      maybeCustomTaskScheduler = Some(new TaskSchedulerImpl(sc, 1, isLocal = true)),
+      maybeCustomSchedulerBackend = Some(new DummyLocalSchedulerBackend(sc, sb)))
   }
 
-  override def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
-    val sc = scheduler.asInstanceOf[TaskSchedulerImpl]
-    sc.initialize(backend)
+  override def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
+    scheduler.initializeBackend(backend)
   }
 }
 

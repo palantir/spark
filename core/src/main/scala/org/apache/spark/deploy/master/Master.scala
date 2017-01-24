@@ -25,8 +25,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.util.Random
 
 import org.apache.spark.{SecurityManager, SparkConf, SparkException}
-import org.apache.spark.deploy.{ApplicationDescription, DriverDescription,
-  ExecutorState, SparkHadoopUtil}
+import org.apache.spark.deploy.{ApplicationDescription, DriverDescription, ExecutorState, SparkHadoopUtil}
 import org.apache.spark.deploy.DeployMessages._
 import org.apache.spark.deploy.master.DriverState.DriverState
 import org.apache.spark.deploy.master.MasterMessages._
@@ -35,6 +34,9 @@ import org.apache.spark.deploy.rest.StandaloneRestServer
 import org.apache.spark.internal.Logging
 import org.apache.spark.metrics.MetricsSystem
 import org.apache.spark.rpc._
+import org.apache.spark.scheduler.{ExecutorExited, ExecutorLossReason, SlaveLost}
+import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.RemoveExecutor
+import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.serializer.{JavaSerializer, Serializer}
 import org.apache.spark.util.{ThreadUtils, Utils}
 
@@ -63,6 +65,7 @@ private[deploy] class Master(
 
   val workers = new HashSet[WorkerInfo]
   val idToApp = new HashMap[String, ApplicationInfo]
+  val idToDriverSchedulerEndpoint = new HashMap[String, LazyRpcEndpointRef]
   private val waitingApps = new ArrayBuffer[ApplicationInfo]
   val apps = new HashSet[ApplicationInfo]
 
@@ -260,6 +263,15 @@ private[deploy] class Master(
           }
 
           exec.application.driver.send(ExecutorUpdated(execId, state, message, exitStatus, false))
+          if (ExecutorState.isFinished(state)) {
+            val reason: ExecutorLossReason = exitStatus match {
+              case Some(code) => ExecutorExited(code, exitCausedByApp = true, message.getOrElse(""))
+              case None => SlaveLost(message.getOrElse(""), workerLost = false)
+            }
+            logInfo("Removing executor from executor provider")
+            logInfo("Executor %s removed: %s".format(appId + "/" + execId, message))
+            idToDriverSchedulerEndpoint(appId).getRef.send(RemoveExecutor(execId.toString, reason))
+          }
 
           if (ExecutorState.isFinished(state)) {
             // Remove this executor from the worker and app
@@ -820,6 +832,8 @@ private[deploy] class Master(
     applicationMetricsSystem.registerSource(app.appSource)
     apps += app
     idToApp(app.id) = app
+    idToDriverSchedulerEndpoint(app.id) = new LazyRpcEndpointRef(
+      appAddress, CoarseGrainedSchedulerBackend.ENDPOINT_NAME)
     endpointToApp(app.driver) = app
     addressToApp(appAddress) = app
     waitingApps += app
@@ -837,6 +851,7 @@ private[deploy] class Master(
       logInfo("Removing app " + app.id)
       apps -= app
       idToApp -= app.id
+      idToDriverSchedulerEndpoint -= app.id
       endpointToApp -= app.driver
       addressToApp -= app.driver.address
       if (reverseProxy) {
@@ -875,7 +890,6 @@ private[deploy] class Master(
    * If the executor limit is adjusted upwards, new executors will be launched provided
    * that there are workers with sufficient resources. If it is adjusted downwards, however,
    * we do not kill existing executors until we explicitly receive a kill request.
-   *
    * @return whether the application has previously registered with this Master.
    */
   private def handleRequestExecutors(appId: String, requestedTotal: Int): Boolean = {
@@ -897,7 +911,6 @@ private[deploy] class Master(
    * This method assumes the executor limit has already been adjusted downwards through
    * a separate [[RequestExecutors]] message, such that we do not launch new executors
    * immediately after the old ones are removed.
-   *
    * @return whether the application has previously registered with this Master.
    */
   private def handleKillExecutors(appId: String, executorIds: Seq[Int]): Boolean = {
@@ -1016,6 +1029,18 @@ private[deploy] class Master(
       case None =>
         logWarning(s"Asked to remove unknown driver: $driverId")
     }
+  }
+
+  class LazyRpcEndpointRef(rpcAddress: RpcAddress, endpointName: String) {
+    private var ref: RpcEndpointRef = null
+
+    def getRef: RpcEndpointRef = synchronized {
+      if (ref == null) {
+        ref = rpcEnv.setupEndpointRef(rpcAddress, endpointName)
+      }
+      ref
+    }
+
   }
 }
 

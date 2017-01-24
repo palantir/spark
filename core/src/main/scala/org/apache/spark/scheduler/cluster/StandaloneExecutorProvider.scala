@@ -18,10 +18,12 @@
 package org.apache.spark.scheduler.cluster
 
 import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.Future
 
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProvider
 import org.apache.spark.deploy.{ApplicationDescription, Command}
 import org.apache.spark.deploy.client.{StandaloneAppClient, StandaloneAppClientListener}
 import org.apache.spark.internal.Logging
@@ -33,11 +35,12 @@ import org.apache.spark.util.Utils
 /**
  * A [[SchedulerBackend]] implementation for Spark's standalone cluster manager.
  */
-private[spark] class StandaloneSchedulerBackend(
+private[spark] class StandaloneExecutorProvider(
     scheduler: TaskSchedulerImpl,
     sc: SparkContext,
+    conf: SparkConf,
     masters: Array[String])
-  extends CoarseGrainedSchedulerBackend(scheduler, sc.env.rpcEnv)
+  extends ClusterManagerExecutorProvider
   with StandaloneAppClientListener
   with Logging {
 
@@ -47,13 +50,17 @@ private[spark] class StandaloneSchedulerBackend(
     override protected def onStopRequest(): Unit = stop(SparkAppHandle.State.KILLED)
   }
 
-  @volatile var shutdownCallback: StandaloneSchedulerBackend => Unit = _
+  @volatile var shutdownCallback: StandaloneExecutorProvider => Unit = _
   @volatile private var appId: String = _
 
   private val registrationBarrier = new Semaphore(0)
 
   private val maxCores = conf.getOption("spark.cores.max").map(_.toInt)
   private val totalExpectedCores = maxCores.getOrElse(0)
+  // Submit tasks only after (registered resources / total expected resources)
+  // is equal to at least this value, that is double between 0 and 1.
+  private val _minRegisteredRatio =
+    math.min(1, conf.getDouble("spark.scheduler.minRegisteredResourcesRatio", 0))
 
   override def start() {
     super.start()
@@ -152,15 +159,14 @@ private[spark] class StandaloneSchedulerBackend(
 
   override def executorRemoved(
       fullId: String, message: String, exitStatus: Option[Int], workerLost: Boolean) {
-    val reason: ExecutorLossReason = exitStatus match {
-      case Some(code) => ExecutorExited(code, exitCausedByApp = true, message)
-      case None => SlaveLost(message, workerLost = workerLost)
-    }
     logInfo("Executor %s removed: %s".format(fullId, message))
-    removeExecutor(fullId.split("/")(1), reason)
   }
 
-  override def sufficientResourcesRegistered(): Boolean = {
+  override def minRegisteredRatio: Double = _minRegisteredRatio
+
+  override def sufficientResourcesRegistered(
+      totalCoreCount: AtomicInteger,
+      totalRegisteredExecutors: AtomicInteger): Boolean = {
     totalCoreCount.get() >= totalExpectedCores * minRegisteredRatio
   }
 
@@ -176,7 +182,10 @@ private[spark] class StandaloneSchedulerBackend(
    *
    * @return whether the request is acknowledged.
    */
-  protected override def doRequestTotalExecutors(requestedTotal: Int): Future[Boolean] = {
+  override def doRequestTotalExecutors(
+      requestedTotal: Int,
+      localAwareTasks: Int,
+      hostToLocalTaskCount: Map[String, Int]): Future[Boolean] = {
     Option(client) match {
       case Some(c) => c.requestTotalExecutors(requestedTotal)
       case None =>
@@ -187,9 +196,10 @@ private[spark] class StandaloneSchedulerBackend(
 
   /**
    * Kill the given list of executors through the Master.
+   *
    * @return whether the kill request is acknowledged.
    */
-  protected override def doKillExecutors(executorIds: Seq[String]): Future[Boolean] = {
+  override def doKillExecutors(executorIds: Seq[String]): Future[Boolean] = {
     Option(client) match {
       case Some(c) => c.killExecutors(executorIds)
       case None =>
@@ -209,8 +219,6 @@ private[spark] class StandaloneSchedulerBackend(
   private def stop(finalState: SparkAppHandle.State): Unit = synchronized {
     try {
       stopping = true
-
-      super.stop()
       client.stop()
 
       val callback = shutdownCallback

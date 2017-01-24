@@ -31,6 +31,7 @@ import org.scalatest.Assertions.AssertionsHelper
 
 import org.apache.spark._
 import org.apache.spark.TaskState._
+import org.apache.spark.clustermanager.plugins.scheduler.{ClusterManagerExecutorProvider, ClusterManagerExecutorProviderFactory}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util.{CallSite, ThreadUtils, Utils}
@@ -74,7 +75,7 @@ abstract class SchedulerIntegrationSuite[T <: MockBackend: ClassTag] extends Spa
     sc = new SparkContext(conf)
     backend = sc.schedulerBackend.asInstanceOf[T]
     taskScheduler = sc.taskScheduler.asInstanceOf[TestTaskScheduler]
-    taskScheduler.initialize(sc.schedulerBackend)
+    taskScheduler.initializeBackend(sc.schedulerBackend)
     scheduler = new DAGScheduler(sc, taskScheduler)
     taskScheduler.setDAGScheduler(scheduler)
   }
@@ -465,31 +466,38 @@ object MockRDD extends AssertionsHelper with TripleEquals {
 }
 
 /** Simple cluster manager that wires up our mock backend. */
-private class MockExternalClusterManager extends ExternalClusterManager {
+private class MockExternalClusterManagerFactory extends ExternalClusterManagerFactory {
 
   val MOCK_REGEX = """mock\[(.*)\]""".r
   def canCreate(masterURL: String): Boolean = MOCK_REGEX.findFirstIn(masterURL).isDefined
+  def newExternalClusterManager(sc: SparkContext, masterURL: String): ExternalClusterManager = {
+    val taskScheduler = new TestTaskScheduler(sc)
+    val schedulerBackend = createCustomSchedulerBackend(sc, masterURL, taskScheduler)
+    ExternalClusterManager(
+      maybeCustomTaskScheduler = Some(taskScheduler),
+      maybeCustomSchedulerBackend = schedulerBackend)
+  }
 
-  def createTaskScheduler(
+  private def createTaskScheduler(
       sc: SparkContext,
       masterURL: String): TaskScheduler = {
     new TestTaskScheduler(sc)
  }
 
-  def createSchedulerBackend(
+  private def createCustomSchedulerBackend(
       sc: SparkContext,
       masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = {
+      scheduler: TaskScheduler): Option[SchedulerBackend] = {
     masterURL match {
       case MOCK_REGEX(backendClassName) =>
         val backendClass = Utils.classForName(backendClassName)
         val ctor = backendClass.getConstructor(classOf[SparkConf], classOf[TaskSchedulerImpl])
-        ctor.newInstance(sc.getConf, scheduler).asInstanceOf[SchedulerBackend]
+        Some(ctor.newInstance(sc.getConf, scheduler).asInstanceOf[SchedulerBackend])
     }
   }
 
-  def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
-    scheduler.asInstanceOf[TaskSchedulerImpl].initialize(backend)
+  def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
+    scheduler.initializeBackend(backend)
   }
 }
 

@@ -62,8 +62,7 @@ private[spark] class YarnRMClient extends Logging {
       uiAddress: String,
       uiHistoryAddress: String,
       securityMgr: SecurityManager,
-      localResources: Map[String, LocalResource]
-    ): YarnAllocator = {
+      localResources: Map[String, LocalResource]): YarnAllocator = {
     amClient = AMRMClient.createAMRMClient()
     amClient.init(conf)
     amClient.start()
@@ -74,13 +73,12 @@ private[spark] class YarnRMClient extends Logging {
       amClient.registerApplicationMaster(Utils.localHostName(), 0, uiAddress)
       registered = true
     }
-    new YarnAllocator(driverUrl, driverRef, conf, sparkConf, amClient, getAttemptId(), securityMgr,
-      localResources)
+    new YarnAllocator(driverUrl, driverRef, conf, sparkConf, amClient, getAttemptId(),
+      securityMgr, localResources)
   }
 
   /**
    * Unregister the AM. Guaranteed to only be called once.
-   *
    * @param status The final status of the AM.
    * @param diagnostics Diagnostics message to include in the final status.
    */

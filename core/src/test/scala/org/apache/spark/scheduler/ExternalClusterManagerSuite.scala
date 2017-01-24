@@ -18,6 +18,7 @@
 package org.apache.spark.scheduler
 
 import org.apache.spark.{LocalSparkContext, SparkConf, SparkContext, SparkFunSuite}
+import org.apache.spark.clustermanager.plugins.scheduler.ClusterManagerExecutorProviderFactory
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.AccumulatorV2
@@ -43,24 +44,23 @@ class ExternalClusterManagerSuite extends SparkFunSuite with LocalSparkContext {
  * Super basic ExternalClusterManager, just to verify ExternalClusterManagers can be configured.
  *
  * Note that if you want a special ClusterManager for tests, you are probably much more interested
- * in [[MockExternalClusterManager]] and the corresponding [[SchedulerIntegrationSuite]]
+ * in [[MockExternalClusterManagerFactory]] and the corresponding [[SchedulerIntegrationSuite]]
  */
-private class DummyExternalClusterManager extends ExternalClusterManager {
+private class DummyExternalClusterManagerFactory extends ExternalClusterManagerFactory {
+
+  override def newExternalClusterManager(sc: SparkContext, masterURL: String)
+      : ExternalClusterManager = {
+    ExternalClusterManager(
+      maybeCustomTaskScheduler = Some(new DummyTaskScheduler),
+      maybeCustomSchedulerBackend = Some(new DummySchedulerBackend))
+  }
 
   def canCreate(masterURL: String): Boolean = masterURL == "myclusterManager"
 
-  def createTaskScheduler(sc: SparkContext,
-      masterURL: String): TaskScheduler = new DummyTaskScheduler
-
-  def createSchedulerBackend(sc: SparkContext,
-      masterURL: String,
-      scheduler: TaskScheduler): SchedulerBackend = new DummySchedulerBackend()
-
-  def initialize(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
+  def initializeScheduler(scheduler: TaskScheduler, backend: SchedulerBackend): Unit = {
     scheduler.asInstanceOf[DummyTaskScheduler].initialized = true
     backend.asInstanceOf[DummySchedulerBackend].initialized = true
   }
-
 }
 
 private class DummySchedulerBackend extends SchedulerBackend {
