@@ -177,7 +177,7 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
         logInfo(s"Task was denied committing, stage: $stage, partition: $partition, " +
           s"attempt: $attemptNumber")
       case otherReason =>
-        if (authorizedCommitters(partition) == attemptNumber) {
+        if (authorizedCommitters(partition).attempt == attemptNumber) {
           logDebug(s"Authorized committer (attemptNumber=$attemptNumber, stage=$stage, " +
             s"partition=$partition) failed; clearing lock")
           authorizedCommitters(partition) = CommitState(NO_AUTHORIZED_COMMITTER, 0, Uncommitted)
