@@ -28,6 +28,7 @@ test:
     - HADOOP_PROFILE=hadoop2.7 ./dev/run-tests:
         parallel: true
         timeout: 1200
+        max-runtime: 14400
     - ? |
           set -euo pipefail
           version=$(git describe --tags)
