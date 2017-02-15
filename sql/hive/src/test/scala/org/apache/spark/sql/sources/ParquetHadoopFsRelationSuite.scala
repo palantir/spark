@@ -125,7 +125,7 @@ class ParquetHadoopFsRelationSuite extends HadoopFsRelationTest {
     }
   }
 
-  test("SPARK-8604: Parquet data source should write summary file while doing appending") {
+  ignore("SPARK-8604: Parquet data source should write summary file while doing appending -- palantir/spark") {
     withSQLConf(
         ParquetOutputFormat.ENABLE_JOB_SUMMARY -> "true",
         SQLConf.FILE_COMMIT_PROTOCOL_CLASS.key ->
