@@ -25,7 +25,7 @@ dependencies:
 
 test:
   override:
-    - HADOOP_PROFILE=hadoop2.7 ./dev/run-tests | tee -a "$CIRCLE_ARTIFACTS/run-tests.log" | grep -v -i info:
+    - set -o pipefail && HADOOP_PROFILE=hadoop2.7 ./dev/run-tests | tee -a "$CIRCLE_ARTIFACTS/run-tests.log" | grep -v -i info:
         parallel: true
         timeout: 1200
         max-runtime: 14400
