@@ -51,7 +51,8 @@ class LBFGSSuite extends SparkFunSuite with MLlibTestSparkContext with Matchers 
 
   lazy val dataRDD = sc.parallelize(data, 2).cache()
 
-  ignore("LBFGS loss should be decreasing and match the result of Gradient Descent. -- ignore palantir/spark") {
+  // palantir/spark
+  ignore("LBFGS loss should be decreasing and match the result of Gradient Descent.") {
     val regParam = 0
 
     val initialWeightsWithIntercept = Vectors.dense(1.0 +: initialWeights.toArray)
@@ -94,7 +95,8 @@ class LBFGSSuite extends SparkFunSuite with MLlibTestSparkContext with Matchers 
       "LBFGS should match GD result within 2% difference.")
   }
 
-  ignore("LBFGS and Gradient Descent with L2 regularization should get the same result. -- ignore palantir/spark") {
+  // palantir/spark
+  ignore("LBFGS and Gradient Descent with L2 regularization should get the same result.") {
     val regParam = 0.2
 
     // Prepare another non-zero weights to compare the loss in the first iteration.

@@ -65,7 +65,8 @@ class MultilayerPerceptronClassifierSuite
     mlpc.setLayers(Array[Int](1, 1))
   }
 
-  ignore("XOR function learning as binary classification problem with two outputs. -- ignore palantir/spark") {
+  // palantir/spark
+  ignore("XOR function learning as binary classification problem with two outputs.") {
     val layers = Array[Int](2, 5, 2)
     val trainer = new MultilayerPerceptronClassifier()
       .setLayers(layers)
@@ -170,7 +171,8 @@ class MultilayerPerceptronClassifierSuite
     assert(newMlpModel.weights === mlpModel.weights)
   }
 
-  ignore("should support all NumericType labels and not support other types -- ignore palantir/spark") {
+  // ignore palantir/spark
+  ignore("should support all NumericType labels and not support other types") {
     val layers = Array(3, 2)
     val mpc = new MultilayerPerceptronClassifier().setLayers(layers).setMaxIter(1)
     MLTestingUtils.checkNumericTypes[
