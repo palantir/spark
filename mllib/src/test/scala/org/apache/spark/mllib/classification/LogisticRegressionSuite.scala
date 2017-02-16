@@ -449,7 +449,8 @@ class LogisticRegressionSuite extends SparkFunSuite with MLlibTestSparkContext w
     assert(modelB1.weights(0) ~== modelB3.weights(0) * 1.0E6 absTol 0.1)
   }
 
-  test("multinomial logistic regression with LBFGS") {
+  // palantir/spark
+  ignore("multinomial logistic regression with LBFGS") {
     val nPoints = 10000
 
     /**
