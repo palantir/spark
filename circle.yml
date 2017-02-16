@@ -20,6 +20,8 @@ checkout:
     - echo "host=api.bintray.com" >> .credentials
 
 dependencies:
+  pre:
+    - pip install numpy
   override:
     - ./build/mvn -DskipTests -Phadoop-2.7 -Pkinesis-asl -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr dependency:go-offline
 
