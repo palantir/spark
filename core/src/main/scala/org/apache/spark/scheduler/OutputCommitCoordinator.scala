@@ -54,8 +54,9 @@ private[spark] class OutputCommitCoordinator(conf: SparkConf, isDriver: Boolean)
   private val NO_AUTHORIZED_COMMITTER: TaskAttemptNumber = -1
 
   /**
-   * Map from active stages's id => authorized task attempts for each partition id, which hold an exclusive lock
-   * on committing task output for that partition, as well as any known failed attempts in the stage.
+   * Map from active stages's id => authorized task attempts for each partition id, which hold an
+   * exclusive lock on committing task output for that partition as well as any known failed
+   * attempts in the stage.
    *
    * Entries are added to the top-level map when stages start and are removed they finish
    * (either successfully or unsuccessfully).
