@@ -24,6 +24,11 @@ dependencies:
   override:
     - ./build/mvn -DskipTests -Phadoop-2.7 -Pkinesis-asl -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr dependency:go-offline
 
+general:
+  artifacts:
+    - "python/unit-tests.log"
+    - "R/unit-tests.out"
+
 test:
   override:
     - set -o pipefail && HADOOP_PROFILE=hadoop2.7 ./dev/run-tests | tee -a "$CIRCLE_ARTIFACTS/run-tests.log" | grep -v -i info:
