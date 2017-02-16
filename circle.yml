@@ -3,10 +3,7 @@ machine:
     version: oraclejdk8
   post:
     - sudo apt-get --assume-yes install r-base r-base-dev
-    - pyenv global 2.7.11 3.4.4 pypy-4.0.1
-    # turn off circle's bundled services to use less memory
-    - sudo service postgresql stop
-    - sudo service mongod stop
+    - pyenv global 2.7.11 3.4.4 #pypy-4.0.1
   environment:
     TERM: dumb
     R_HOME: /usr/lib/R
@@ -23,7 +20,7 @@ dependencies:
   pre:
     - PYENV_VERSION=2.7.11 pip install numpy
     - PYENV_VERSION=3.4.4 pip install numpy
-    - PYENV_VERSION=pypy-4.0.1 pip install numpy
+    #- PYENV_VERSION=pypy-4.0.1 pip install numpy
   override:
     - ./build/mvn -DskipTests -Phadoop-2.7 -Pkinesis-asl -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr dependency:go-offline
 
