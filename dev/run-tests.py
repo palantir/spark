@@ -589,11 +589,11 @@ def main():
     modules_with_python_tests = [m for m in test_modules if m.python_test_goals]
     if modules_with_python_tests:
         print("[info] skipping python tests... palantir/spark")
-        #run_python_tests(modules_with_python_tests, opts.parallelism)
-        #run_python_packaging_tests()
+        # run_python_tests(modules_with_python_tests, opts.parallelism)
+        # run_python_packaging_tests()
     if any(m.should_run_r_tests for m in test_modules):
         print("[info] skipping R tests... palantir/spark")
-        #run_sparkr_tests()
+        # run_sparkr_tests()
 
 
 def _test():
