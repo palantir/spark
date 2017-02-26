@@ -113,7 +113,7 @@ private[hive] object IsolatedClientLoader extends Logging {
       SparkSubmitUtils.resolveMavenCoordinates(
         hiveArtifacts.mkString(","),
         SparkSubmitUtils.buildIvySettings(
-          Some("http://dl.bintray.com/palantir/releases"),
+          Some("http://www.datanucleus.org/downloads/maven2"),
           ivyPath),
         exclusions = version.exclusions)
     }
