@@ -64,7 +64,7 @@ test:
             publish_artifacts
             ;;
           1)
-            make_dist hadoop-2.8.0-palantir1 "-Phadoop-palantir -Pkinesis-asl -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr"
+            make_dist hadoop-2.8.0-palantir2 "-Phadoop-palantir -Pkinesis-asl -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr"
             ;;
           2)
             make_dist without-hadoop "-Phadoop-provided -Pmesos -Pyarn -Psparkr"
