@@ -195,6 +195,17 @@ class OutputCommitCoordinatorSuite extends SparkFunSuite with BeforeAndAfter {
     sc.runJob(rdd, OutputCommitFunctions(tempDir.getAbsolutePath).callCanCommitMultipleTimes _,
        0 until rdd.partitions.size)
   }
+
+  test("Do not allow failed attempts to be authorized for committing") {
+    val stage: Int = 1
+    val partition: Int = 1
+    val failedAttempt: Int = 0
+    outputCommitCoordinator.stageStart(stage, maxPartitionId = 1)
+    outputCommitCoordinator.taskCompleted(
+      stage, partition, attemptNumber = failedAttempt, reason = TaskKilled)
+    assert(!outputCommitCoordinator.canCommit(stage, partition, failedAttempt))
+    assert(outputCommitCoordinator.canCommit(stage, partition, failedAttempt + 1))
+  }
 }
 
 /**
