@@ -400,9 +400,9 @@ def run_scala_tests_sbt(test_modules, test_profiles):
 
     exec_sbt(profiles_and_goals)
 
-    if 'CIRCLE_ARTIFACTS' in os.environ:
-        copy_tests_cmd = test_profiles + ["copyCiArtifactsToCircle"]
-        print("[info] Collecting SBT test results to Circle: ", " ".join(copy_tests_cmd))
+    if 'CIRCLE_TEST_REPORTS' in os.environ:
+        copy_tests_cmd = test_profiles + ["copyTestReportsToCircle"]
+        print("[info] Copying SBT test reports to Circle: ", " ".join(copy_tests_cmd))
         exec_sbt(copy_tests_cmd)
 
 

@@ -757,7 +757,7 @@ object CopyDependencies {
 object TestSettings {
   import BuildCommons._
 
-  val copyCiArtifactsToCircle: TaskKey[Boolean] = taskKey("Copy the test artifacts to circle")
+  val copyTestReportsToCircle: TaskKey[Boolean] = taskKey("Copy the test reports to circle if CIRCLE_TEST_REPORTS is defined")
 
   private val scalaBinaryVersion =
     if (System.getProperty("scala-2.10") == "true") {
@@ -844,14 +844,13 @@ object TestSettings {
       ).mkString(":"),
       "-doc-title", "Spark " + version.value.replaceAll("-SNAPSHOT", "") + " ScalaDoc"
     ),
-    copyCiArtifactsToCircle := {
+    copyTestReportsToCircle := {
       val reportsDir = target.value / "test-reports"
-      val circleArtifacts = sys.env.get("CIRCLE_ARTIFACTS")
-      circleArtifacts.filter(_ => reportsDir.exists).map { circle =>
-        val project = thisProjectRef.value.project
-        IO.copyDirectory(reportsDir, file(circle) / project / reportsDir.name)
+      val circleReports = sys.env.get("CIRCLE_TEST_REPORTS")
+      circleReports.filter(_ => reportsDir.exists).exists { circle =>
+        IO.copyDirectory(reportsDir, file(circle) / thisProjectRef.value.project)
         true
-      }.getOrElse(false)
+      }
     }
   )
 
