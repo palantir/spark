@@ -32,7 +32,7 @@ import com.typesafe.sbt.pom.{PomBuild, SbtPomKeys}
 import com.typesafe.tools.mima.plugin.MimaKeys
 import org.scalastyle.sbt.ScalastylePlugin._
 import org.scalastyle.sbt.Tasks
-
+import sbt.plugins.JUnitXmlReportPlugin
 import spray.revolver.RevolverPlugin._
 
 object BuildCommons {
@@ -79,6 +79,7 @@ object BuildCommons {
   val scalacJVMVersion = settingKey[String]("source and target JVM version for scalac")
 }
 
+//noinspection ScalaStyle
 object SparkBuild extends PomBuild {
 
   import BuildCommons._
@@ -201,6 +202,7 @@ object SparkBuild extends PomBuild {
     }
   )
 
+
   lazy val sharedSettings = sparkGenjavadocSettings ++
       (if (sys.env.contains("NOLINT_ON_COMPILE")) Nil else enableScalaStyle) ++ Seq(
     exportJars in Compile := true,
@@ -293,8 +295,8 @@ object SparkBuild extends PomBuild {
     }
   )
 
-  def enable(settings: Seq[Setting[_]])(projectRef: ProjectRef) = {
-    val existingSettings = projectsMap.getOrElse(projectRef.project, Seq[Setting[_]]())
+  def enable(settings: Seq[Setting[_]])(projectRef: ProjectRef): Unit = {
+    val existingSettings = projectsMap.getOrElse(projectRef.project, Seq())
     projectsMap += (projectRef.project -> (existingSettings ++ settings))
   }
 
@@ -755,6 +757,8 @@ object CopyDependencies {
 object TestSettings {
   import BuildCommons._
 
+  val copyCiArtifactsToCircle: TaskKey[Boolean] = taskKey("Copy the test artifacts to circle")
+
   private val scalaBinaryVersion =
     if (System.getProperty("scala-2.10") == "true") {
       "2.10"
@@ -839,7 +843,16 @@ object TestSettings {
         "org.apache.spark.util.collection"
       ).mkString(":"),
       "-doc-title", "Spark " + version.value.replaceAll("-SNAPSHOT", "") + " ScalaDoc"
-    )
+    ),
+    copyCiArtifactsToCircle := {
+      val reportsDir = target.value / "test-reports"
+      val circleArtifacts = sys.env.get("CIRCLE_ARTIFACTS")
+      circleArtifacts.filter(_ => reportsDir.exists).map { circle =>
+        val project = thisProjectRef.value.project
+        IO.copyDirectory(reportsDir, file(circle) / project / reportsDir.name)
+        true
+      }.getOrElse(false)
+    }
   )
 
 }

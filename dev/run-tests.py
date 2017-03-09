@@ -400,6 +400,11 @@ def run_scala_tests_sbt(test_modules, test_profiles):
 
     exec_sbt(profiles_and_goals)
 
+    if 'CIRCLE_ARTIFACTS' in os.environ:
+        copy_tests_cmd = test_profiles + ["copyCiArtifactsToCircle"]
+        print("[info] Collecting SBT test results to Circle: ", " ".join(copy_tests_cmd))
+        exec_sbt(copy_tests_cmd)
+
 
 def run_scala_tests(build_tool, hadoop_version, test_modules, excluded_tags):
     """Function to properly execute all tests passed in as a set from the
