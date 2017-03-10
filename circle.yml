@@ -25,7 +25,7 @@ dependencies:
     - |
       if [[ -d build_classes ]]; then
         # Copy contents into current build directory
-        rsync -a build_classes/ .
+        rsync --info=stats2,misc1,flist0 -a build_classes/ .
       fi
     - ./build/mvn -DskipTests -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr install
       # Copy all of */target/scala_2.11/classes to build_classes/
