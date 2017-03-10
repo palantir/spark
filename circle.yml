@@ -32,6 +32,8 @@ dependencies:
     - >
       rsync -v -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --include '**/target/scala-2.1?/***'
       --include '**/target/analysis/***' --include '**/' --exclude '*' . build_classes/
+      # Make sbt fetch all the external deps to ~/.ivy2 so it gets cached
+    - ./build/sbt -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr externalDependencyClasspath
   cache_directories:
     - "build_classes"
 
