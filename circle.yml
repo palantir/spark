@@ -30,7 +30,7 @@ dependencies:
     - ./build/mvn -DskipTests -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr install
       # Copy all of */target/scala_2.11/classes to build_classes/
     - >
-      rsync --info=progress2 -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --include '**/target/scala-2.1?/***'
+      rsync -v -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --include '**/target/scala-2.1?/***'
       --include '**/target/analysis/***' --include '**/' --exclude '*' . build_classes/
   cache_directories:
     - "build_classes"
