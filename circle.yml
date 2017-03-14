@@ -84,7 +84,7 @@ test:
             ;;
           esac
       :
-        parallel: true
+        parallel: false
         timeout: 1200
 
 deployment:
