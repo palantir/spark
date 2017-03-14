@@ -118,8 +118,8 @@ def determine_modules_to_test(changed_modules):
         modules_to_test = modules_to_test.union(determine_modules_to_test(module.dependent_modules))
     modules_to_test = modules_to_test.union(set(changed_modules))
     # If we need to run all of the tests, then we should short-circuit and return 'root'
-    # if modules.root in modules_to_test:
-    #     return [modules.root]
+    if modules.root in modules_to_test:
+        return [modules.root]
     return toposort_flatten(
         {m: set(m.dependencies).intersection(modules_to_test) for m in modules_to_test}, sort=True)
 
@@ -390,22 +390,10 @@ def run_scala_tests_maven(test_profiles):
 
 def run_scala_tests_sbt(test_modules, test_profiles):
 
-    sbt_test_goals_all = list(itertools.chain.from_iterable(m.sbt_test_goals for m in test_modules))
+    sbt_test_goals = list(itertools.chain.from_iterable(m.sbt_test_goals for m in test_modules))
 
-    if not sbt_test_goals_all:
+    if not sbt_test_goals:
         return
-
-    # Split sbt_test_goals among circle
-    if 'CIRCLE_NODE_INDEX' in os.environ:
-        nodes = os.environ['CIRCLE_NODE_TOTAL']
-        index = os.environ['CIRCLE_NODE_INDEX']
-
-        nr_goals = len(sbt_test_goals_all)
-        from_idx = int(index * nr_goals / nodes)
-        to_idx = int((index + 1) * nr_goals / nodes)
-        sbt_test_goals = sbt_test_goals_all[from_idx:to_idx]
-    else:
-        sbt_test_goals = sbt_test_goals_all
 
     profiles_and_goals = test_profiles + sbt_test_goals
 
