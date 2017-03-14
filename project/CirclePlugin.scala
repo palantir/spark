@@ -110,6 +110,9 @@ object CirclePlugin extends AutoPlugin {
 
     test in Circle := {
       Def.sequential(test in Circle, copyTestReportsToCircle).value
-    }
+    },
+
+    // So it doesn't conflict with zinc's target that maven uses, they will clash
+    target := baseDirectory.value / "target_sbt"
   )
 }

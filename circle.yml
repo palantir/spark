@@ -36,7 +36,7 @@ dependencies:
       ./build/sbt -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr compile test:compile
     - >
       rsync --info=stats2,misc1,flist0 -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --exclude 'target/streams'
-      --include 'target/***' --include '**/' --exclude '*' . build_classes/
+      --exclude 'target_sbt/streams' --include 'target/***' --include 'target_sbt/***' --include '**/' --exclude '*' . build_classes/
   cache_directories:
     - "build_classes"
 
