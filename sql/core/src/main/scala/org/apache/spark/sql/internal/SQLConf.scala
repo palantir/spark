@@ -1036,7 +1036,7 @@ object StaticSQLConf {
   val SESSION_STATE_IMPLEMENTATION = buildStaticConf("spark.sql.sessionStateImplementation")
     .internal()
     .stringConf
-    .createWithDefault("in-memory")
+    .createWithDefault(CATALOG_IMPLEMENTATION.defaultValueString)
 
   val GLOBAL_TEMP_DATABASE = buildStaticConf("spark.sql.globalTempDatabase")
     .internal()
