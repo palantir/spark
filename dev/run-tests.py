@@ -394,7 +394,7 @@ def run_scala_tests_sbt(test_modules, test_profiles):
         # circle node, then copies the results to CIRCLE_TEST_REPORTS.
         # We are not worried about running only the `test_modules`, since we always run the whole
         # suite in circle anyway.
-        sbt_test_goals = 'circle:test'
+        sbt_test_goals = ['circle:test']
     else:
         sbt_test_goals = list(itertools.chain.from_iterable(m.sbt_test_goals for m in test_modules))
 
