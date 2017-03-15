@@ -293,9 +293,7 @@ object SparkBuild extends PomBuild {
         sys.error(s"$failed fatal warnings")
       }
       analysis
-    },
-
-    updateOptions := updateOptions.value.withCachedResolution(true)
+    }
   )
 
   def enable(settings: Seq[Setting[_]])(projectRef: ProjectRef): Unit = {
@@ -413,6 +411,10 @@ object SparkBuild extends PomBuild {
       else x.settings(Seq[Setting[_]](): _*)
     } ++ Seq[Project](OldDeps.project)
   }
+
+  override def settings: Seq[Def.Setting[_]] = super.settings ++ inScope(Global)(List(
+    updateOptions := updateOptions.value.withCachedResolution(true)
+  ))
 }
 
 object Core {
