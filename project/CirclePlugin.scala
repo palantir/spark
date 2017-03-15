@@ -28,7 +28,7 @@ object CirclePlugin extends AutoPlugin {
   case class ProjectTests(project: ProjectRef, tests: Seq[TestDefinition])
 
   val circleTestsByProject = taskKey[Option[Seq[ProjectTests]]]("The tests that should be run under this circle node, if circle is set up")
-  val copyTestReportsToCircle: TaskKey[Boolean] = taskKey("Copy the test reports to circle if CIRCLE_TEST_REPORTS is defined")
+  val copyTestReportsToCircle: TaskKey[Boolean] = taskKey("Copy the test reports to circle. Expects CIRCLE_TEST_REPORTS to be defined")
 
   override def projectConfigurations: Seq[Configuration] = List(Circle)
 
@@ -86,15 +86,23 @@ object CirclePlugin extends AutoPlugin {
       val reportsDir = target.value / "test-reports"
       val circleReports = sys.env.get("CIRCLE_TEST_REPORTS")
       val projectName = thisProjectRef.value.project
-      circleReports.filter(_ => reportsDir.exists).exists { circle =>
-        IO.copyDirectory(reportsDir, file(circle) / projectName)
-        log.info(s"Copied test reports from $projectName to circle.")
-        true
-      } || {
-        log.warn(s"Didn't copy test reports from $projectName to circle " +
-          "(either CIRCLE_TEST_REPORTS wasn't set, or there were no reports).")
-        false
-      }
+      val `project had tests for this circle node` = (definedTests in Circle).value.nonEmpty
+
+      circleReports.map { circle =>
+        if (!reportsDir.exists()) {
+          if (`project had tests for this circle node`) {
+            sys.error(s"Found no test reports from $projectName to circle, " +
+              "though there were tests defined for this node.")
+          } else {
+            // There were no tests for this node, do nothing.
+            false
+          }
+        } else {
+          IO.copyDirectory(reportsDir, file(circle) / projectName)
+          log.info(s"Copied test reports from $projectName to circle.")
+          true
+        }
+      }.getOrElse(sys.error(s"Expected CIRCLE_TEST_REPORTS to be defined."))
     },
 
     definedTests in Circle := {
