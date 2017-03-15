@@ -69,7 +69,6 @@ spark-tests.log
 src_managed/
 streaming-tests.log
 target/
-target_sbt/
 unit-tests.log
 work/
 .credentials
