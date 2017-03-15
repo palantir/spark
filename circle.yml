@@ -31,12 +31,12 @@ dependencies:
       fi
     - ./build/mvn -DskipTests -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr install
       # Copy all of */target/scala_2.11/classes to build_classes/
-    - |
-      # Make sbt fetch all the external deps to ~/.ivy2 so it gets cached, and compile everything (we cache the target/ in all projects)
-      ./build/sbt -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr compile test:compile
     - >
       rsync --info=stats2,misc1,flist0 -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --exclude 'target/streams'
       --include 'target/***' --include '**/' --exclude '*' . build_classes/
+    - |
+      # Make sbt fetch all the external deps to ~/.ivy2 so it gets cached
+      ./build/sbt -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr externalDependencyClasspath
   cache_directories:
     - "build_classes"
 
