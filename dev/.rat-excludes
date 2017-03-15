@@ -1,4 +1,5 @@
 target
+target_sbt
 cache
 .gitignore
 .gitattributes
