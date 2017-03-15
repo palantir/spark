@@ -1033,6 +1033,11 @@ object StaticSQLConf {
     .stringConf
     .createWithDefault("in-memory")
 
+  val SESSION_STATE_IMPLEMENTATION = buildStaticConf("spark.sql.sessionStateImplementation")
+    .internal()
+    .stringConf
+    .createWithDefault("in-memory")
+
   val GLOBAL_TEMP_DATABASE = buildStaticConf("spark.sql.globalTempDatabase")
     .internal()
     .stringConf
