@@ -116,8 +116,8 @@ object CirclePlugin extends AutoPlugin {
         s"Only projects found: ${testsByProject.map(_.project)}"))
     },
 
-    test in Circle := {
-      Def.sequential(test in Circle, copyTestReportsToCircle).value
-    }
+    test in Circle := (test in Circle, copyTestReportsToCircle) { (test, copy) =>
+      test.doFinally(copy)
+    }.value
   )
 }
