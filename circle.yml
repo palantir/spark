@@ -47,6 +47,8 @@ dependencies:
       ./build/sbt -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pmesos -Pyarn -Phive-thriftserver -Phive -Psparkr externalDependencyClasspath
   cache_directories:
     - "build_classes"
+    - "build"
+    - "~/miniconda"
 
 general:
   artifacts:
