@@ -2683,7 +2683,7 @@
         <module>resource-managers/kubernetes/integration-tests</module>
         <module>resource-managers/kubernetes/integration-tests-spark-jobs</module>
         <module>resource-managers/kubernetes/integration-tests-spark-jobs-helpers</module>
-      </modules>  
+      </modules>
     </profile>
 
     <profile>
