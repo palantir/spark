@@ -80,13 +80,13 @@ object CirclePlugin extends AutoPlugin {
     }
   )
 
-  override def projectSettings: Seq[Def.Setting[_]] = inConfig(Circle)(Defaults.testSettings) ++ List(
+  override def projectSettings: Seq[Def.Setting[_]] = inConfig(Circle)(Defaults.testSettings ++ List(
     copyTestReportsToCircle := {
       val log = streams.value.log
       val reportsDir = target.value / "test-reports"
       val circleReports = sys.env.get("CIRCLE_TEST_REPORTS")
       val projectName = thisProjectRef.value.project
-      val `project had tests for this circle node` = (definedTests in Circle).value.nonEmpty
+      val `project had tests for this circle node` = definedTests.value.nonEmpty
 
       circleReports.map { circle =>
         if (!reportsDir.exists()) {
@@ -105,7 +105,7 @@ object CirclePlugin extends AutoPlugin {
       }.getOrElse(sys.error(s"Expected CIRCLE_TEST_REPORTS to be defined."))
     },
 
-    definedTests in Circle := {
+    definedTests := {
       val testsByProject = (circleTestsByProject in Global).value
         .getOrElse(sys.error("We are not running in circle."))
       val thisProj = thisProjectRef.value
@@ -116,8 +116,8 @@ object CirclePlugin extends AutoPlugin {
         s"Only projects found: ${testsByProject.map(_.project)}"))
     },
 
-    test in Circle := (test in Circle, copyTestReportsToCircle) { (test, copy) =>
-      test.doFinally(copy)
+    test := (test, copyTestReportsToCircle) { (test, copy) =>
+      test.doFinally(copy.map(_ => ()))
     }.value
-  )
+  ))
 }
