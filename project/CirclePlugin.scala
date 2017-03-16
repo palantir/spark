@@ -81,6 +81,11 @@ object CirclePlugin extends AutoPlugin {
   )
 
   override def projectSettings: Seq[Def.Setting[_]] = inConfig(Circle)(Defaults.testSettings ++ List(
+    // Copy over important changes of the += kind from TestSettings.settings into the Circle config
+    envVars := (envVars in Test).value,
+    javaOptions := (javaOptions in Test).value,
+    testOptions := (testOptions in Test).value,
+    resourceGenerators := (resourceGenerators in Test).value,
     copyTestReportsToCircle := {
       val log = streams.value.log
       val reportsDir = target.value / "test-reports"
@@ -107,7 +112,7 @@ object CirclePlugin extends AutoPlugin {
 
     definedTests := {
       val testsByProject = (circleTestsByProject in Global).value
-        .getOrElse(sys.error("We are not running in circle."))
+                           .getOrElse(sys.error("We are not running in circle."))
       val thisProj = thisProjectRef.value
 
       testsByProject.collectFirst {
