@@ -23,7 +23,7 @@ import sbt.plugins.JvmPlugin
 
 //noinspection ScalaStyle
 object CirclePlugin extends AutoPlugin {
-  lazy val Circle = config("circle").extend(Test)
+  lazy val Circle = config("circle").extend(Test).hide
 
   case class ProjectTests(project: ProjectRef, tests: Seq[TestDefinition])
 
@@ -86,6 +86,14 @@ object CirclePlugin extends AutoPlugin {
     javaOptions := (javaOptions in Test).value,
     testOptions := (testOptions in Test).value,
     resourceGenerators := (resourceGenerators in Test).value,
+    // NOTE: this is because of dependencies like:
+    //   org.apache.spark:spark-tags:2.2.0-SNAPSHOT:test->test
+    // That somehow don't get resolved properly in the 'circle' ivy configuration even though it extends test
+    // To test, copare:
+    // > show unsafe/test:fullClasspath
+    // > show unsafe/circle:fullClasspath
+    fullClasspath := (fullClasspath in Test).value,
+
     copyTestReportsToCircle := {
       val log = streams.value.log
       val reportsDir = target.value / "test-reports"
