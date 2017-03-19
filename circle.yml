@@ -58,12 +58,12 @@ general:
 test:
   override:
     - set -o pipefail && HADOOP_PROFILE=hadooppalantir ./dev/run-tests | tee -a "$CIRCLE_ARTIFACTS/run-tests.log" | grep -v -i info:
-    parallel: true
-    timeout: 1800
-    max-runtime: 14400
+        parallel: true
+        timeout: 1800
+        max-runtime: 14400
   post:
     - find . -name unit-tests.log -exec rsync -R {} $CIRCLE_ARTIFACTS \;:
-      parallel: true
+        parallel: true
 
 deployment:
   release:
@@ -76,3 +76,4 @@ deployment:
     commands:
       - dev/publish.sh
       - curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST https://api.bintray.com/content/palantir/releases/spark/$(git describe --tags)/publish
+
