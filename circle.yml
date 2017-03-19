@@ -58,11 +58,12 @@ general:
 test:
   override:
     - set -o pipefail && HADOOP_PROFILE=hadooppalantir ./dev/run-tests | tee -a "$CIRCLE_ARTIFACTS/run-tests.log" | grep -v -i info:
-        parallel: true
-        timeout: 1800
-        max-runtime: 14400
+    parallel: true
+    timeout: 1800
+    max-runtime: 14400
   post:
-    - find . -name unit-tests.log -exec rsync -R {} $CIRCLE_ARTIFACTS \;
+    - find . -name unit-tests.log -exec rsync -R {} $CIRCLE_ARTIFACTS \;:
+      parallel: true
 
 deployment:
   release:
