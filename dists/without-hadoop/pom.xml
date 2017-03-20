@@ -31,7 +31,7 @@
   <packaging>pom</packaging>
 
   <properties>
-    <sbt.project.name>assembly</sbt.project.name>
+    <sbt.project.name>spark-dist-hadoop-palantir</sbt.project.name>
     <build.testJarPhase>none</build.testJarPhase>
     <build.copyDependenciesPhase>none</build.copyDependenciesPhase>
     <hadoop.deps.scope>provided</hadoop.deps.scope>
