@@ -95,7 +95,7 @@ jackson-annotations-2.6.5.jar
 jackson-core-2.6.5.jar
 jackson-core-asl-1.9.13.jar
 jackson-databind-2.6.5.jar
-jackson-dataformat-yaml-2.7.7.jar
+jackson-dataformat-yaml-2.6.5.jar
 jackson-jaxrs-1.9.13.jar
 jackson-jaxrs-base-2.6.5.jar
 jackson-jaxrs-json-provider-2.6.5.jar
