@@ -195,6 +195,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
       (executorId, kubernetesClient.pods().createNew()
         .withNewMetadata()
           .withName(name)
+          .withNamespace(kubernetesNamespace)
           .withLabels(selectors)
           .withOwnerReferences()
           .addNewOwnerReference()
