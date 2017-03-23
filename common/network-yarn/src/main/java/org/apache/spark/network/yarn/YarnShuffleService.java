@@ -17,14 +17,6 @@
 
 package org.apache.spark.network.yarn;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.Map;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,23 +27,35 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.metrics2.MetricsSource;
+import org.apache.hadoop.metrics2.MetricsSystem;
+import org.apache.hadoop.metrics2.impl.MetricsSystemImpl;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
+import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.server.api.*;
-import org.apache.spark.network.util.LevelDBProvider;
-import org.iq80.leveldb.DB;
-import org.iq80.leveldb.DBIterator;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.apache.spark.network.TransportContext;
 import org.apache.spark.network.crypto.AuthServerBootstrap;
 import org.apache.spark.network.sasl.ShuffleSecretManager;
 import org.apache.spark.network.server.TransportServer;
 import org.apache.spark.network.server.TransportServerBootstrap;
 import org.apache.spark.network.shuffle.ExternalShuffleBlockHandler;
+import org.apache.spark.network.util.LevelDBProvider;
 import org.apache.spark.network.util.TransportConf;
 import org.apache.spark.network.yarn.util.HadoopConfigProvider;
+import org.iq80.leveldb.DB;
+import org.iq80.leveldb.DBIterator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.Map;
 
 /**
  * An external shuffle service used by Spark on Yarn.
@@ -110,7 +114,6 @@ public class YarnShuffleService extends AuxiliaryService {
 
   // The actual server that serves shuffle files
   private TransportServer shuffleServer = null;
-
   private Configuration _conf = null;
 
   // The recovery path used to shuffle service recovery
@@ -165,6 +168,23 @@ public class YarnShuffleService extends AuxiliaryService {
 
       TransportConf transportConf = new TransportConf("shuffle", new HadoopConfigProvider(conf));
       blockHandler = new ExternalShuffleBlockHandler(transportConf, registeredExecutorFile);
+
+      // register metrics on the block handler into the Node Manager's metrics system.
+      YarnShuffleServiceMetrics serviceMetrics = new YarnShuffleServiceMetrics(blockHandler.getAllMetrics());
+      MetricsSystem defaultMetricsSystem = DefaultMetricsSystem.instance();
+      try {
+        MetricsSystemImpl metricsSystem = (MetricsSystemImpl) defaultMetricsSystem;
+
+        Method registerSourceMethod = metricsSystem.getClass().getDeclaredMethod("registerSource",
+                String.class, String.class, MetricsSource.class);
+        registerSourceMethod.setAccessible(true);
+        registerSourceMethod.invoke(metricsSystem, "shuffleservice", "Metrics on the Spark " +
+                "Shuffle Service", serviceMetrics);
+        logger.info("Registered metrics with Hadoop's DefaultMetricsSystem");
+      } catch (Exception e) {
+        logger.warn("Unable to register Spark Shuffle Service metrics with Node Manager; " +
+                "proceeding without metrics", e);
+      }
 
       // If authentication is enabled, set up the shuffle server to use a
       // special RPC handler that filters out unauthenticated fetch requests
