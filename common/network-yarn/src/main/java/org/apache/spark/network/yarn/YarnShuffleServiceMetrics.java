@@ -63,8 +63,7 @@ public class YarnShuffleServiceMetrics implements MetricsSource {
                         .addGauge(new ShuffleServiceMetricsInfo(name + "_rate1", "1 minute rate of timer " + name),
                                 t.getOneMinuteRate())
                         .addGauge(new ShuffleServiceMetricsInfo(name + "_rateMean", "Mean rate of timer " + name),
-                                t.getMeanRate())
-                ;
+                                t.getMeanRate());
             } else if (entry.getValue() instanceof Meter) {
                 Meter m = (Meter) entry.getValue();
                 metricsRecordBuilder
@@ -77,8 +76,7 @@ public class YarnShuffleServiceMetrics implements MetricsSource {
                         .addGauge(new ShuffleServiceMetricsInfo(name + "_rate1", "1 minute rate of meter " + name),
                                 m.getOneMinuteRate())
                         .addGauge(new ShuffleServiceMetricsInfo(name + "_rateMean", "Mean rate of meter " + name),
-                                m.getMeanRate())
-                ;
+                                m.getMeanRate());
             } else if (entry.getValue() instanceof Gauge) {
                 Gauge m = (Gauge) entry.getValue();
                 Object gaugeValue = m.getValue();
