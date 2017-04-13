@@ -42,7 +42,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String, verbosity: Int = 0)
               baseDir: String,
               condaPackages: Seq[String],
               condaChannelUrls: Seq[String]): CondaEnvironment = {
-    require(condaPackages.nonEmpty, "Expected at least one bootstrap package.")
+    require(condaPackages.nonEmpty, "Expected at least one conda package.")
     require(condaChannelUrls.nonEmpty, "Can't have an empty list of conda channel URLs")
     val name = "conda-env"
 
