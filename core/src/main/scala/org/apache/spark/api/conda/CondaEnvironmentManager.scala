@@ -141,7 +141,6 @@ object CondaEnvironmentManager {
   def fromConf(sparkConf: SparkConf): CondaEnvironmentManager = {
     val condaBinaryPath = sparkConf.get(CONDA_BINARY_PATH).getOrElse(
       sys.error(s"Expected config ${CONDA_BINARY_PATH.key} to be set"))
-    val condaChannelUrls = sparkConf.get(CONDA_CHANNEL_URLS)
     val verbosity = sparkConf.get(CONDA_VERBOSITY)
     new CondaEnvironmentManager(condaBinaryPath, verbosity)
   }

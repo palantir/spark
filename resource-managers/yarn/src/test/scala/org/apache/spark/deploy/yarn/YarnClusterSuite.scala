@@ -97,7 +97,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |
     |    def numpy_multiply(x):
     |        # Ensure package from non-base channel is installed
-    |        import XXX
+    |        import addict
     |        numpy.multiply(x, mod1.func() * mod2.func())
     |
     |    rdd = sc.parallelize(range(10)).map(numpy_multiply)
