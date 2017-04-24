@@ -101,8 +101,8 @@
       </dependency>
       <dependency>
         <groupId>org.apache.spark</groupId>
-        <artifactId>spark-dist_${scala.binary.version}-without-hadoop</artifactId>
-        <version>${project.version}</version>
+        <artifactId>spark-dist</artifactId>
+        <version>${project.version}-without-hadoop</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
