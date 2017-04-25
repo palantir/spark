@@ -2689,6 +2689,35 @@
         <hadoop.version>2.8.0-palantir3</hadoop.version>
         <curator.version>2.7.1</curator.version>
       </properties>
+      <dependencyManagement>
+        <dependencies>
+
+          <!--
+          Hadoop-Azure isn't in Hadoop 2.6, so this has to be made
+          a 2.7+ moodule.
+          -->
+          <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-azure</artifactId>
+            <version>${hadoop.version}</version>
+            <scope>${hadoop.deps.scope}</scope>
+            <exclusions>
+              <exclusion>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-common</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>org.codehaus.jackson</groupId>
+                <artifactId>jackson-mapper-asl</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+              </exclusion>
+            </exclusions>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
     </profile>
 
     <profile>
