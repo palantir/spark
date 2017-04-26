@@ -2654,7 +2654,6 @@
       </properties>
       <dependencyManagement>
         <dependencies>
-
           <!--
           Hadoop-Azure isn't in Hadoop 2.6, so this has to be made
           a 2.7+ moodule.
@@ -2691,7 +2690,6 @@
       </properties>
       <dependencyManagement>
         <dependencies>
-
           <!--
           Hadoop-Azure isn't in Hadoop 2.6, so this has to be made
           a 2.7+ moodule.
