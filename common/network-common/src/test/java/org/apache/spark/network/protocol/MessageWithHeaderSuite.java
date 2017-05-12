@@ -17,23 +17,22 @@
 
 package org.apache.spark.network.protocol;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.FileRegion;
 import io.netty.util.AbstractReferenceCounted;
-import org.junit.Test;
-import org.mockito.Mockito;
-
-import static org.junit.Assert.*;
-
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 import org.apache.spark.network.TestManagedBuffer;
 import org.apache.spark.network.buffer.ManagedBuffer;
 import org.apache.spark.network.buffer.NettyManagedBuffer;
 import org.apache.spark.network.util.ByteArrayWritableChannel;
+import org.junit.Test;
+import org.mockito.Mockito;
 
 public class MessageWithHeaderSuite {
 
@@ -135,6 +134,11 @@ public class MessageWithHeaderSuite {
     }
 
     @Override
+    public long transferred() {
+      return 8 * written;
+    }
+
+    @Override
     public long transferTo(WritableByteChannel target, long position) throws IOException {
       for (int i = 0; i < writesPerCall; i++) {
         ByteBuf buf = Unpooled.copyLong((position / 8) + i);
@@ -146,6 +150,28 @@ public class MessageWithHeaderSuite {
         written++;
       }
       return 8 * writesPerCall;
+    }
+
+    @Override
+    public FileRegion retain() {
+      super.retain();
+      return this;
+    }
+
+    @Override
+    public FileRegion retain(int increment) {
+      super.retain(increment);
+      return this;
+    }
+
+    @Override
+    public FileRegion touch(Object o) {
+      return this;
+    }
+
+    @Override
+    public FileRegion touch() {
+      return this;
     }
 
     @Override

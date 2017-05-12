@@ -17,23 +17,26 @@
 
 package org.apache.spark.network.crypto;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.FileRegion;
+import io.netty.util.AbstractReferenceCounted;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Properties;
-import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
-import io.netty.util.AbstractReferenceCounted;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.crypto.stream.CryptoInputStream;
 import org.apache.commons.crypto.stream.CryptoOutputStream;
-
 import org.apache.spark.network.util.ByteArrayReadableChannel;
 import org.apache.spark.network.util.ByteArrayWritableChannel;
 
@@ -204,6 +207,11 @@ public class TransportCipher {
     }
 
     @Override
+    public long transferred() {
+      return transferred;
+    }
+
+    @Override
     public long transferTo(WritableByteChannel target, long position) throws IOException {
       Preconditions.checkArgument(position == transfered(), "Invalid position.");
 
@@ -232,13 +240,35 @@ public class TransportCipher {
         int copied = byteRawChannel.write(buf.nioBuffer());
         buf.skipBytes(copied);
       } else {
-        region.transferTo(byteRawChannel, region.transfered());
+        region.transferTo(byteRawChannel, region.transferred());
       }
       cos.write(byteRawChannel.getData(), 0, byteRawChannel.length());
       cos.flush();
 
       currentEncrypted = ByteBuffer.wrap(byteEncChannel.getData(),
         0, byteEncChannel.length());
+    }
+
+    @Override
+    public FileRegion retain() {
+      super.retain();
+      return this;
+    }
+
+    @Override
+    public FileRegion retain(int increment) {
+      super.retain(increment);
+      return this;
+    }
+
+    @Override
+    public FileRegion touch() {
+      return this;
+    }
+
+    @Override
+    public FileRegion touch(Object o) {
+      return this;
     }
 
     @Override

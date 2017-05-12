@@ -17,11 +17,6 @@
 
 package org.apache.spark.network.sasl;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
-import java.util.List;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
@@ -33,7 +28,10 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.FileRegion;
 import io.netty.handler.codec.MessageToMessageDecoder;
 import io.netty.util.AbstractReferenceCounted;
-
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
+import java.util.List;
 import org.apache.spark.network.util.ByteArrayWritableChannel;
 import org.apache.spark.network.util.NettyUtils;
 
@@ -187,6 +185,11 @@ class SaslEncryption {
       return transferred;
     }
 
+    @Override
+    public long transferred() {
+      return transferred;
+    }
+
     /**
      * Transfers data from the original message to the channel, encrypting it in the process.
      *
@@ -262,7 +265,7 @@ class SaslEncryption {
         int copied = byteChannel.write(buf.nioBuffer());
         buf.skipBytes(copied);
       } else {
-        region.transferTo(byteChannel, region.transfered());
+        region.transferTo(byteChannel, region.transferred());
       }
 
       byte[] encrypted = backend.wrap(byteChannel.getData(), 0, byteChannel.length());
@@ -270,6 +273,28 @@ class SaslEncryption {
       this.currentChunkSize = encrypted.length;
       this.currentHeader = Unpooled.copyLong(8 + currentChunkSize);
       this.unencryptedChunkSize = byteChannel.length();
+    }
+
+    @Override
+    public FileRegion touch(Object o) {
+      return this;
+    }
+
+    @Override
+    public FileRegion retain() {
+      super.retain();
+      return this;
+    }
+
+    @Override
+    public FileRegion retain(int increment) {
+      super.retain(increment);
+      return this;
+    }
+
+    @Override
+    public FileRegion touch() {
+      return this;
     }
 
     @Override
