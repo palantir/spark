@@ -17,7 +17,7 @@
 
 package org.apache.spark.network;
 
-import static org.junit.Assert.assertEquals;
+import java.util.List;
 
 import com.google.common.primitives.Ints;
 import io.netty.buffer.Unpooled;
@@ -25,7 +25,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.FileRegion;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.MessageToMessageEncoder;
-import java.util.List;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+
 import org.apache.spark.network.protocol.ChunkFetchFailure;
 import org.apache.spark.network.protocol.ChunkFetchRequest;
 import org.apache.spark.network.protocol.ChunkFetchSuccess;
@@ -42,7 +45,6 @@ import org.apache.spark.network.protocol.StreamRequest;
 import org.apache.spark.network.protocol.StreamResponse;
 import org.apache.spark.network.util.ByteArrayWritableChannel;
 import org.apache.spark.network.util.NettyUtils;
-import org.junit.Test;
 
 public class ProtocolSuite {
   private void testServerToClient(Message msg) {

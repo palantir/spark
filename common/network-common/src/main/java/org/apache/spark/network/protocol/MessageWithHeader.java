@@ -17,15 +17,17 @@
 
 package org.apache.spark.network.protocol;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
+import javax.annotation.Nullable;
+
 import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.FileRegion;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCountUtil;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
-import javax.annotation.Nullable;
+
 import org.apache.spark.network.buffer.ManagedBuffer;
 
 /**

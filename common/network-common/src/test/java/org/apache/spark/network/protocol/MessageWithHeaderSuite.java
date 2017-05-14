@@ -17,22 +17,23 @@
 
 package org.apache.spark.network.protocol;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.FileRegion;
 import io.netty.util.AbstractReferenceCounted;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
+import org.junit.Test;
+import org.mockito.Mockito;
+
+import static org.junit.Assert.*;
+
 import org.apache.spark.network.TestManagedBuffer;
 import org.apache.spark.network.buffer.ManagedBuffer;
 import org.apache.spark.network.buffer.NettyManagedBuffer;
 import org.apache.spark.network.util.ByteArrayWritableChannel;
-import org.junit.Test;
-import org.mockito.Mockito;
 
 public class MessageWithHeaderSuite {
 
