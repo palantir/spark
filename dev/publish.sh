@@ -24,7 +24,7 @@ make_and_publish_dist() {
   dist_version="${version}-${dist_name}"
   file_name="spark-dist-${dist_version}.tgz"
   ./dev/make-distribution.sh --name $dist_name --tgz "$@" $build_flags
-  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T $file_name "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/spark-dist/${dist_version}/${file_name}"
+  #curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T $file_name "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/spark-dist/${dist_version}/${file_name}"
 }
 
 make_and_publish_docker_images() {
