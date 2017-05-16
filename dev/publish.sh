@@ -7,6 +7,7 @@ docker_repo=hub.docker.com
 PALANTIR_FLAGS=(-Phadoop-cloud -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Phive -Pyarn -Psparkr)
 
 publish_artifacts() {
+  echo "Publishing artifacts..."
   tmp_settings="tmp-settings.xml"
   echo "<settings><servers><server>" > $tmp_settings
   echo "<id>bintray-palantir-release</id><username>$BINTRAY_USERNAME</username>" >> $tmp_settings
@@ -18,6 +19,7 @@ publish_artifacts() {
 }
 
 make_and_publish_dist() {
+  echo "Publishing dist $1 $2 ..."
   dist_name="$1"
   build_flags="$2"
   shift 2
@@ -28,6 +30,7 @@ make_and_publish_dist() {
 }
 
 make_and_publish_docker_images() {
+  echo "Publishing docker images..."
   dist_name="$1"
 
   dist_version="${version}-${dist_name}"
