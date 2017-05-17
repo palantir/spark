@@ -1,3 +1,5 @@
+no-op
+
 # Palantir distribution of Apache Spark
 
 [ ![Download](https://api.bintray.com/packages/palantir/releases/spark/images/download.svg) ](https://bintray.com/palantir/releases/spark/_latestVersion)
