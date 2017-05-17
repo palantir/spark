@@ -120,7 +120,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     // building it in json4s AST since it gives us more control over how it will be mapped
     val condarcNode = JObject(
       "pkgs_dirs" -> (packageDirs ++: s"$baseRoot/pkgs" +: defaultPkgsDirs),
-      "envs_dirs" -> s"$baseRoot/envs",
+      "envs_dirs" -> List(s"$baseRoot/envs"),
       "show_channel_urls" -> false,
       "default_channels" -> JArray(Nil),
       "channels" -> channelUrls
