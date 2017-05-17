@@ -37,16 +37,14 @@ import org.apache.spark.SparkConf
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.CONDA_BINARY_PATH
-import org.apache.spark.internal.config.CONDA_CHANNEL_URLS
 import org.apache.spark.internal.config.CONDA_GLOBAL_PACKAGE_DIRS
 import org.apache.spark.internal.config.CONDA_VERBOSITY
 import org.apache.spark.util.Utils
 
-final class CondaEnvironmentManager(condaBinaryPath: String, condaChannelUrls: Seq[String],
-                                    verbosity: Int = 0, packageDirs: Seq[String] = Nil)
-  extends Logging {
+final class CondaEnvironmentManager(condaBinaryPath: String,
+                                    verbosity: Int = 0,
+                                    packageDirs: Seq[String] = Nil) extends Logging {
 
-  require(condaChannelUrls.nonEmpty, "Can't have an empty list of conda channel URLs")
   require(verbosity >= 0 && verbosity <= 3, "Verbosity must be between 0 and 3 inclusively")
 
   lazy val defaultInfo: Map[String, JValue] = {
@@ -74,9 +72,11 @@ final class CondaEnvironmentManager(condaBinaryPath: String, condaChannelUrls: S
   }
 
   def create(
-      baseDir: String,
-      bootstrapPackages: Seq[String]): CondaEnvironment = {
-    require(bootstrapPackages.nonEmpty, "Expected at least one bootstrap package.")
+              baseDir: String,
+              condaPackages: Seq[String],
+              condaChannelUrls: Seq[String]): CondaEnvironment = {
+    require(condaPackages.nonEmpty, "Expected at least one conda package.")
+    require(condaChannelUrls.nonEmpty, "Can't have an empty list of conda channel URLs")
     val name = "conda-env"
 
     // must link in /tmp to reduce path length in case baseDir is very long...
@@ -93,12 +93,12 @@ final class CondaEnvironmentManager(condaBinaryPath: String, condaChannelUrls: S
       linkedBaseDir,
       List("create", "-n", name, "-y", "--no-default-packages")
         ::: verbosityFlags
-        ::: "--" :: bootstrapPackages.toList,
+        ::: "--" :: condaPackages.toList,
       description = "create conda env",
       channels = condaChannelUrls.toList
     )
 
-    new CondaEnvironment(this, linkedBaseDir, name, bootstrapPackages, condaChannelUrls)
+    new CondaEnvironment(this, linkedBaseDir, name, condaPackages, condaChannelUrls)
   }
 
   /**
@@ -183,11 +183,8 @@ object CondaEnvironmentManager {
   def fromConf(sparkConf: SparkConf): CondaEnvironmentManager = {
     val condaBinaryPath = sparkConf.get(CONDA_BINARY_PATH).getOrElse(
       sys.error(s"Expected config ${CONDA_BINARY_PATH.key} to be set"))
-    val condaChannelUrls = sparkConf.get(CONDA_CHANNEL_URLS)
-    require(condaChannelUrls.nonEmpty,
-      s"Must define at least one conda channel in config ${CONDA_CHANNEL_URLS.key}")
     val verbosity = sparkConf.get(CONDA_VERBOSITY)
     val packageDirs = sparkConf.get(CONDA_GLOBAL_PACKAGE_DIRS)
-    new CondaEnvironmentManager(condaBinaryPath, condaChannelUrls, verbosity, packageDirs)
+    new CondaEnvironmentManager(condaBinaryPath, verbosity, packageDirs)
   }
 }

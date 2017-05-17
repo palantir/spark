@@ -79,7 +79,7 @@ class PlanParserSuite extends PlanTest {
     def cte(plan: LogicalPlan, namedPlans: (String, LogicalPlan)*): With = {
       val ctes = namedPlans.map {
         case (name, cte) =>
-          name -> SubqueryAlias(name, cte, None)
+          name -> SubqueryAlias(name, cte)
       }
       With(plan, ctes)
     }
@@ -468,7 +468,18 @@ class PlanParserSuite extends PlanTest {
   test("table valued function") {
     assertEqual(
       "select * from range(2)",
-      UnresolvedTableValuedFunction("range", Literal(2) :: Nil).select(star()))
+      UnresolvedTableValuedFunction("range", Literal(2) :: Nil, Seq.empty).select(star()))
+  }
+
+  test("SPARK-20311 range(N) as alias") {
+    assertEqual(
+      "SELECT * FROM range(10) AS t",
+      SubqueryAlias("t", UnresolvedTableValuedFunction("range", Literal(10) :: Nil, Seq.empty))
+        .select(star()))
+    assertEqual(
+      "SELECT * FROM range(7) AS t(a)",
+      SubqueryAlias("t", UnresolvedTableValuedFunction("range", Literal(7) :: Nil, "a" :: Nil))
+        .select(star()))
   }
 
   test("inline table") {
@@ -496,7 +507,7 @@ class PlanParserSuite extends PlanTest {
     val m = intercept[ParseException] {
       parsePlan("SELECT /*+ HINT() */ * FROM t")
     }.getMessage
-    assert(m.contains("no viable alternative at input"))
+    assert(m.contains("mismatched input ')' expecting"))
 
     // Hive compatibility: No database.
     val m2 = intercept[ParseException] {

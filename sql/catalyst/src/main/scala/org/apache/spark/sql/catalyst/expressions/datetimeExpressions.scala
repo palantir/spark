@@ -24,7 +24,6 @@ import java.util.{Calendar, TimeZone}
 import scala.util.control.NonFatal
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
 import org.apache.spark.sql.catalyst.expressions.codegen.{CodegenContext, CodegenFallback, ExprCode}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.types._
@@ -34,6 +33,9 @@ import org.apache.spark.unsafe.types.{CalendarInterval, UTF8String}
  * Common base class for time zone aware expressions.
  */
 trait TimeZoneAwareExpression extends Expression {
+  /** The expression is only resolved when the time zone has been set. */
+  override lazy val resolved: Boolean =
+    childrenResolved && checkInputDataTypes().isSuccess && timeZoneId.isDefined
 
   /** the timezone ID to be used to evaluate value. */
   def timeZoneId: Option[String]
@@ -486,7 +488,7 @@ case class DateFormatClass(left: Expression, right: Expression, timeZoneId: Opti
  * Deterministic version of [[UnixTimestamp]], must have at least one parameter.
  */
 @ExpressionDescription(
-  usage = "_FUNC_(expr[, pattern]) - Returns the UNIX timestamp of the give time.",
+  usage = "_FUNC_(expr[, pattern]) - Returns the UNIX timestamp of the given time.",
   extended = """
     Examples:
       > SELECT _FUNC_('2016-04-08', 'yyyy-MM-dd');
@@ -1223,8 +1225,8 @@ case class ParseToTimestamp(left: Expression, format: Expression, child: Express
   extends RuntimeReplaceable {
 
   def this(left: Expression, format: Expression) = {
-  this(left, format, Cast(UnixTimestamp(left, format), TimestampType))
-}
+    this(left, format, Cast(UnixTimestamp(left, format), TimestampType))
+  }
 
   override def flatArguments: Iterator[Any] = Iterator(left, format)
   override def sql: String = s"$prettyName(${left.sql}, ${format.sql})"
