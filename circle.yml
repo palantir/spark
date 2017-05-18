@@ -63,11 +63,12 @@ test:
   post:
     - find . -name unit-tests.log -exec rsync -R {} $CIRCLE_ARTIFACTS \;:
         parallel: true
-    - |
-      files=(resource-managers/yarn/target/./org.apache.spark.deploy.yarn.*/*-logDir-*)
-      if [[ $#files != 0 ]]; then
-        rsync -Rrm "${files[@]}" $CIRCLE_ARTIFACTS
-      fi:
+    - ? |
+        files=(resource-managers/yarn/target/./org.apache.spark.deploy.yarn.*/*-logDir-*)
+        if [[ $#files != 0 ]]; then
+          rsync -Rrm "${files[@]}" $CIRCLE_ARTIFACTS
+        fi
+      :
         parallel: true
 
 deployment:
