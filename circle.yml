@@ -64,8 +64,9 @@ test:
     - find . -name unit-tests.log -exec rsync -R {} $CIRCLE_ARTIFACTS \;:
         parallel: true
     - ? |
+        shopt -s nullglob
         files=(resource-managers/yarn/target/./org.apache.spark.deploy.yarn.*/*-logDir-*)
-        if [[ $#files != 0 ]]; then
+        if [[ ${#files[@]} != 0 ]]; then
           rsync -Rrm "${files[@]}" $CIRCLE_ARTIFACTS
         fi
       :
