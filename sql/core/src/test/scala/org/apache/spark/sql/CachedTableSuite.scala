@@ -643,25 +643,6 @@ class CachedTableSuite extends QueryTest with SQLTestUtils with SharedSQLContext
     }
   }
 
-  test("SPARK-19765: UNCACHE TABLE should un-cache all cached plans that refer to this table") {
-    withTable("t") {
-      withTempPath { path =>
-        Seq(1 -> "a").toDF("i", "j").write.parquet(path.getCanonicalPath)
-        sql(s"CREATE TABLE t USING parquet LOCATION '$path'")
-        spark.catalog.cacheTable("t")
-        spark.table("t").select($"i").cache()
-        checkAnswer(spark.table("t").select($"i"), Row(1))
-        assertCached(spark.table("t").select($"i"))
-
-        Utils.deleteRecursively(path)
-        spark.sessionState.catalog.refreshTable(TableIdentifier("t"))
-        spark.catalog.uncacheTable("t")
-        assert(spark.table("t").select($"i").count() == 0)
-        assert(getNumInMemoryRelations(spark.table("t").select($"i")) == 0)
-      }
-    }
-  }
-
   test("refreshByPath should refresh all cached plans with the specified path") {
     withTempDir { dir =>
       val path = dir.getCanonicalPath()
