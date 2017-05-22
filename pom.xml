@@ -144,6 +144,7 @@
     <ivy.version>2.4.0</ivy.version>
     <oro.version>2.0.8</oro.version>
     <codahale.metrics.version>3.1.2</codahale.metrics.version>
+    <spark-influx-sink.version>0.3.12</spark-influx-sink.version>
     <avro.version>1.7.7</avro.version>
     <avro.mapred.classifier>hadoop2</avro.mapred.classifier>
     <jets3t.version>0.9.3</jets3t.version>
@@ -672,6 +673,11 @@
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-graphite</artifactId>
         <version>${codahale.metrics.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.palantir.spark.influx</groupId>
+        <artifactId>spark-influx-sink</artifactId>
+        <version>${spark-influx-sink.version}</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
