@@ -30,6 +30,7 @@ make_and_publish_dist() {
 }
 
 make_and_publish_docker_images() {
+  set -x
   echo "Publishing docker images..."
   dist_name="$1"
 
