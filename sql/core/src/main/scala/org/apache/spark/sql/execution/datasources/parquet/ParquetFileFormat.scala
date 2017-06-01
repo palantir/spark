@@ -566,36 +566,6 @@ object ParquetFileFormat extends Logging {
   }
 
   /**
-   * Reads Parquet footers in multi-threaded manner.
-   * If the config "spark.sql.files.ignoreCorruptFiles" is set to true, we will ignore the corrupted
-   * files when reading footers.
-   */
-  private[parquet] def readParquetFootersInParallel(
-      conf: Configuration,
-      partFiles: Seq[FileStatus],
-      ignoreCorruptFiles: Boolean): Seq[Footer] = {
-    val parFiles = partFiles.par
-    parFiles.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(8))
-    parFiles.flatMap { currentFile =>
-      try {
-        // Skips row group information since we only need the schema.
-        // ParquetFileReader.readFooter throws RuntimeException, instead of IOException,
-        // when it can't read the footer.
-        Some(new Footer(currentFile.getPath(),
-          ParquetFileReader.readFooter(
-            conf, currentFile, SKIP_ROW_GROUPS)))
-      } catch { case e: RuntimeException =>
-        if (ignoreCorruptFiles) {
-          logWarning(s"Skipped the footer in the corrupted file: $currentFile", e)
-          None
-        } else {
-          throw new IOException(s"Could not read footer for file: $currentFile", e)
-        }
-      }
-    }.seq
-  }
-
-  /**
    * Figures out a merged Parquet schema with a distributed Spark job.
    *
    * Note that locality is not taken into consideration here because:
@@ -644,17 +614,28 @@ object ParquetFileFormat extends Logging {
       sparkSession
         .sparkContext
         .parallelize(partialFileStatusInfo, numParallelism)
-        .mapPartitions { iterator =>
-          // Resembles fake `FileStatus`es with serialized path and length information.
-          val fakeFileStatuses = iterator.map { case (path, length) =>
-            new FileStatus(length, false, 0, 0, 0, 0, null, null, null, new Path(path))
-          }.toSeq
-
-          // Reads footers in multi-threaded manner within each task
-          val footers =
-            ParquetFileFormat.readParquetFootersInParallel(
-              serializedConf.value, fakeFileStatuses, ignoreCorruptFiles)
-
+        // Resembles fake `FileStatus`es with serialized path and length information.
+        .map { case (path, length) =>
+          new FileStatus(length, false, 0, 0, 0, 0, null, null, null, new Path(path)) }
+        .flatMap { fsStat =>
+          try {
+            // Skips row group information since we only need the schema.
+            // ParquetFileReader.readFooter throws RuntimeException, instead of IOException,
+            // when it can't read the footer.
+            Some(new Footer(fsStat.getPath(),
+              ParquetFileReader.readFooter(
+                serializedConf.value, fsStat, SKIP_ROW_GROUPS)))
+          } catch {
+            case e: RuntimeException =>
+              if (ignoreCorruptFiles) {
+                logWarning(s"Skipped the footer in the corrupted file: $fsStat", e)
+                None
+              } else {
+                throw new IOException(s"Could not read footer for file: $fsStat", e)
+              }
+          }
+        }
+        .mapPartitions { footers =>
           // Converter used to convert Parquet `MessageType` to Spark SQL `StructType`
           val converter =
             new ParquetSchemaConverter(
@@ -667,17 +648,9 @@ object ParquetFileFormat extends Logging {
           if (footers.isEmpty) {
             Iterator.empty
           } else {
-            var mergedSchema = ParquetFileFormat.readSchemaFromFooter(footers.head, converter)
-            footers.tail.foreach { footer =>
-              val schema = ParquetFileFormat.readSchemaFromFooter(footer, converter)
-              try {
-                mergedSchema = mergedSchema.merge(schema)
-              } catch { case cause: SparkException =>
-                throw new SparkException(
-                  s"Failed merging schema of file ${footer.getFile}:\n${schema.treeString}", cause)
-              }
-            }
-            Iterator.single(mergedSchema)
+            Iterator.single(footers.map(footer =>
+              ParquetFileFormat.readSchemaFromFooter(footer, converter))
+              .reduce((a, b) => a.merge(b)))
           }
         }.collect()
 
