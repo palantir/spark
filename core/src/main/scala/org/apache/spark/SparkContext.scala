@@ -339,7 +339,7 @@ class SparkContext(config: SparkConf) extends Logging {
   }
 
   // Retrieve the Conda Environment from CondaRunner if it has set one up for us
-  val condaEnvironment: Option[CondaEnvironment] = CondaRunner.condaEnvironment
+  def condaEnvironment: Option[CondaEnvironment] = CondaRunner.condaEnvironment.get()
 
   /* ------------------------------------------------------------------------------------- *
    | Initialization. This code initializes the context in a manner that is exception-safe. |
