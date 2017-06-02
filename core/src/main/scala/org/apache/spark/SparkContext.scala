@@ -1875,7 +1875,7 @@ class SparkContext(config: SparkConf) extends Logging {
   }
 
   private[spark] def buildCondaInstructions(): Option[CondaSetupInstructions] = {
-    condaEnvironment.map(_.buildSetupInstructions)
+    condaEnvironment().map(_.buildSetupInstructions)
   }
 
 
