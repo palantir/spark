@@ -2,8 +2,10 @@
 
 set -euo pipefail
 VERSION=$(git describe --tags)
-# get the hadoop version from the hadoop-palantir profile from pom.xml, and trim whitespaces
-HADOOP_VERSION=$(sed -ne '/<id>hadoop-palantir<\/id>/,/<\/profile>/s/<hadoop.version>\(.*\)<\/hadoop.version>/\1/p' ./pom.xml | tr -d '[:space:]')
+HADOOP_VERSION=$(./build/mvn help:evaluate -Phadoop-palantir -Dexpression=hadoop.version 2>/dev/null\
+  | grep -v "INFO"\
+  | tail -n 1)
+
 
 PALANTIR_FLAGS=(-Phadoop-cloud -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Phive -Pyarn -Psparkr)
 
