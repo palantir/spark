@@ -26,4 +26,4 @@ make_dist() {
 }
 
 publish_artifacts
-make_dist $HADOOP_VERSION "${PALANTIR_FLAGS[*]}"
+make_dist hadoop-$HADOOP_VERSION "${PALANTIR_FLAGS[*]}"
