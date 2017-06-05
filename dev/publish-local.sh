@@ -24,4 +24,4 @@ make_dist() {
 }
 
 publish_artifacts
-make_dist hadoop-2.8.0-palantir3 "${PALANTIR_FLAGS[*]}"
+make_dist hadoop-2.8.0-palantir3 "${PALANTIR_FLAGS[*]}" --clean
