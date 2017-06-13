@@ -499,6 +499,14 @@ yarn = Module(
     ]
 )
 
+cloud = Module(
+    name="cloud",
+    dependencies=[],
+    source_file_regexes=["hadoop-cloud/"],
+    build_profile_flags=["-Phadoop-cloud"],
+    sbt_test_goals=["hadoop-cloud/test"]
+)
+
 mesos = Module(
     name="mesos",
     dependencies=[],
