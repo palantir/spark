@@ -134,7 +134,6 @@
     <hive.version.short>1.2.1</hive.version.short>
     <derby.version>10.12.1.1</derby.version>
     <parquet.version>1.9.1-palantir1</parquet.version>
-    <feign.version>8.18.0</feign.version>
     <okhttp3.version>3.8.0</okhttp3.version>
     <okhttp.version>2.7.5</okhttp.version>
     <okio.version>1.13.0</okio.version>
@@ -350,25 +349,6 @@
         <version>${okhttp.version}</version>
       </dependency>
 
-      <dependency>
-        <groupId>com.netflix.feign</groupId>
-        <artifactId>feign-core</artifactId>
-        <version>${feign.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.netflix.feign</groupId>
-        <artifactId>feign-okhttp</artifactId>
-        <version>${feign.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.netflix.feign</groupId>
-        <artifactId>feign-jackson</artifactId>
-        <version>${feign.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.netflix.feign</groupId>
-        <artifactId>feign-jaxrs</artifactId>
-        <version>${feign.version}</version>
       <dependency>
         <groupId>com.squareup.retrofit2</groupId>
         <artifactId>retrofit</artifactId>
