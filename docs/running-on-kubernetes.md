@@ -720,6 +720,20 @@ from the other deployment modes. See the [configuration page](configuration.html
     Docker image pull policy used when pulling Docker images with Kubernetes.
   </td>
 </tr>
+<tr>
+  <td><code>spark.kubernetes.driver.limit.cores</code></td>
+  <td>(none)</td>
+  <td>
+    Specify the hard cpu limit for the driver pod
+  </td>
+</tr>
+<tr>
+  <td><code>spark.kubernetes.executor.limit.cores</code></td>
+  <td>(none)</td>
+  <td>
+    Specify the hard cpu limit for a single executor pod
+  </td>
+</tr>
 </table>
 
 

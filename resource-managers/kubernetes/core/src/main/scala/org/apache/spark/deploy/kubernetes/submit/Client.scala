@@ -64,6 +64,7 @@ private[spark] class Client(
 
   // CPU settings
   private val driverCpuCores = sparkConf.getOption("spark.driver.cores").getOrElse("1")
+  private val driverLimitCores = sparkConf.getOption(KUBERNETES_DRIVER_LIMIT_CORES.key)
 
   // Memory settings
   private val driverMemoryMb = sparkConf.get(org.apache.spark.internal.config.DRIVER_MEMORY)
@@ -139,7 +140,6 @@ private[spark] class Client(
         .endEnv()
       .withNewResources()
         .addToRequests("cpu", driverCpuQuantity)
-        .addToLimits("cpu", driverCpuQuantity)
         .addToRequests("memory", driverMemoryQuantity)
         .addToLimits("memory", driverMemoryLimitQuantity)
         .endResources()
@@ -155,6 +155,21 @@ private[spark] class Client(
         .withRestartPolicy("Never")
         .addToContainers(driverContainer)
         .endSpec()
+
+    driverLimitCores.map {
+      limitCores =>
+        val driverCpuLimitQuantity = new QuantityBuilder(false)
+          .withAmount(limitCores)
+          .build()
+        basePod
+          .editSpec()
+            .editFirstContainer()
+              .editResources
+                .addToLimits("cpu", driverCpuLimitQuantity)
+              .endResources()
+            .endContainer()
+          .endSpec()
+    }
 
     val maybeSubmittedResourceIdentifiers = initContainerComponentsProvider
       .provideInitContainerSubmittedDependencyUploader(allDriverLabels)

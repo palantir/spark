@@ -109,6 +109,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
   private val executorMemoryWithOverhead = executorMemoryMb + memoryOverheadMb
 
   private val executorCores = conf.getOption("spark.executor.cores").getOrElse("1")
+  private val executorLimitCores = conf.getOption(KUBERNETES_EXECUTOR_LIMIT_CORES.key)
 
   private implicit val requestExecutorContext = ExecutionContext.fromExecutorService(
     ThreadUtils.newDaemonCachedThreadPool("kubernetes-executor-requests"))
@@ -439,13 +440,27 @@ private[spark] class KubernetesClusterSchedulerBackend(
             .addToRequests("memory", executorMemoryQuantity)
             .addToLimits("memory", executorMemoryLimitQuantity)
             .addToRequests("cpu", executorCpuQuantity)
-            .addToLimits("cpu", executorCpuQuantity)
           .endResources()
           .addAllToEnv(requiredEnv.asJava)
           .addToEnv(executorExtraClasspathEnv.toSeq: _*)
           .withPorts(requiredPorts.asJava)
         .endContainer()
       .endSpec()
+
+    executorLimitCores.map {
+      limitCores =>
+        val executorCpuLimitQuantity = new QuantityBuilder(false)
+          .withAmount(limitCores)
+          .build()
+        basePodBuilder
+          .editSpec()
+            .editFirstContainer()
+              .editResources
+                .addToLimits("cpu", executorCpuLimitQuantity)
+              .endResources()
+            .endContainer()
+          .endSpec()
+    }
 
     val withMaybeShuffleConfigPodBuilder = shuffleServiceConfig
       .map { config =>
