@@ -78,7 +78,7 @@ private[spark] class MetricsSystem private (
 
   private val sinks = new mutable.ArrayBuffer[Sink]
   private val sourceToListeners = new mutable.HashMap[Source, MetricRegistryListener]
-  private var defaultListener = new MetricsSystemListener("")
+  private val defaultListener = new MetricsSystemListener("")
 
   private var running: Boolean = false
 
@@ -180,6 +180,11 @@ private[spark] class MetricsSystem private (
     deregisterSource(source)
     sourceToListeners.remove(source)
   }
+
+  def getSources: Seq[Source] =
+    sourceToListeners.keySet.to[collection.immutable.Seq]
+
+  def getSinks: Seq[Sink] = sinks.to[collection.immutable.Seq]
 
   private def registerSources() {
     val instConfig = metricsConfig.getInstance(instance)
