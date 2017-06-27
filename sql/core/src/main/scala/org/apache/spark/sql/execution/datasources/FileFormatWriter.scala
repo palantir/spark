@@ -122,7 +122,14 @@ object FileFormatWriter extends Logging {
       // guarantee the data distribution is same between shuffle and bucketed data source, which
       // enables us to only shuffle one side when join a bucketed table and a normal one.
       HashPartitioning(bucketColumns, spec.numBuckets).partitionIdExpression
-    }
+    }.orElse(
+      // If there are no columns in the bucket spec, check if the data is already HashPartitioned
+      // and use that HashPartitioning's partitionIdExpression
+      plan.outputPartitioning match {
+        case p: HashPartitioning => Some(p.partitionIdExpression)
+        case _ => None
+      }
+    )
     val sortColumns = bucketSpec.toSeq.flatMap {
       spec => spec.sortColumnNames.map(c => dataColumns.find(_.name == c).get)
     }
