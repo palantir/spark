@@ -741,8 +741,8 @@ abstract class HiveThriftJdbcTest extends HiveThriftServer2Test {
   private def jdbcUri = if (mode == ServerMode.http) {
     s"""jdbc:hive2://localhost:$serverPort/
        |default?
-       |transportMode=http;
-       |httpPath=cliservice
+       |hive.server2.transport.mode=http;
+       |hive.server2.thrift.http.path=cliservice
      """.stripMargin.split("\n").mkString.trim
   } else {
     s"jdbc:hive2://localhost:$serverPort/"
