@@ -62,7 +62,7 @@ test:
         max-runtime: 14400
   post:
     - find . -name unit-tests.log -exec rsync -R {} $CIRCLE_ARTIFACTS \;:
-        parallel: true
+      parallel: true
     - ? |
         shopt -s nullglob
         files=(resource-managers/yarn/target/./org.apache.spark.deploy.yarn.*/*-logDir-*)
