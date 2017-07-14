@@ -28,7 +28,7 @@ import scala.collection.mutable.{ArrayBuffer, HashSet, Queue}
 import org.apache.spark.{SparkException, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
-import org.apache.spark.network.shuffle.{BlockFetchingListener, ShuffleClient, TempShuffleFileManager}
+import org.apache.spark.network.shuffle.{BlockFetchingListener, ShuffleClient}
 import org.apache.spark.shuffle.FetchFailedException
 import org.apache.spark.util.Utils
 import org.apache.spark.util.io.ChunkedByteBufferOutputStream
@@ -66,7 +66,7 @@ final class ShuffleBlockFetcherIterator(
     maxReqsInFlight: Int,
     maxReqSizeShuffleToMem: Long,
     detectCorrupt: Boolean)
-  extends Iterator[(BlockId, InputStream)] with TempShuffleFileManager with Logging {
+  extends Iterator[(BlockId, InputStream)] with Logging {
 
   import ShuffleBlockFetcherIterator._
 
@@ -135,8 +135,7 @@ final class ShuffleBlockFetcherIterator(
    * A set to store the files used for shuffling remote huge blocks. Files in this set will be
    * deleted when cleanup. This is a layer of defensiveness against disk file leaks.
    */
-  @GuardedBy("this")
-  private[this] val shuffleFilesSet = mutable.HashSet[File]()
+  val shuffleFilesSet = mutable.HashSet[File]()
 
   initialize()
 
@@ -148,19 +147,6 @@ final class ShuffleBlockFetcherIterator(
       currentResult.buf.release()
     }
     currentResult = null
-  }
-
-  override def createTempShuffleFile(): File = {
-    blockManager.diskBlockManager.createTempLocalBlock()._2
-  }
-
-  override def registerTempShuffleFileToClean(file: File): Boolean = synchronized {
-    if (isZombie) {
-      false
-    } else {
-      shuffleFilesSet += file
-      true
-    }
   }
 
   /**
@@ -190,7 +176,7 @@ final class ShuffleBlockFetcherIterator(
     }
     shuffleFilesSet.foreach { file =>
       if (!file.delete()) {
-        logWarning("Failed to cleanup shuffle fetch temp file " + file.getAbsolutePath())
+        logInfo("Failed to cleanup shuffle fetch temp file " + file.getAbsolutePath());
       }
     }
   }
@@ -235,8 +221,12 @@ final class ShuffleBlockFetcherIterator(
     // already encrypted and compressed over the wire(w.r.t. the related configs), we can just fetch
     // the data and write it to file directly.
     if (req.size > maxReqSizeShuffleToMem) {
+      val shuffleFiles = blockIds.map { _ =>
+        blockManager.diskBlockManager.createTempLocalBlock()._2
+      }.toArray
+      shuffleFilesSet ++= shuffleFiles
       shuffleClient.fetchBlocks(address.host, address.port, address.executorId, blockIds.toArray,
-        blockFetchingListener, this)
+        blockFetchingListener, shuffleFiles)
     } else {
       shuffleClient.fetchBlocks(address.host, address.port, address.executorId, blockIds.toArray,
         blockFetchingListener, null)

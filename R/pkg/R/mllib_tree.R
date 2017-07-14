@@ -374,10 +374,6 @@ setMethod("write.ml", signature(object = "GBTClassificationModel", path = "chara
 #'                     nodes. If TRUE, the algorithm will cache node IDs for each instance. Caching
 #'                     can speed up training of deeper trees. Users can set how often should the
 #'                     cache be checkpointed or disable it by setting checkpointInterval.
-#' @param handleInvalid How to handle invalid data (unseen labels or NULL values) in classification model.
-#'        Supported options: "skip" (filter out rows with invalid data),
-#'                           "error" (throw an error), "keep" (put invalid data in a special additional
-#'                           bucket, at index numLabels). Default is "error".
 #' @param ... additional arguments passed to the method.
 #' @aliases spark.randomForest,SparkDataFrame,formula-method
 #' @return \code{spark.randomForest} returns a fitted Random Forest model.
@@ -413,8 +409,7 @@ setMethod("spark.randomForest", signature(data = "SparkDataFrame", formula = "fo
                    maxDepth = 5, maxBins = 32, numTrees = 20, impurity = NULL,
                    featureSubsetStrategy = "auto", seed = NULL, subsamplingRate = 1.0,
                    minInstancesPerNode = 1, minInfoGain = 0.0, checkpointInterval = 10,
-                   maxMemoryInMB = 256, cacheNodeIds = FALSE,
-                   handleInvalid = c("error", "keep", "skip")) {
+                   maxMemoryInMB = 256, cacheNodeIds = FALSE) {
             type <- match.arg(type)
             formula <- paste(deparse(formula), collapse = "")
             if (!is.null(seed)) {
@@ -435,7 +430,6 @@ setMethod("spark.randomForest", signature(data = "SparkDataFrame", formula = "fo
                      new("RandomForestRegressionModel", jobj = jobj)
                    },
                    classification = {
-                     handleInvalid <- match.arg(handleInvalid)
                      if (is.null(impurity)) impurity <- "gini"
                      impurity <- match.arg(impurity, c("gini", "entropy"))
                      jobj <- callJStatic("org.apache.spark.ml.r.RandomForestClassifierWrapper",
@@ -445,8 +439,7 @@ setMethod("spark.randomForest", signature(data = "SparkDataFrame", formula = "fo
                                          as.numeric(minInfoGain), as.integer(checkpointInterval),
                                          as.character(featureSubsetStrategy), seed,
                                          as.numeric(subsamplingRate),
-                                         as.integer(maxMemoryInMB), as.logical(cacheNodeIds),
-                                         handleInvalid)
+                                         as.integer(maxMemoryInMB), as.logical(cacheNodeIds))
                      new("RandomForestClassificationModel", jobj = jobj)
                    }
             )

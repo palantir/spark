@@ -23,7 +23,6 @@ import org.apache.hadoop.yarn.api.records.YarnApplicationState
 
 import org.apache.spark.{SparkContext, SparkException}
 import org.apache.spark.deploy.yarn.{Client, ClientArguments, YarnSparkHadoopUtil}
-import org.apache.spark.deploy.yarn.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.launcher.SparkAppHandle
 import org.apache.spark.scheduler.TaskSchedulerImpl
@@ -78,11 +77,8 @@ private[spark] class YarnClientSchedulerBackend(
    * This assumes both `client` and `appId` have already been set.
    */
   private def waitForApplication(): Unit = {
-    val monitorInterval = conf.get(CLIENT_LAUNCH_MONITOR_INTERVAL)
-
     assert(client != null && appId.isDefined, "Application has not been submitted yet!")
-    val (state, _) = client.monitorApplication(appId.get, returnOnRunning = true,
-      interval = monitorInterval) // blocking
+    val (state, _) = client.monitorApplication(appId.get, returnOnRunning = true) // blocking
     if (state == YarnApplicationState.FINISHED ||
       state == YarnApplicationState.FAILED ||
       state == YarnApplicationState.KILLED) {

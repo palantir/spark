@@ -346,8 +346,6 @@ object FunctionRegistry {
     expression[StringSplit]("split"),
     expression[Substring]("substr"),
     expression[Substring]("substring"),
-    expression[Left]("left"),
-    expression[Right]("right"),
     expression[SubstringIndex]("substring_index"),
     expression[StringTranslate]("translate"),
     expression[StringTrim]("trim"),

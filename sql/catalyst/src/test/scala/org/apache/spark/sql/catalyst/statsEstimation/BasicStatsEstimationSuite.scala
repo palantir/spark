@@ -18,13 +18,12 @@
 package org.apache.spark.sql.catalyst.statsEstimation
 
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeMap, AttributeReference, Literal}
-import org.apache.spark.sql.catalyst.plans.PlanTest
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.IntegerType
 
 
-class BasicStatsEstimationSuite extends PlanTest with StatsEstimationTestBase {
+class BasicStatsEstimationSuite extends StatsEstimationTestBase {
   val attribute = attr("key")
   val colStat = ColumnStat(distinctCount = 10, min = Some(1), max = Some(10),
     nullCount = 0, avgLen = 4, maxLen = 4)
@@ -114,15 +113,18 @@ class BasicStatsEstimationSuite extends PlanTest with StatsEstimationTestBase {
       plan: LogicalPlan,
       expectedStatsCboOn: Statistics,
       expectedStatsCboOff: Statistics): Unit = {
-    withSQLConf(SQLConf.CBO_ENABLED.key -> "true") {
+    val originalValue = SQLConf.get.getConf(SQLConf.CBO_ENABLED)
+    try {
       // Invalidate statistics
       plan.invalidateStatsCache()
+      SQLConf.get.setConf(SQLConf.CBO_ENABLED, true)
       assert(plan.stats == expectedStatsCboOn)
-    }
 
-    withSQLConf(SQLConf.CBO_ENABLED.key -> "false") {
       plan.invalidateStatsCache()
+      SQLConf.get.setConf(SQLConf.CBO_ENABLED, false)
       assert(plan.stats == expectedStatsCboOff)
+    } finally {
+      SQLConf.get.setConf(SQLConf.CBO_ENABLED, originalValue)
     }
   }
 
@@ -137,10 +139,9 @@ class BasicStatsEstimationSuite extends PlanTest with StatsEstimationTestBase {
  */
 private case class DummyLogicalPlan(
     defaultStats: Statistics,
-    cboStats: Statistics)
-  extends LeafNode {
-
+    cboStats: Statistics) extends LogicalPlan {
   override def output: Seq[Attribute] = Nil
-
-  override def computeStats(): Statistics = if (conf.cboEnabled) cboStats else defaultStats
+  override def children: Seq[LogicalPlan] = Nil
+  override def computeStats: Statistics =
+    if (conf.cboEnabled) cboStats else defaultStats
 }

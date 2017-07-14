@@ -1132,15 +1132,6 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
     client.dropFunction(db, name)
   }
 
-  override protected def doAlterFunction(
-      db: String, funcDefinition: CatalogFunction): Unit = withClient {
-    requireDbExists(db)
-    val functionName = funcDefinition.identifier.funcName.toLowerCase(Locale.ROOT)
-    requireFunctionExists(db, functionName)
-    val functionIdentifier = funcDefinition.identifier.copy(funcName = functionName)
-    client.alterFunction(db, funcDefinition.copy(identifier = functionIdentifier))
-  }
-
   override protected def doRenameFunction(
       db: String,
       oldName: String,

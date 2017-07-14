@@ -38,10 +38,12 @@ import org.apache.spark.sql.internal.SQLConf
  * 3. aggregate function on partition columns which have same result w or w/o DISTINCT keyword.
  *  e.g. SELECT col1, Max(col2) FROM tbl GROUP BY col1.
  */
-case class OptimizeMetadataOnlyQuery(catalog: SessionCatalog) extends Rule[LogicalPlan] {
+case class OptimizeMetadataOnlyQuery(
+    catalog: SessionCatalog,
+    conf: SQLConf) extends Rule[LogicalPlan] {
 
   def apply(plan: LogicalPlan): LogicalPlan = {
-    if (!SQLConf.get.optimizerMetadataOnly) {
+    if (!conf.optimizerMetadataOnly) {
       return plan
     }
 
@@ -104,7 +106,7 @@ case class OptimizeMetadataOnlyQuery(catalog: SessionCatalog) extends Rule[Logic
             val caseInsensitiveProperties =
               CaseInsensitiveMap(relation.tableMeta.storage.properties)
             val timeZoneId = caseInsensitiveProperties.get(DateTimeUtils.TIMEZONE_OPTION)
-              .getOrElse(SQLConf.get.sessionLocalTimeZone)
+              .getOrElse(conf.sessionLocalTimeZone)
             val partitionData = catalog.listPartitions(relation.tableMeta.identifier).map { p =>
               InternalRow.fromSeq(partAttrs.map { attr =>
                 Cast(Literal(p.spec(attr.name)), attr.dataType, Option(timeZoneId)).eval()
@@ -133,20 +135,20 @@ case class OptimizeMetadataOnlyQuery(catalog: SessionCatalog) extends Rule[Logic
       case l @ LogicalRelation(fsRelation: HadoopFsRelation, _, _)
         if fsRelation.partitionSchema.nonEmpty =>
         val partAttrs = getPartitionAttrs(fsRelation.partitionSchema.map(_.name), l)
-        Some((AttributeSet(partAttrs), l))
+        Some(AttributeSet(partAttrs), l)
 
       case relation: CatalogRelation if relation.tableMeta.partitionColumnNames.nonEmpty =>
         val partAttrs = getPartitionAttrs(relation.tableMeta.partitionColumnNames, relation)
-        Some((AttributeSet(partAttrs), relation))
+        Some(AttributeSet(partAttrs), relation)
 
       case p @ Project(projectList, child) if projectList.forall(_.deterministic) =>
         unapply(child).flatMap { case (partAttrs, relation) =>
-          if (p.references.subsetOf(partAttrs)) Some((p.outputSet, relation)) else None
+          if (p.references.subsetOf(partAttrs)) Some(p.outputSet, relation) else None
         }
 
       case f @ Filter(condition, child) if condition.deterministic =>
         unapply(child).flatMap { case (partAttrs, relation) =>
-          if (f.references.subsetOf(partAttrs)) Some((partAttrs, relation)) else None
+          if (f.references.subsetOf(partAttrs)) Some(partAttrs, relation) else None
         }
 
       case _ => None

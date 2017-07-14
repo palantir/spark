@@ -118,20 +118,17 @@ trait InvokeLike extends Expression with NonSQLExpression {
  * @param arguments An optional list of expressions to pass as arguments to the function.
  * @param propagateNull When true, and any of the arguments is null, null will be returned instead
  *                      of calling the function.
- * @param returnNullable When false, indicating the invoked method will always return
- *                       non-null value.
  */
 case class StaticInvoke(
     staticObject: Class[_],
     dataType: DataType,
     functionName: String,
     arguments: Seq[Expression] = Nil,
-    propagateNull: Boolean = true,
-    returnNullable: Boolean = true) extends InvokeLike {
+    propagateNull: Boolean = true) extends InvokeLike {
 
   val objectName = staticObject.getName.stripSuffix("$")
 
-  override def nullable: Boolean = needNullCheck || returnNullable
+  override def nullable: Boolean = true
   override def children: Seq[Expression] = arguments
 
   override def eval(input: InternalRow): Any =
@@ -144,40 +141,19 @@ case class StaticInvoke(
 
     val callFunc = s"$objectName.$functionName($argString)"
 
-    val prepareIsNull = if (nullable) {
-      s"boolean ${ev.isNull} = $resultIsNull;"
+    // If the function can return null, we do an extra check to make sure our null bit is still set
+    // correctly.
+    val postNullCheck = if (ctx.defaultValue(dataType) == "null") {
+      s"${ev.isNull} = ${ev.value} == null;"
     } else {
-      ev.isNull = "false"
       ""
-    }
-
-    val evaluate = if (returnNullable) {
-      if (ctx.defaultValue(dataType) == "null") {
-        s"""
-          ${ev.value} = $callFunc;
-          ${ev.isNull} = ${ev.value} == null;
-        """
-      } else {
-        val boxedResult = ctx.freshName("boxedResult")
-        s"""
-          ${ctx.boxedType(dataType)} $boxedResult = $callFunc;
-          ${ev.isNull} = $boxedResult == null;
-          if (!${ev.isNull}) {
-            ${ev.value} = $boxedResult;
-          }
-        """
-      }
-    } else {
-      s"${ev.value} = $callFunc;"
     }
 
     val code = s"""
       $argCode
-      $prepareIsNull
-      $javaType ${ev.value} = ${ctx.defaultValue(dataType)};
-      if (!$resultIsNull) {
-        $evaluate
-      }
+      boolean ${ev.isNull} = $resultIsNull;
+      final $javaType ${ev.value} = $resultIsNull ? ${ctx.defaultValue(dataType)} : $callFunc;
+      $postNullCheck
      """
     ev.copy(code = code)
   }
@@ -489,11 +465,7 @@ object MapObjects {
       customCollectionCls: Option[Class[_]] = None): MapObjects = {
     val id = curId.getAndIncrement()
     val loopValue = s"MapObjects_loopValue$id"
-    val loopIsNull = if (elementNullable) {
-      s"MapObjects_loopIsNull$id"
-    } else {
-      "false"
-    }
+    val loopIsNull = s"MapObjects_loopIsNull$id"
     val loopVar = LambdaVariable(loopValue, loopIsNull, elementType, elementNullable)
     MapObjects(
       loopValue, loopIsNull, elementType, function(loopVar), inputData, customCollectionCls)
@@ -545,6 +517,7 @@ case class MapObjects private(
 
   override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
     val elementJavaType = ctx.javaType(loopVarDataType)
+    ctx.addMutableState("boolean", loopIsNull, "")
     ctx.addMutableState(elementJavaType, loopValue, "")
     val genInputData = inputData.genCode(ctx)
     val genFunction = lambdaFunction.genCode(ctx)
@@ -615,21 +588,18 @@ case class MapObjects private(
       case _ => genFunction.value
     }
 
-    val loopNullCheck = if (loopIsNull != "false") {
-      ctx.addMutableState("boolean", loopIsNull, "")
-      inputDataType match {
-        case _: ArrayType => s"$loopIsNull = ${genInputData.value}.isNullAt($loopIndex);"
-        case _ => s"$loopIsNull = $loopValue == null;"
-      }
-    } else {
-      ""
+    val loopNullCheck = inputDataType match {
+      case _: ArrayType => s"$loopIsNull = ${genInputData.value}.isNullAt($loopIndex);"
+      // The element of primitive array will never be null.
+      case ObjectType(cls) if cls.isArray && cls.getComponentType.isPrimitive =>
+        s"$loopIsNull = false"
+      case _ => s"$loopIsNull = $loopValue == null;"
     }
 
     val (initCollection, addElement, getResult): (String, String => String, String) =
       customCollectionCls match {
-        case Some(cls) if classOf[Seq[_]].isAssignableFrom(cls) ||
-          classOf[scala.collection.Set[_]].isAssignableFrom(cls) =>
-          // Scala sequence or set
+        case Some(cls) if classOf[Seq[_]].isAssignableFrom(cls) =>
+          // Scala sequence
           val getBuilder = s"${cls.getName}$$.MODULE$$.newBuilder()"
           val builder = ctx.freshName("collectionBuilder")
           (
@@ -697,11 +667,11 @@ case class MapObjects private(
   }
 }
 
-object CatalystToExternalMap {
+object CollectObjectsToMap {
   private val curId = new java.util.concurrent.atomic.AtomicInteger()
 
   /**
-   * Construct an instance of CatalystToExternalMap case class.
+   * Construct an instance of CollectObjectsToMap case class.
    *
    * @param keyFunction The function applied on the key collection elements.
    * @param valueFunction The function applied on the value collection elements.
@@ -712,19 +682,15 @@ object CatalystToExternalMap {
       keyFunction: Expression => Expression,
       valueFunction: Expression => Expression,
       inputData: Expression,
-      collClass: Class[_]): CatalystToExternalMap = {
+      collClass: Class[_]): CollectObjectsToMap = {
     val id = curId.getAndIncrement()
-    val keyLoopValue = s"CatalystToExternalMap_keyLoopValue$id"
+    val keyLoopValue = s"CollectObjectsToMap_keyLoopValue$id"
     val mapType = inputData.dataType.asInstanceOf[MapType]
     val keyLoopVar = LambdaVariable(keyLoopValue, "", mapType.keyType, nullable = false)
-    val valueLoopValue = s"CatalystToExternalMap_valueLoopValue$id"
-    val valueLoopIsNull = if (mapType.valueContainsNull) {
-      s"CatalystToExternalMap_valueLoopIsNull$id"
-    } else {
-      "false"
-    }
+    val valueLoopValue = s"CollectObjectsToMap_valueLoopValue$id"
+    val valueLoopIsNull = s"CollectObjectsToMap_valueLoopIsNull$id"
     val valueLoopVar = LambdaVariable(valueLoopValue, valueLoopIsNull, mapType.valueType)
-    CatalystToExternalMap(
+    CollectObjectsToMap(
       keyLoopValue, keyFunction(keyLoopVar),
       valueLoopValue, valueLoopIsNull, valueFunction(valueLoopVar),
       inputData, collClass)
@@ -750,7 +716,7 @@ object CatalystToExternalMap {
  * @param inputData An expression that when evaluated returns a map object.
  * @param collClass The type of the resulting collection.
  */
-case class CatalystToExternalMap private(
+case class CollectObjectsToMap private(
     keyLoopValue: String,
     keyLambdaFunction: Expression,
     valueLoopValue: String,
@@ -782,6 +748,7 @@ case class CatalystToExternalMap private(
     ctx.addMutableState(keyElementJavaType, keyLoopValue, "")
     val genKeyFunction = keyLambdaFunction.genCode(ctx)
     val valueElementJavaType = ctx.javaType(mapType.valueType)
+    ctx.addMutableState("boolean", valueLoopIsNull, "")
     ctx.addMutableState(valueElementJavaType, valueLoopValue, "")
     val genValueFunction = valueLambdaFunction.genCode(ctx)
     val genInputData = inputData.genCode(ctx)
@@ -814,12 +781,7 @@ case class CatalystToExternalMap private(
     val genKeyFunctionValue = genFunctionValue(keyLambdaFunction, genKeyFunction)
     val genValueFunctionValue = genFunctionValue(valueLambdaFunction, genValueFunction)
 
-    val valueLoopNullCheck = if (valueLoopIsNull != "false") {
-      ctx.addMutableState("boolean", valueLoopIsNull, "")
-      s"$valueLoopIsNull = $valueArray.isNullAt($loopIndex);"
-    } else {
-      ""
-    }
+    val valueLoopNullCheck = s"$valueLoopIsNull = $valueArray.isNullAt($loopIndex);"
 
     val builderClass = classOf[Builder[_, _]].getName
     val constructBuilder = s"""
@@ -879,29 +841,18 @@ object ExternalMapToCatalyst {
       inputMap: Expression,
       keyType: DataType,
       keyConverter: Expression => Expression,
-      keyNullable: Boolean,
       valueType: DataType,
       valueConverter: Expression => Expression,
       valueNullable: Boolean): ExternalMapToCatalyst = {
     val id = curId.getAndIncrement()
     val keyName = "ExternalMapToCatalyst_key" + id
-    val keyIsNull = if (keyNullable) {
-      "ExternalMapToCatalyst_key_isNull" + id
-    } else {
-      "false"
-    }
     val valueName = "ExternalMapToCatalyst_value" + id
-    val valueIsNull = if (valueNullable) {
-      "ExternalMapToCatalyst_value_isNull" + id
-    } else {
-      "false"
-    }
+    val valueIsNull = "ExternalMapToCatalyst_value_isNull" + id
 
     ExternalMapToCatalyst(
       keyName,
-      keyIsNull,
       keyType,
-      keyConverter(LambdaVariable(keyName, keyIsNull, keyType, keyNullable)),
+      keyConverter(LambdaVariable(keyName, "false", keyType, false)),
       valueName,
       valueIsNull,
       valueType,
@@ -917,8 +868,6 @@ object ExternalMapToCatalyst {
  *
  * @param key the name of the map key variable that used when iterate the map, and used as input for
  *            the `keyConverter`
- * @param keyIsNull the nullability of the map key variable that used when iterate the map, and
- *                  used as input for the `keyConverter`
  * @param keyType the data type of the map key variable that used when iterate the map, and used as
  *                input for the `keyConverter`
  * @param keyConverter A function that take the `key` as input, and converts it to catalyst format.
@@ -934,7 +883,6 @@ object ExternalMapToCatalyst {
  */
 case class ExternalMapToCatalyst private(
     key: String,
-    keyIsNull: String,
     keyType: DataType,
     keyConverter: Expression,
     value: String,
@@ -966,6 +914,7 @@ case class ExternalMapToCatalyst private(
     val keyElementJavaType = ctx.javaType(keyType)
     val valueElementJavaType = ctx.javaType(valueType)
     ctx.addMutableState(keyElementJavaType, key, "")
+    ctx.addMutableState("boolean", valueIsNull, "")
     ctx.addMutableState(valueElementJavaType, value, "")
 
     val (defineEntries, defineKeyValue) = child.dataType match {
@@ -1001,18 +950,10 @@ case class ExternalMapToCatalyst private(
         defineEntries -> defineKeyValue
     }
 
-    val keyNullCheck = if (keyIsNull != "false") {
-      ctx.addMutableState("boolean", keyIsNull, "")
-      s"$keyIsNull = $key == null;"
+    val valueNullCheck = if (ctx.isPrimitiveType(valueType)) {
+      s"$valueIsNull = false;"
     } else {
-      ""
-    }
-
-    val valueNullCheck = if (valueIsNull != "false") {
-      ctx.addMutableState("boolean", valueIsNull, "")
       s"$valueIsNull = $value == null;"
-    } else {
-      ""
     }
 
     val arrayCls = classOf[GenericArrayData].getName
@@ -1031,7 +972,6 @@ case class ExternalMapToCatalyst private(
           $defineEntries
           while($entries.hasNext()) {
             $defineKeyValue
-            $keyNullCheck
             $valueNullCheck
 
             ${genKeyConverter.code}

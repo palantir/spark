@@ -21,7 +21,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, UnsafeProjection}
 import org.apache.spark.sql.catalyst.plans.logical.EventTimeWatermark
-import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
+import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.types.MetadataBuilder
 import org.apache.spark.unsafe.types.CalendarInterval
 import org.apache.spark.util.AccumulatorV2
@@ -81,7 +81,7 @@ class EventTimeStatsAccum(protected var currentStats: EventTimeStats = EventTime
 case class EventTimeWatermarkExec(
     eventTime: Attribute,
     delay: CalendarInterval,
-    child: SparkPlan) extends UnaryExecNode {
+    child: SparkPlan) extends SparkPlan {
 
   val eventTimeStats = new EventTimeStatsAccum()
   val delayMs = EventTimeWatermark.getDelayMs(delay)
@@ -117,4 +117,6 @@ case class EventTimeWatermarkExec(
       a
     }
   }
+
+  override def children: Seq[SparkPlan] = child :: Nil
 }

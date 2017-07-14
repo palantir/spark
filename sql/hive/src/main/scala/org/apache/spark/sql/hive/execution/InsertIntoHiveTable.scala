@@ -31,16 +31,14 @@ import org.apache.hadoop.hive.ql.exec.TaskRunner
 import org.apache.hadoop.hive.ql.ErrorMsg
 import org.apache.hadoop.hive.ql.plan.TableDesc
 
-import org.apache.spark.SparkContext
 import org.apache.spark.internal.io.FileCommitProtocol
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.catalog.CatalogTable
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.execution.command.{CommandUtils, DataWritingCommand}
+import org.apache.spark.sql.execution.command.{CommandUtils, RunnableCommand}
 import org.apache.spark.sql.execution.datasources.FileFormatWriter
-import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.hive._
 import org.apache.spark.sql.hive.HiveShim.{ShimFileSinkDesc => FileSinkDesc}
 import org.apache.spark.sql.hive.client.{HiveClientImpl, HiveVersion}
@@ -82,7 +80,7 @@ case class InsertIntoHiveTable(
     partition: Map[String, Option[String]],
     query: LogicalPlan,
     overwrite: Boolean,
-    ifPartitionNotExists: Boolean) extends DataWritingCommand {
+    ifPartitionNotExists: Boolean) extends RunnableCommand {
 
   override def children: Seq[LogicalPlan] = query :: Nil
 
@@ -356,7 +354,7 @@ case class InsertIntoHiveTable(
       hadoopConf = hadoopConf,
       partitionColumns = partitionAttributes,
       bucketSpec = None,
-      refreshFunction = updateWritingMetrics,
+      refreshFunction = _ => (),
       options = Map.empty)
 
     if (partition.nonEmpty) {

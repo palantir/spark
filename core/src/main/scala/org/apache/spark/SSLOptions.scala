@@ -167,39 +167,39 @@ private[spark] object SSLOptions extends Logging {
   def parse(conf: SparkConf, ns: String, defaults: Option[SSLOptions] = None): SSLOptions = {
     val enabled = conf.getBoolean(s"$ns.enabled", defaultValue = defaults.exists(_.enabled))
 
-    val port = conf.getWithSubstitution(s"$ns.port").map(_.toInt)
+    val port = conf.getOption(s"$ns.port").map(_.toInt)
     port.foreach { p =>
       require(p >= 0, "Port number must be a non-negative value.")
     }
 
-    val keyStore = conf.getWithSubstitution(s"$ns.keyStore").map(new File(_))
+    val keyStore = conf.getOption(s"$ns.keyStore").map(new File(_))
         .orElse(defaults.flatMap(_.keyStore))
 
-    val keyStorePassword = conf.getWithSubstitution(s"$ns.keyStorePassword")
+    val keyStorePassword = conf.getOption(s"$ns.keyStorePassword")
         .orElse(defaults.flatMap(_.keyStorePassword))
 
-    val keyPassword = conf.getWithSubstitution(s"$ns.keyPassword")
+    val keyPassword = conf.getOption(s"$ns.keyPassword")
         .orElse(defaults.flatMap(_.keyPassword))
 
-    val keyStoreType = conf.getWithSubstitution(s"$ns.keyStoreType")
+    val keyStoreType = conf.getOption(s"$ns.keyStoreType")
         .orElse(defaults.flatMap(_.keyStoreType))
 
     val needClientAuth =
       conf.getBoolean(s"$ns.needClientAuth", defaultValue = defaults.exists(_.needClientAuth))
 
-    val trustStore = conf.getWithSubstitution(s"$ns.trustStore").map(new File(_))
+    val trustStore = conf.getOption(s"$ns.trustStore").map(new File(_))
         .orElse(defaults.flatMap(_.trustStore))
 
-    val trustStorePassword = conf.getWithSubstitution(s"$ns.trustStorePassword")
+    val trustStorePassword = conf.getOption(s"$ns.trustStorePassword")
         .orElse(defaults.flatMap(_.trustStorePassword))
 
-    val trustStoreType = conf.getWithSubstitution(s"$ns.trustStoreType")
+    val trustStoreType = conf.getOption(s"$ns.trustStoreType")
         .orElse(defaults.flatMap(_.trustStoreType))
 
-    val protocol = conf.getWithSubstitution(s"$ns.protocol")
+    val protocol = conf.getOption(s"$ns.protocol")
         .orElse(defaults.flatMap(_.protocol))
 
-    val enabledAlgorithms = conf.getWithSubstitution(s"$ns.enabledAlgorithms")
+    val enabledAlgorithms = conf.getOption(s"$ns.enabledAlgorithms")
         .map(_.split(",").map(_.trim).filter(_.nonEmpty).toSet)
         .orElse(defaults.map(_.enabledAlgorithms))
         .getOrElse(Set.empty)

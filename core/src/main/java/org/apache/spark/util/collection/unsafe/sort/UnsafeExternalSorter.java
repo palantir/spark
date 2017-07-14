@@ -589,51 +589,26 @@ public final class UnsafeExternalSorter extends MemoryConsumer {
   }
 
   /**
-   * Returns an iterator starts from startIndex, which will return the rows in the order as
-   * inserted.
+   * Returns a iterator, which will return the rows in the order as inserted.
    *
    * It is the caller's responsibility to call `cleanupResources()`
    * after consuming this iterator.
    *
    * TODO: support forced spilling
    */
-  public UnsafeSorterIterator getIterator(int startIndex) throws IOException {
+  public UnsafeSorterIterator getIterator() throws IOException {
     if (spillWriters.isEmpty()) {
       assert(inMemSorter != null);
-      UnsafeSorterIterator iter = inMemSorter.getSortedIterator();
-      moveOver(iter, startIndex);
-      return iter;
+      return inMemSorter.getSortedIterator();
     } else {
       LinkedList<UnsafeSorterIterator> queue = new LinkedList<>();
-      int i = 0;
       for (UnsafeSorterSpillWriter spillWriter : spillWriters) {
-        if (i + spillWriter.recordsSpilled() > startIndex) {
-          UnsafeSorterIterator iter = spillWriter.getReader(serializerManager);
-          moveOver(iter, startIndex - i);
-          queue.add(iter);
-        }
-        i += spillWriter.recordsSpilled();
+        queue.add(spillWriter.getReader(serializerManager));
       }
       if (inMemSorter != null) {
-        UnsafeSorterIterator iter = inMemSorter.getSortedIterator();
-        moveOver(iter, startIndex - i);
-        queue.add(iter);
+        queue.add(inMemSorter.getSortedIterator());
       }
       return new ChainedIterator(queue);
-    }
-  }
-
-  private void moveOver(UnsafeSorterIterator iter, int steps)
-      throws IOException {
-    if (steps > 0) {
-      for (int i = 0; i < steps; i++) {
-        if (iter.hasNext()) {
-          iter.loadNext();
-        } else {
-          throw new ArrayIndexOutOfBoundsException("Failed to move the iterator " + steps +
-            " steps forward");
-        }
-      }
     }
   }
 

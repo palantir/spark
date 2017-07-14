@@ -36,14 +36,7 @@ object CommandUtils extends Logging {
   def updateTableStats(sparkSession: SparkSession, table: CatalogTable): Unit = {
     if (table.stats.nonEmpty) {
       val catalog = sparkSession.sessionState.catalog
-      if (sparkSession.sessionState.conf.autoUpdateSize) {
-        val newTable = catalog.getTableMetadata(table.identifier)
-        val newSize = CommandUtils.calculateTotalSize(sparkSession.sessionState, newTable)
-        val newStats = CatalogStatistics(sizeInBytes = newSize)
-        catalog.alterTableStats(table.identifier, Some(newStats))
-      } else {
-        catalog.alterTableStats(table.identifier, None)
-      }
+      catalog.alterTableStats(table.identifier, None)
     }
   }
 
@@ -91,9 +84,7 @@ object CommandUtils extends Logging {
       size
     }
 
-    val startTime = System.nanoTime()
-    logInfo(s"Starting to calculate the total file size under path $locationUri.")
-    val size = locationUri.map { p =>
+    locationUri.map { p =>
       val path = new Path(p)
       try {
         val fs = path.getFileSystem(sessionState.newHadoopConf())
@@ -106,10 +97,6 @@ object CommandUtils extends Logging {
           0L
       }
     }.getOrElse(0L)
-    val durationInMs = (System.nanoTime() - startTime) / (1000 * 1000)
-    logInfo(s"It took $durationInMs ms to calculate the total file size under path $locationUri.")
-
-    size
   }
 
 }

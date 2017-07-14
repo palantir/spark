@@ -67,7 +67,7 @@ private[shared] object SharedParamsCodeGen {
       ParamDesc[String]("handleInvalid", "how to handle invalid entries. Options are skip (which " +
         "will filter out rows with bad values), or error (which will throw an error). More " +
         "options may be added later",
-        isValid = "ParamValidators.inArray(Array(\"skip\", \"error\"))", finalFields = false),
+        isValid = "ParamValidators.inArray(Array(\"skip\", \"error\"))"),
       ParamDesc[Boolean]("standardization", "whether to standardize the training features" +
         " before fitting the model", Some("true")),
       ParamDesc[Long]("seed", "random seed", Some("this.getClass.getName.hashCode.toLong")),
@@ -80,7 +80,8 @@ private[shared] object SharedParamsCodeGen {
         " 0)", isValid = "ParamValidators.gt(0)"),
       ParamDesc[String]("weightCol", "weight column name. If this is not set or empty, we treat " +
         "all instance weights as 1.0"),
-      ParamDesc[String]("solver", "the solver algorithm for optimization", finalFields = false),
+      ParamDesc[String]("solver", "the solver algorithm for optimization. If this is not set or " +
+        "empty, default value is 'auto'", Some("\"auto\"")),
       ParamDesc[Int]("aggregationDepth", "suggested depth for treeAggregate (>= 2)", Some("2"),
         isValid = "ParamValidators.gtEq(2)", isExpertParam = true))
 
@@ -98,7 +99,6 @@ private[shared] object SharedParamsCodeGen {
       defaultValueStr: Option[String] = None,
       isValid: String = "",
       finalMethods: Boolean = true,
-      finalFields: Boolean = true,
       isExpertParam: Boolean = false) {
 
     require(name.matches("[a-z][a-zA-Z0-9]*"), s"Param name $name is invalid.")
@@ -167,11 +167,6 @@ private[shared] object SharedParamsCodeGen {
     } else {
       "def"
     }
-    val fieldStr = if (param.finalFields) {
-      "final val"
-    } else {
-      "val"
-    }
 
     val htmlCompliantDoc = Utility.escape(doc)
 
@@ -185,7 +180,7 @@ private[shared] object SharedParamsCodeGen {
       |   * Param for $htmlCompliantDoc.
       |   * @group ${groupStr(0)}
       |   */
-      |  $fieldStr $name: $Param = new $Param(this, "$name", "$doc"$isValid)
+      |  final val $name: $Param = new $Param(this, "$name", "$doc"$isValid)
       |$setDefault
       |  /** @group ${groupStr(1)} */
       |  $methodStr get$Name: $T = $$($name)

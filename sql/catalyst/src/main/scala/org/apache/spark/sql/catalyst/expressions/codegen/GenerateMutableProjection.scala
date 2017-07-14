@@ -115,6 +115,8 @@ object GenerateMutableProjection extends CodeGenerator[Seq[Expression], MutableP
           ${ctx.initPartition()}
         }
 
+        ${ctx.declareAddedFunctions()}
+
         public ${classOf[BaseMutableProjection].getName} target(InternalRow row) {
           mutableRow = row;
           return this;
@@ -134,7 +136,8 @@ object GenerateMutableProjection extends CodeGenerator[Seq[Expression], MutableP
           return mutableRow;
         }
 
-        ${ctx.declareAddedFunctions()}
+        ${ctx.initNestedClasses()}
+        ${ctx.declareNestedClasses()}
       }
     """
 

@@ -41,13 +41,12 @@ case class CreateArray(children: Seq[Expression]) extends Expression {
 
   override def foldable: Boolean = children.forall(_.foldable)
 
-  override def checkInputDataTypes(): TypeCheckResult = {
-    TypeUtils.checkForSameTypeInputExpr(children.map(_.dataType), s"function $prettyName")
-  }
+  override def checkInputDataTypes(): TypeCheckResult =
+    TypeUtils.checkForSameTypeInputExpr(children.map(_.dataType), "function array")
 
   override def dataType: ArrayType = {
     ArrayType(
-      children.headOption.map(_.dataType).getOrElse(StringType),
+      children.headOption.map(_.dataType).getOrElse(NullType),
       containsNull = children.exists(_.nullable))
   }
 
@@ -94,7 +93,7 @@ private [sql] object GenArrayData {
     if (!ctx.isPrimitiveType(elementType)) {
       val genericArrayClass = classOf[GenericArrayData].getName
       ctx.addMutableState("Object[]", arrayName,
-        s"$arrayName = new Object[$numElements];")
+        s"$arrayName = new Object[${numElements}];")
 
       val assignments = elementsCode.zipWithIndex.map { case (eval, i) =>
         val isNullAssignment = if (!isMapKey) {
@@ -120,7 +119,7 @@ private [sql] object GenArrayData {
         UnsafeArrayData.calculateHeaderPortionInBytes(numElements) +
         ByteArrayMethods.roundNumberOfBytesToNearestWord(elementType.defaultSize * numElements)
       val baseOffset = Platform.BYTE_ARRAY_OFFSET
-      ctx.addMutableState("UnsafeArrayData", arrayDataName, "")
+      ctx.addMutableState("UnsafeArrayData", arrayDataName, "");
 
       val primitiveValueTypeName = ctx.primitiveTypeName(elementType)
       val assignments = elementsCode.zipWithIndex.map { case (eval, i) =>
@@ -170,16 +169,13 @@ case class CreateMap(children: Seq[Expression]) extends Expression {
 
   override def checkInputDataTypes(): TypeCheckResult = {
     if (children.size % 2 != 0) {
-      TypeCheckResult.TypeCheckFailure(
-        s"$prettyName expects a positive even number of arguments.")
+      TypeCheckResult.TypeCheckFailure(s"$prettyName expects a positive even number of arguments.")
     } else if (keys.map(_.dataType).distinct.length > 1) {
-      TypeCheckResult.TypeCheckFailure(
-        "The given keys of function map should all be the same type, but they are " +
-          keys.map(_.dataType.simpleString).mkString("[", ", ", "]"))
+      TypeCheckResult.TypeCheckFailure("The given keys of function map should all be the same " +
+        "type, but they are " + keys.map(_.dataType.simpleString).mkString("[", ", ", "]"))
     } else if (values.map(_.dataType).distinct.length > 1) {
-      TypeCheckResult.TypeCheckFailure(
-        "The given values of function map should all be the same type, but they are " +
-          values.map(_.dataType.simpleString).mkString("[", ", ", "]"))
+      TypeCheckResult.TypeCheckFailure("The given values of function map should all be the same " +
+        "type, but they are " + values.map(_.dataType.simpleString).mkString("[", ", ", "]"))
     } else {
       TypeCheckResult.TypeCheckSuccess
     }
@@ -187,8 +183,8 @@ case class CreateMap(children: Seq[Expression]) extends Expression {
 
   override def dataType: DataType = {
     MapType(
-      keyType = keys.headOption.map(_.dataType).getOrElse(StringType),
-      valueType = values.headOption.map(_.dataType).getOrElse(StringType),
+      keyType = keys.headOption.map(_.dataType).getOrElse(NullType),
+      valueType = values.headOption.map(_.dataType).getOrElse(NullType),
       valueContainsNull = values.exists(_.nullable))
   }
 
@@ -296,17 +292,14 @@ trait CreateNamedStructLike extends Expression {
   }
 
   override def checkInputDataTypes(): TypeCheckResult = {
-    if (children.length < 1) {
-      TypeCheckResult.TypeCheckFailure(
-        s"input to function $prettyName requires at least one argument")
-    } else if (children.size % 2 != 0) {
+    if (children.size % 2 != 0) {
       TypeCheckResult.TypeCheckFailure(s"$prettyName expects an even number of arguments.")
     } else {
       val invalidNames = nameExprs.filterNot(e => e.foldable && e.dataType == StringType)
       if (invalidNames.nonEmpty) {
         TypeCheckResult.TypeCheckFailure(
           "Only foldable StringType expressions are allowed to appear at odd position, got:" +
-            s" ${invalidNames.mkString(",")}")
+          s" ${invalidNames.mkString(",")}")
       } else if (!names.contains(null)) {
         TypeCheckResult.TypeCheckSuccess
       } else {

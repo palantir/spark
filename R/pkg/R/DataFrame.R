@@ -1391,10 +1391,6 @@ setMethod("summarize",
           })
 
 dapplyInternal <- function(x, func, schema) {
-  if (is.character(schema)) {
-    schema <- structType(schema)
-  }
-
   packageNamesArr <- serialize(.sparkREnv[[".packages"]],
                                connection = NULL)
 
@@ -1412,8 +1408,6 @@ dapplyInternal <- function(x, func, schema) {
   dataFrame(sdf)
 }
 
-setClassUnion("characterOrstructType", c("character", "structType"))
-
 #' dapply
 #'
 #' Apply a function to each partition of a SparkDataFrame.
@@ -1424,11 +1418,10 @@ setClassUnion("characterOrstructType", c("character", "structType"))
 #'             to each partition will be passed.
 #'             The output of func should be a R data.frame.
 #' @param schema The schema of the resulting SparkDataFrame after the function is applied.
-#'               It must match the output of func. Since Spark 2.3, the DDL-formatted string
-#'               is also supported for the schema.
+#'               It must match the output of func.
 #' @family SparkDataFrame functions
 #' @rdname dapply
-#' @aliases dapply,SparkDataFrame,function,characterOrstructType-method
+#' @aliases dapply,SparkDataFrame,function,structType-method
 #' @name dapply
 #' @seealso \link{dapplyCollect}
 #' @export
@@ -1451,17 +1444,6 @@ setClassUnion("characterOrstructType", c("character", "structType"))
 #'              y <- cbind(y, y[1] + 1L)
 #'            },
 #'            schema)
-#'
-#'   # The schema also can be specified in a DDL-formatted string.
-#'   schema <- "a INT, d DOUBLE, c STRING, d INT"
-#'   df1 <- dapply(
-#'            df,
-#'            function(x) {
-#'              y <- x[x[1] > 1, ]
-#'              y <- cbind(y, y[1] + 1L)
-#'            },
-#'            schema)
-#'
 #'   collect(df1)
 #'   # the result
 #'   #       a b c d
@@ -1470,7 +1452,7 @@ setClassUnion("characterOrstructType", c("character", "structType"))
 #' }
 #' @note dapply since 2.0.0
 setMethod("dapply",
-          signature(x = "SparkDataFrame", func = "function", schema = "characterOrstructType"),
+          signature(x = "SparkDataFrame", func = "function", schema = "structType"),
           function(x, func, schema) {
             dapplyInternal(x, func, schema)
           })
@@ -1540,7 +1522,6 @@ setMethod("dapplyCollect",
 #' @param schema the schema of the resulting SparkDataFrame after the function is applied.
 #'               The schema must match to output of \code{func}. It has to be defined for each
 #'               output column with preferred output column name and corresponding data type.
-#'               Since Spark 2.3, the DDL-formatted string is also supported for the schema.
 #' @return A SparkDataFrame.
 #' @family SparkDataFrame functions
 #' @aliases gapply,SparkDataFrame-method
@@ -1560,17 +1541,8 @@ setMethod("dapplyCollect",
 #'
 #' Here our output contains three columns, the key which is a combination of two
 #' columns with data types integer and string and the mean which is a double.
-#' schema <- structType(structField("a", "integer"), structField("c", "string"),
+#' schema <-  structType(structField("a", "integer"), structField("c", "string"),
 #'   structField("avg", "double"))
-#' result <- gapply(
-#'   df,
-#'   c("a", "c"),
-#'   function(key, x) {
-#'     y <- data.frame(key, mean(x$b), stringsAsFactors = FALSE)
-#' }, schema)
-#'
-#' The schema also can be specified in a DDL-formatted string.
-#' schema <- "a INT, c STRING, avg DOUBLE"
 #' result <- gapply(
 #'   df,
 #'   c("a", "c"),

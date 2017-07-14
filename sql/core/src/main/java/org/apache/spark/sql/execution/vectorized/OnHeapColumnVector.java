@@ -130,16 +130,6 @@ public final class OnHeapColumnVector extends ColumnVector {
     return byteData[rowId] == 1;
   }
 
-  @Override
-  public boolean[] getBooleans(int rowId, int count) {
-    assert(dictionary == null);
-    boolean[] array = new boolean[count];
-    for (int i = 0; i < count; ++i) {
-      array[i] = (byteData[rowId + i] == 1);
-    }
-   return array;
-  }
-
   //
 
   //
@@ -172,14 +162,6 @@ public final class OnHeapColumnVector extends ColumnVector {
     }
   }
 
-  @Override
-  public byte[] getBytes(int rowId, int count) {
-    assert(dictionary == null);
-    byte[] array = new byte[count];
-    System.arraycopy(byteData, rowId, array, 0, count);
-    return array;
-  }
-
   //
   // APIs dealing with Shorts
   //
@@ -208,14 +190,6 @@ public final class OnHeapColumnVector extends ColumnVector {
     } else {
       return (short) dictionary.decodeToInt(dictionaryIds.getDictId(rowId));
     }
-  }
-
-  @Override
-  public short[] getShorts(int rowId, int count) {
-    assert(dictionary == null);
-    short[] array = new short[count];
-    System.arraycopy(shortData, rowId, array, 0, count);
-    return array;
   }
 
 
@@ -258,14 +232,6 @@ public final class OnHeapColumnVector extends ColumnVector {
     } else {
       return dictionary.decodeToInt(dictionaryIds.getDictId(rowId));
     }
-  }
-
-  @Override
-  public int[] getInts(int rowId, int count) {
-    assert(dictionary == null);
-    int[] array = new int[count];
-    System.arraycopy(intData, rowId, array, 0, count);
-    return array;
   }
 
   /**
@@ -320,14 +286,6 @@ public final class OnHeapColumnVector extends ColumnVector {
     }
   }
 
-  @Override
-  public long[] getLongs(int rowId, int count) {
-    assert(dictionary == null);
-    long[] array = new long[count];
-    System.arraycopy(longData, rowId, array, 0, count);
-    return array;
-  }
-
   //
   // APIs dealing with floats
   //
@@ -365,14 +323,6 @@ public final class OnHeapColumnVector extends ColumnVector {
     } else {
       return dictionary.decodeToFloat(dictionaryIds.getDictId(rowId));
     }
-  }
-
-  @Override
-  public float[] getFloats(int rowId, int count) {
-    assert(dictionary == null);
-    float[] array = new float[count];
-    System.arraycopy(floatData, rowId, array, 0, count);
-    return array;
   }
 
   //
@@ -414,14 +364,6 @@ public final class OnHeapColumnVector extends ColumnVector {
     } else {
       return dictionary.decodeToDouble(dictionaryIds.getDictId(rowId));
     }
-  }
-
-  @Override
-  public double[] getDoubles(int rowId, int count) {
-    assert(dictionary == null);
-    double[] array = new double[count];
-    System.arraycopy(doubleData, rowId, array, 0, count);
-    return array;
   }
 
   //

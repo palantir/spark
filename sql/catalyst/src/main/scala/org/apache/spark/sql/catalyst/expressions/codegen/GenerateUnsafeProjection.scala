@@ -391,6 +391,8 @@ object GenerateUnsafeProjection extends CodeGenerator[Seq[Expression], UnsafePro
           ${ctx.initPartition()}
         }
 
+        ${ctx.declareAddedFunctions()}
+
         // Scala.Function1 need this
         public java.lang.Object apply(java.lang.Object row) {
           return apply((InternalRow) row);
@@ -401,7 +403,8 @@ object GenerateUnsafeProjection extends CodeGenerator[Seq[Expression], UnsafePro
           return ${eval.value};
         }
 
-        ${ctx.declareAddedFunctions()}
+        ${ctx.initNestedClasses()}
+        ${ctx.declareNestedClasses()}
       }
       """
 

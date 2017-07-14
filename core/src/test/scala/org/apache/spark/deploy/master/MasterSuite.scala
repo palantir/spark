@@ -80,7 +80,6 @@ class MockWorker(master: RpcEndpointRef, conf: SparkConf = new SparkConf) extend
         case Some(appId) =>
           apps.remove(appId)
           master.send(UnregisterApplication(appId))
-        case None =>
       }
       driverIdToAppId.remove(driverId)
   }
@@ -576,7 +575,7 @@ class MasterSuite extends SparkFunSuite
       override val rpcEnv: RpcEnv = master.rpcEnv
 
       override def receive: PartialFunction[Any, Unit] = {
-        case KillExecutor(_, appId, execId) => killedExecutors.add((appId, execId))
+        case KillExecutor(_, appId, execId) => killedExecutors.add(appId, execId)
         case KillDriver(driverId) => killedDrivers.add(driverId)
       }
     })

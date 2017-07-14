@@ -290,7 +290,6 @@ case class SortMergeJoinExec(
                 currentLeftRow = smjScanner.getStreamedRow
                 val currentRightMatches = smjScanner.getBufferedMatches
                 if (currentRightMatches == null || currentRightMatches.length == 0) {
-                  numOutputRows += 1
                   return true
                 }
                 var found = false

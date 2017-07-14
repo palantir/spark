@@ -24,42 +24,25 @@ import org.apache.spark.sql.catalyst.plans.{Inner, PlanTest}
 import org.apache.spark.sql.catalyst.plans.logical.{ColumnStat, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
 import org.apache.spark.sql.catalyst.statsEstimation.{StatsEstimationTestBase, StatsTestPlan}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.SQLConf.{CBO_ENABLED, JOIN_REORDER_ENABLED}
 
 
 class JoinReorderSuite extends PlanTest with StatsEstimationTestBase {
+
+  override val conf = new SQLConf().copy(CBO_ENABLED -> true, JOIN_REORDER_ENABLED -> true)
 
   object Optimize extends RuleExecutor[LogicalPlan] {
     val batches =
       Batch("Operator Optimizations", FixedPoint(100),
         CombineFilters,
         PushDownPredicate,
-        ReorderJoin,
+        ReorderJoin(conf),
         PushPredicateThroughJoin,
         ColumnPruning,
         CollapseProject) ::
       Batch("Join Reorder", Once,
-        CostBasedJoinReorder) :: Nil
-  }
-
-  var originalConfCBOEnabled = false
-  var originalConfJoinReorderEnabled = false
-
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    originalConfCBOEnabled = conf.cboEnabled
-    originalConfJoinReorderEnabled = conf.joinReorderEnabled
-    conf.setConf(CBO_ENABLED, true)
-    conf.setConf(JOIN_REORDER_ENABLED, true)
-  }
-
-  override def afterAll(): Unit = {
-    try {
-      conf.setConf(CBO_ENABLED, originalConfCBOEnabled)
-      conf.setConf(JOIN_REORDER_ENABLED, originalConfJoinReorderEnabled)
-    } finally {
-      super.afterAll()
-    }
+        CostBasedJoinReorder(conf)) :: Nil
   }
 
   /** Set up tables and columns for testing */

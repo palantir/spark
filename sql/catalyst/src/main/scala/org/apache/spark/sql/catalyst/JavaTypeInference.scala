@@ -216,7 +216,7 @@ object JavaTypeInference {
           ObjectType(c),
           "valueOf",
           getPath :: Nil,
-          returnNullable = false)
+          propagateNull = true)
 
       case c if c == classOf[java.sql.Date] =>
         StaticInvoke(
@@ -224,7 +224,7 @@ object JavaTypeInference {
           ObjectType(c),
           "toJavaDate",
           getPath :: Nil,
-          returnNullable = false)
+          propagateNull = true)
 
       case c if c == classOf[java.sql.Timestamp] =>
         StaticInvoke(
@@ -232,7 +232,7 @@ object JavaTypeInference {
           ObjectType(c),
           "toJavaTimestamp",
           getPath :: Nil,
-          returnNullable = false)
+          propagateNull = true)
 
       case c if c == classOf[java.lang.String] =>
         Invoke(getPath, "toString", ObjectType(classOf[String]))
@@ -300,8 +300,7 @@ object JavaTypeInference {
           ArrayBasedMapData.getClass,
           ObjectType(classOf[JMap[_, _]]),
           "toJavaMap",
-          keyData :: valueData :: Nil,
-          returnNullable = false)
+          keyData :: valueData :: Nil)
 
       case other =>
         val properties = getJavaBeanReadableAndWritableProperties(other)
@@ -368,32 +367,28 @@ object JavaTypeInference {
             classOf[UTF8String],
             StringType,
             "fromString",
-            inputObject :: Nil,
-            returnNullable = false)
+            inputObject :: Nil)
 
         case c if c == classOf[java.sql.Timestamp] =>
           StaticInvoke(
             DateTimeUtils.getClass,
             TimestampType,
             "fromJavaTimestamp",
-            inputObject :: Nil,
-            returnNullable = false)
+            inputObject :: Nil)
 
         case c if c == classOf[java.sql.Date] =>
           StaticInvoke(
             DateTimeUtils.getClass,
             DateType,
             "fromJavaDate",
-            inputObject :: Nil,
-            returnNullable = false)
+            inputObject :: Nil)
 
         case c if c == classOf[java.math.BigDecimal] =>
           StaticInvoke(
             Decimal.getClass,
             DecimalType.SYSTEM_DEFAULT,
             "apply",
-            inputObject :: Nil,
-            returnNullable = false)
+            inputObject :: Nil)
 
         case c if c == classOf[java.lang.Boolean] =>
           Invoke(inputObject, "booleanValue", BooleanType)
@@ -423,7 +418,6 @@ object JavaTypeInference {
             inputObject,
             ObjectType(keyType.getRawType),
             serializerFor(_, keyType),
-            keyNullable = true,
             ObjectType(valueType.getRawType),
             serializerFor(_, valueType),
             valueNullable = true

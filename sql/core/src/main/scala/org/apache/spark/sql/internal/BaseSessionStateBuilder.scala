@@ -208,7 +208,7 @@ abstract class BaseSessionStateBuilder(
    * Note: this depends on the `conf`, `catalog` and `experimentalMethods` fields.
    */
   protected def optimizer: Optimizer = {
-    new SparkOptimizer(catalog, experimentalMethods) {
+    new SparkOptimizer(catalog, conf, experimentalMethods) {
       override def extendedOperatorOptimizationRules: Seq[Rule[LogicalPlan]] =
         super.extendedOperatorOptimizationRules ++ customOperatorOptimizationRules
     }

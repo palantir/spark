@@ -1013,9 +1013,9 @@ setGeneric("create_map", function(x, ...) { standardGeneric("create_map") })
 #' @name NULL
 setGeneric("hash", function(x, ...) { standardGeneric("hash") })
 
-#' @rdname column_window_functions
+#' @param x empty. Should be used with no argument.
+#' @rdname cume_dist
 #' @export
-#' @name NULL
 setGeneric("cume_dist", function(x = "missing") { standardGeneric("cume_dist") })
 
 #' @rdname column_datetime_diff_functions
@@ -1053,9 +1053,9 @@ setGeneric("dayofyear", function(x) { standardGeneric("dayofyear") })
 #' @name NULL
 setGeneric("decode", function(x, charset) { standardGeneric("decode") })
 
-#' @rdname column_window_functions
+#' @param x empty. Should be used with no argument.
+#' @rdname dense_rank
 #' @export
-#' @name NULL
 setGeneric("dense_rank", function(x = "missing") { standardGeneric("dense_rank") })
 
 #' @rdname column_string_functions
@@ -1159,9 +1159,8 @@ setGeneric("isnan", function(x) { standardGeneric("isnan") })
 #' @name NULL
 setGeneric("kurtosis", function(x) { standardGeneric("kurtosis") })
 
-#' @rdname column_window_functions
+#' @rdname lag
 #' @export
-#' @name NULL
 setGeneric("lag", function(x, ...) { standardGeneric("lag") })
 
 #' @rdname last
@@ -1173,9 +1172,8 @@ setGeneric("last", function(x, ...) { standardGeneric("last") })
 #' @name NULL
 setGeneric("last_day", function(x) { standardGeneric("last_day") })
 
-#' @rdname column_window_functions
+#' @rdname lead
 #' @export
-#' @name NULL
 setGeneric("lead", function(x, offset, defaultValue = NULL) { standardGeneric("lead") })
 
 #' @rdname column_nonaggregate_functions
@@ -1262,9 +1260,8 @@ setGeneric("not", function(x) { standardGeneric("not") })
 #' @name NULL
 setGeneric("next_day", function(y, x) { standardGeneric("next_day") })
 
-#' @rdname column_window_functions
+#' @rdname ntile
 #' @export
-#' @name NULL
 setGeneric("ntile", function(x) { standardGeneric("ntile") })
 
 #' @rdname column_aggregate_functions
@@ -1272,9 +1269,9 @@ setGeneric("ntile", function(x) { standardGeneric("ntile") })
 #' @name NULL
 setGeneric("n_distinct", function(x, ...) { standardGeneric("n_distinct") })
 
-#' @rdname column_window_functions
+#' @param x empty. Should be used with no argument.
+#' @rdname percent_rank
 #' @export
-#' @name NULL
 setGeneric("percent_rank", function(x = "missing") { standardGeneric("percent_rank") })
 
 #' @rdname column_math_functions
@@ -1307,9 +1304,8 @@ setGeneric("rand", function(seed) { standardGeneric("rand") })
 #' @name NULL
 setGeneric("randn", function(seed) { standardGeneric("randn") })
 
-#' @rdname column_window_functions
+#' @rdname rank
 #' @export
-#' @name NULL
 setGeneric("rank", function(x, ...) { standardGeneric("rank") })
 
 #' @rdname column_string_functions
@@ -1338,9 +1334,9 @@ setGeneric("reverse", function(x) { standardGeneric("reverse") })
 #' @name NULL
 setGeneric("rint", function(x) { standardGeneric("rint") })
 
-#' @rdname column_window_functions
+#' @param x empty. Should be used with no argument.
+#' @rdname row_number
 #' @export
-#' @name NULL
 setGeneric("row_number", function(x = "missing") { standardGeneric("row_number") })
 
 #' @rdname column_string_functions
@@ -1418,9 +1414,9 @@ setGeneric("split_string", function(x, pattern) { standardGeneric("split_string"
 #' @name NULL
 setGeneric("soundex", function(x) { standardGeneric("soundex") })
 
-#' @rdname column_nonaggregate_functions
+#' @param x empty. Should be used with no argument.
+#' @rdname spark_partition_id
 #' @export
-#' @name NULL
 setGeneric("spark_partition_id", function(x = "missing") { standardGeneric("spark_partition_id") })
 
 #' @rdname column_aggregate_functions
@@ -1538,9 +1534,8 @@ setGeneric("var_samp", function(x) { standardGeneric("var_samp") })
 #' @name NULL
 setGeneric("weekofyear", function(x) { standardGeneric("weekofyear") })
 
-#' @rdname column_datetime_functions
+#' @rdname window
 #' @export
-#' @name NULL
 setGeneric("window", function(x, ...) { standardGeneric("window") })
 
 #' @rdname column_datetime_functions

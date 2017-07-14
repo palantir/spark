@@ -17,11 +17,10 @@
 
 package org.apache.spark.sql.catalyst.expressions
 
-import scala.collection.immutable.TreeSet
-
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
-import org.apache.spark.sql.catalyst.expressions.codegen.{CodegenContext, ExprCode, GenerateSafeProjection, GenerateUnsafeProjection, Predicate => BasePredicate}
+import org.apache.spark.sql.catalyst.expressions.codegen.{CodegenContext, ExprCode}
+import org.apache.spark.sql.catalyst.expressions.codegen.{Predicate => BasePredicate}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util.TypeUtils
 import org.apache.spark.sql.types._
@@ -176,23 +175,20 @@ case class In(value: Expression, list: Seq[Expression]) extends Predicate {
                  |[${sub.output.map(_.dataType.catalogString).mkString(", ")}].
                """.stripMargin)
           } else {
-            TypeUtils.checkForOrderingExpr(value.dataType, s"function $prettyName")
+            TypeCheckResult.TypeCheckSuccess
           }
         }
       case _ =>
-        val mismatchOpt = list.find(l => l.dataType != value.dataType)
-        if (mismatchOpt.isDefined) {
-          TypeCheckResult.TypeCheckFailure(s"Arguments must be same type but were: " +
-            s"${value.dataType} != ${mismatchOpt.get.dataType}")
+        if (list.exists(l => l.dataType != value.dataType)) {
+          TypeCheckResult.TypeCheckFailure("Arguments must be same type")
         } else {
-          TypeUtils.checkForOrderingExpr(value.dataType, s"function $prettyName")
+          TypeCheckResult.TypeCheckSuccess
         }
     }
   }
 
   override def children: Seq[Expression] = value +: list
   lazy val inSetConvertible = list.forall(_.isInstanceOf[Literal])
-  private lazy val ordering = TypeUtils.getInterpretedOrdering(value.dataType)
 
   override def nullable: Boolean = children.exists(_.nullable)
   override def foldable: Boolean = children.forall(_.foldable)
@@ -207,10 +203,10 @@ case class In(value: Expression, list: Seq[Expression]) extends Predicate {
       var hasNull = false
       list.foreach { e =>
         val v = e.eval(input)
-        if (v == null) {
-          hasNull = true
-        } else if (ordering.equiv(v, evaluatedValue)) {
+        if (v == evaluatedValue) {
           return true
+        } else if (v == null) {
+          hasNull = true
         }
       }
       if (hasNull) {
@@ -269,7 +265,7 @@ case class InSet(child: Expression, hset: Set[Any]) extends UnaryExpression with
   override def nullable: Boolean = child.nullable || hasNull
 
   protected override def nullSafeEval(value: Any): Any = {
-    if (set.contains(value)) {
+    if (hset.contains(value)) {
       true
     } else if (hasNull) {
       null
@@ -278,40 +274,27 @@ case class InSet(child: Expression, hset: Set[Any]) extends UnaryExpression with
     }
   }
 
-  @transient private[this] lazy val set = child.dataType match {
-    case _: AtomicType => hset
-    case _: NullType => hset
-    case _ =>
-      // for structs use interpreted ordering to be able to compare UnsafeRows with non-UnsafeRows
-      TreeSet.empty(TypeUtils.getInterpretedOrdering(child.dataType)) ++ hset
-  }
-
-  def getSet(): Set[Any] = set
+  def getHSet(): Set[Any] = hset
 
   override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
     val setName = classOf[Set[Any]].getName
     val InSetName = classOf[InSet].getName
     val childGen = child.genCode(ctx)
     ctx.references += this
-    val setTerm = ctx.freshName("set")
-    val setNull = if (hasNull) {
-      s"""
-         |if (!${ev.value}) {
-         |  ${ev.isNull} = true;
-         |}
-       """.stripMargin
-    } else {
-      ""
-    }
-    ctx.addMutableState(setName, setTerm,
-      s"$setTerm = (($InSetName)references[${ctx.references.size - 1}]).getSet();")
+    val hsetTerm = ctx.freshName("hset")
+    val hasNullTerm = ctx.freshName("hasNull")
+    ctx.addMutableState(setName, hsetTerm,
+      s"$hsetTerm = (($InSetName)references[${ctx.references.size - 1}]).getHSet();")
+    ctx.addMutableState("boolean", hasNullTerm, s"$hasNullTerm = $hsetTerm.contains(null);")
     ev.copy(code = s"""
       ${childGen.code}
       boolean ${ev.isNull} = ${childGen.isNull};
       boolean ${ev.value} = false;
       if (!${ev.isNull}) {
-        ${ev.value} = $setTerm.contains(${childGen.value});
-        $setNull
+        ${ev.value} = $hsetTerm.contains(${childGen.value});
+        if (!${ev.value} && $hasNullTerm) {
+          ${ev.isNull} = true;
+        }
       }
      """)
   }

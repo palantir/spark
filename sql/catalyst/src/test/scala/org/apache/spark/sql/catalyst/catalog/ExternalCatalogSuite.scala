@@ -752,14 +752,6 @@ abstract class ExternalCatalogSuite extends SparkFunSuite with BeforeAndAfterEac
     }
   }
 
-  test("alter function") {
-    val catalog = newBasicCatalog()
-    assert(catalog.getFunction("db2", "func1").className == funcClass)
-    val myNewFunc = catalog.getFunction("db2", "func1").copy(className = newFuncClass)
-    catalog.alterFunction("db2", myNewFunc)
-    assert(catalog.getFunction("db2", "func1").className == newFuncClass)
-  }
-
   test("list functions") {
     val catalog = newBasicCatalog()
     catalog.createFunction("db2", newFunc("func2"))
@@ -924,7 +916,6 @@ abstract class CatalogTestUtils {
   lazy val partWithEmptyValue =
     CatalogTablePartition(Map("a" -> "3", "b" -> ""), storageFormat)
   lazy val funcClass = "org.apache.spark.myFunc"
-  lazy val newFuncClass = "org.apache.spark.myNewFunc"
 
   /**
    * Creates a basic catalog, with the following structure:

@@ -34,10 +34,10 @@ class OptimizeInSuite extends PlanTest {
       Batch("AnalysisNodes", Once,
         EliminateSubqueryAliases) ::
       Batch("ConstantFolding", FixedPoint(10),
-        NullPropagation,
+        NullPropagation(conf),
         ConstantFolding,
         BooleanSimplification,
-        OptimizeIn) :: Nil
+        OptimizeIn(conf)) :: Nil
   }
 
   val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
@@ -159,20 +159,16 @@ class OptimizeInSuite extends PlanTest {
         .where(In(UnresolvedAttribute("a"), Seq(Literal(1), Literal(2), Literal(3))))
         .analyze
 
-    withSQLConf(OPTIMIZER_INSET_CONVERSION_THRESHOLD.key -> "10") {
-      val notOptimizedPlan = OptimizeIn(plan)
-      comparePlans(notOptimizedPlan, plan)
-    }
+    val notOptimizedPlan = OptimizeIn(conf)(plan)
+    comparePlans(notOptimizedPlan, plan)
 
     // Reduce the threshold to turning into InSet.
-    withSQLConf(OPTIMIZER_INSET_CONVERSION_THRESHOLD.key -> "2") {
-      val optimizedPlan = OptimizeIn(plan)
-      optimizedPlan match {
-        case Filter(cond, _)
-          if cond.isInstanceOf[InSet] && cond.asInstanceOf[InSet].getSet().size == 3 =>
-        // pass
-        case _ => fail("Unexpected result for OptimizedIn")
-      }
+    val optimizedPlan = OptimizeIn(conf.copy(OPTIMIZER_INSET_CONVERSION_THRESHOLD -> 2))(plan)
+    optimizedPlan match {
+      case Filter(cond, _)
+        if cond.isInstanceOf[InSet] && cond.asInstanceOf[InSet].getHSet().size == 3 =>
+          // pass
+      case _ => fail("Unexpected result for OptimizedIn")
     }
   }
 }

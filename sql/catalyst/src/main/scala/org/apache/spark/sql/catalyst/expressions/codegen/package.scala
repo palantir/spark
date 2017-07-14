@@ -17,8 +17,6 @@
 
 package org.apache.spark.sql.catalyst.expressions
 
-import scala.reflect.internal.util.AbstractFileClassLoader
-
 import org.apache.spark.sql.catalyst.rules
 import org.apache.spark.util.Utils
 
@@ -53,7 +51,7 @@ package object codegen {
       val classLoader =
         generatedClass
           .getClassLoader
-          .asInstanceOf[AbstractFileClassLoader]
+          .asInstanceOf[scala.tools.nsc.interpreter.AbstractFileClassLoader]
       val generatedBytes = classLoader.classBytes(generatedClass.getName)
 
       val packageDir = new java.io.File(dumpDirectory, generatedClass.getPackage.getName)

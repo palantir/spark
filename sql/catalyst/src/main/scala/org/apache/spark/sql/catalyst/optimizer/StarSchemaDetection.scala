@@ -28,9 +28,7 @@ import org.apache.spark.sql.internal.SQLConf
 /**
  * Encapsulates star-schema detection logic.
  */
-object StarSchemaDetection extends PredicateHelper {
-
-  private def conf = SQLConf.get
+case class StarSchemaDetection(conf: SQLConf) extends PredicateHelper {
 
   /**
    * Star schema consists of one or more fact tables referencing a number of dimension

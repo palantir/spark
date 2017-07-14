@@ -21,6 +21,7 @@ import scala.math.Ordering
 import scala.reflect.runtime.universe.typeTag
 
 import org.apache.spark.annotation.InterfaceStability
+import org.apache.spark.sql.catalyst.ScalaReflectionLock
 import org.apache.spark.unsafe.types.UTF8String
 
 /**
@@ -34,7 +35,7 @@ class StringType private() extends AtomicType {
   // this type. Otherwise, the companion object would be of type "StringType$" in byte code.
   // Defined with a private constructor so the companion object is the only possible instantiation.
   private[sql] type InternalType = UTF8String
-  @transient private[sql] lazy val tag = typeTag[InternalType]
+  @transient private[sql] lazy val tag = ScalaReflectionLock.synchronized { typeTag[InternalType] }
   private[sql] val ordering = implicitly[Ordering[InternalType]]
 
   /**

@@ -68,6 +68,7 @@ class UninterruptibleThreadSuite extends SparkFunSuite {
         Uninterruptibles.awaitUninterruptibly(interruptLatch, 10, TimeUnit.SECONDS)
         try {
           runUninterruptibly {
+            assert(false, "Should not reach here")
           }
         } catch {
           case _: InterruptedException => hasInterruptedException = true
@@ -79,8 +80,8 @@ class UninterruptibleThreadSuite extends SparkFunSuite {
     t.interrupt()
     interruptLatch.countDown()
     t.join()
-    assert(hasInterruptedException === false)
-    assert(interruptStatusBeforeExit === true)
+    assert(hasInterruptedException === true)
+    assert(interruptStatusBeforeExit === false)
   }
 
   test("nested runUninterruptibly") {

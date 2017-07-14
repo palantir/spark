@@ -127,7 +127,7 @@ package object config {
     .stringConf
     .createOptional
 
-  /* Launcher configuration. */
+  /* Cluster-mode launcher configuration. */
 
   private[spark] val WAIT_FOR_APP_COMPLETION = ConfigBuilder("spark.yarn.submit.waitAppCompletion")
     .doc("In cluster mode, whether to wait for the application to finish before exiting the " +
@@ -136,15 +136,9 @@ package object config {
     .createWithDefault(true)
 
   private[spark] val REPORT_INTERVAL = ConfigBuilder("spark.yarn.report.interval")
-    .doc("Interval between reports of the current app status.")
+    .doc("Interval between reports of the current app status in cluster mode.")
     .timeConf(TimeUnit.MILLISECONDS)
     .createWithDefaultString("1s")
-
-  private[spark] val CLIENT_LAUNCH_MONITOR_INTERVAL =
-    ConfigBuilder("spark.yarn.clientLaunchMonitorInterval")
-      .doc("Interval between requests for status the client mode AM when starting the app.")
-      .timeConf(TimeUnit.MILLISECONDS)
-      .createWithDefaultString("1s")
 
   /* Shared Client-mode AM / Driver configuration. */
 

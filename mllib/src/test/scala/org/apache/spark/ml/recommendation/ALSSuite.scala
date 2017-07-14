@@ -29,7 +29,6 @@ import scala.language.existentials
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
-import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark._
 import org.apache.spark.internal.Logging
@@ -778,20 +777,7 @@ class ALSSuite
   }
 }
 
-class ALSCleanerSuite extends SparkFunSuite with BeforeAndAfterEach {
-  override def beforeEach(): Unit = {
-    super.beforeEach()
-    // Once `Utils.getOrCreateLocalRootDirs` is called, it is cached in `Utils.localRootDirs`.
-    // Unless this is manually cleared before and after a test, it returns the same directory
-    // set before even if 'spark.local.dir' is configured afterwards.
-    Utils.clearLocalRootDirs()
-  }
-
-  override def afterEach(): Unit = {
-    Utils.clearLocalRootDirs()
-    super.afterEach()
-  }
-
+class ALSCleanerSuite extends SparkFunSuite {
   test("ALS shuffle cleanup standalone") {
     val conf = new SparkConf()
     val localDir = Utils.createTempDir()
@@ -832,13 +818,15 @@ class ALSCleanerSuite extends SparkFunSuite with BeforeAndAfterEach {
       FileUtils.listFiles(localDir, TrueFileFilter.INSTANCE, TrueFileFilter.INSTANCE).asScala.toSet
     try {
       conf.set("spark.local.dir", localDir.getAbsolutePath)
-      val sc = new SparkContext("local[2]", "ALSCleanerSuite", conf)
+      val sc = new SparkContext("local[2]", "test", conf)
       try {
         sc.setCheckpointDir(checkpointDir.getAbsolutePath)
         // Generate test data
         val (training, _) = ALSSuite.genImplicitTestData(sc, 20, 5, 1, 0.2, 0)
         // Implicitly test the cleaning of parents during ALS training
         val spark = SparkSession.builder
+          .master("local[2]")
+          .appName("ALSCleanerSuite")
           .sparkContext(sc)
           .getOrCreate()
         import spark.implicits._
@@ -898,7 +886,7 @@ class ALSStorageSuite
     // check final factor RDD default storage levels
     val defaultFactorRDDs = sc.getPersistentRDDs.collect {
       case (id, rdd) if rdd.name == "userFactors" || rdd.name == "itemFactors" =>
-        rdd.name -> ((id, rdd.getStorageLevel))
+        rdd.name -> (id, rdd.getStorageLevel)
     }.toMap
     defaultFactorRDDs.foreach { case (_, (id, level)) =>
       assert(level == StorageLevel.MEMORY_AND_DISK)

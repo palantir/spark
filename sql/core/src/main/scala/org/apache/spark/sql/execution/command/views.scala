@@ -27,7 +27,6 @@ import org.apache.spark.sql.catalyst.expressions.{Alias, SubqueryExpression}
 import org.apache.spark.sql.catalyst.plans.QueryPlan
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project, View}
 import org.apache.spark.sql.types.MetadataBuilder
-import org.apache.spark.sql.util.SchemaUtils
 
 
 /**
@@ -356,15 +355,15 @@ object ViewHelper {
       properties: Map[String, String],
       session: SparkSession,
       analyzedPlan: LogicalPlan): Map[String, String] = {
-    val queryOutput = analyzedPlan.schema.fieldNames
-
     // Generate the query column names, throw an AnalysisException if there exists duplicate column
     // names.
-    SchemaUtils.checkColumnNameDuplication(
-      queryOutput, "in the view definition", session.sessionState.conf.resolver)
+    val queryOutput = analyzedPlan.schema.fieldNames
+    assert(queryOutput.distinct.size == queryOutput.size,
+      s"The view output ${queryOutput.mkString("(", ",", ")")} contains duplicate column name.")
 
     // Generate the view default database name.
     val viewDefaultDatabase = session.sessionState.catalog.getCurrentDatabase
+
     removeQueryColumnNames(properties) ++
       generateViewDefaultDatabase(viewDefaultDatabase) ++
       generateQueryColumnNames(queryOutput)

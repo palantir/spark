@@ -130,7 +130,7 @@ object ExternalAppendOnlyUnsafeRowArrayBenchmark {
             false))
 
         val unsafeRow = new UnsafeRow(1)
-        val iter = array.getIterator(0)
+        val iter = array.getIterator
         while (iter.hasNext) {
           iter.loadNext()
           unsafeRow.pointTo(iter.getBaseObject, iter.getBaseOffset, iter.getRecordLength)

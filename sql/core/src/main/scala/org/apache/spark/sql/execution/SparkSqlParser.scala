@@ -230,25 +230,11 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder(conf) {
   }
 
   /**
-   * Create a [[RefreshResource]] logical plan.
+   * Create a [[RefreshTable]] logical plan.
    */
   override def visitRefreshResource(ctx: RefreshResourceContext): LogicalPlan = withOrigin(ctx) {
-    val path = if (ctx.STRING != null) string(ctx.STRING) else extractUnquotedResourcePath(ctx)
-    RefreshResource(path)
-  }
-
-  private def extractUnquotedResourcePath(ctx: RefreshResourceContext): String = withOrigin(ctx) {
-    val unquotedPath = remainder(ctx.REFRESH.getSymbol).trim
-    validate(
-      unquotedPath != null && !unquotedPath.isEmpty,
-      "Resource paths cannot be empty in REFRESH statements. Use / to match everything",
-      ctx)
-    val forbiddenSymbols = Seq(" ", "\n", "\r", "\t")
-    validate(
-      !forbiddenSymbols.exists(unquotedPath.contains(_)),
-      "REFRESH statements cannot contain ' ', '\\n', '\\r', '\\t' inside unquoted resource paths",
-      ctx)
-    unquotedPath
+    val resourcePath = remainder(ctx.REFRESH.getSymbol).trim
+    RefreshResource(resourcePath)
   }
 
   /**
@@ -687,8 +673,8 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder(conf) {
    *
    * For example:
    * {{{
-   *   CREATE [OR REPLACE] [TEMPORARY] FUNCTION [IF NOT EXISTS] [db_name.]function_name
-   *   AS class_name [USING JAR|FILE|ARCHIVE 'file_uri' [, JAR|FILE|ARCHIVE 'file_uri']];
+   *   CREATE [TEMPORARY] FUNCTION [db_name.]function_name AS class_name
+   *    [USING JAR|FILE|ARCHIVE 'file_uri' [, JAR|FILE|ARCHIVE 'file_uri']];
    * }}}
    */
   override def visitCreateFunction(ctx: CreateFunctionContext): LogicalPlan = withOrigin(ctx) {
@@ -709,9 +695,7 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder(conf) {
       functionIdentifier.funcName,
       string(ctx.className),
       resources,
-      ctx.TEMPORARY != null,
-      ctx.EXISTS != null,
-      ctx.REPLACE != null)
+      ctx.TEMPORARY != null)
   }
 
   /**

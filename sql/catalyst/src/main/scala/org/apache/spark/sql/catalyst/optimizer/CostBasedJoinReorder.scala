@@ -32,10 +32,7 @@ import org.apache.spark.sql.internal.SQLConf
  * We may have several join reorder algorithms in the future. This class is the entry of these
  * algorithms, and chooses which one to use.
  */
-object CostBasedJoinReorder extends Rule[LogicalPlan] with PredicateHelper {
-
-  private def conf = SQLConf.get
-
+case class CostBasedJoinReorder(conf: SQLConf) extends Rule[LogicalPlan] with PredicateHelper {
   def apply(plan: LogicalPlan): LogicalPlan = {
     if (!conf.cboEnabled || !conf.joinReorderEnabled) {
       plan
@@ -382,7 +379,7 @@ object JoinReorderDPFilters extends PredicateHelper {
 
     if (conf.joinReorderDPStarFilter) {
       // Compute the tables in a star-schema relationship.
-      val starJoin = StarSchemaDetection.findStarJoins(items, conditions.toSeq)
+      val starJoin = StarSchemaDetection(conf).findStarJoins(items, conditions.toSeq)
       val nonStarJoin = items.filterNot(starJoin.contains(_))
 
       if (starJoin.nonEmpty && nonStarJoin.nonEmpty) {

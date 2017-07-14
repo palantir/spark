@@ -121,6 +121,10 @@ class RowTest extends FunSpec with Matchers {
       externalRow should be theSameInstanceAs externalRow.copy()
     }
 
+    it("copy should return same ref for internal rows") {
+      internalRow should be theSameInstanceAs internalRow.copy()
+    }
+
     it("toSeq should not expose internal state for external rows") {
       val modifiedValues = modifyValues(externalRow.toSeq)
       externalRow.toSeq should not equal modifiedValues

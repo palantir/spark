@@ -79,7 +79,7 @@ class CatalogSuite
     val tempFunc = (e: Seq[Expression]) => e.head
     val funcMeta = CatalogFunction(FunctionIdentifier(name, None), "className", Nil)
     sessionCatalog.registerFunction(
-      funcMeta, overrideIfExists = false, functionBuilder = Some(tempFunc))
+      funcMeta, ignoreIfExists = false, functionBuilder = Some(tempFunc))
   }
 
   private def dropFunction(name: String, db: Option[String] = None): Unit = {

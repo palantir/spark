@@ -19,13 +19,12 @@ package org.apache.spark.sql.catalyst.statsEstimation
 
 import org.apache.spark.sql.catalyst.expressions.{Alias, Attribute, AttributeMap, Literal}
 import org.apache.spark.sql.catalyst.expressions.aggregate.Count
-import org.apache.spark.sql.catalyst.plans.PlanTest
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.logical.statsEstimation.EstimationUtils._
 import org.apache.spark.sql.internal.SQLConf
 
 
-class AggregateEstimationSuite extends StatsEstimationTestBase with PlanTest {
+class AggregateEstimationSuite extends StatsEstimationTestBase {
 
   /** Columns for testing */
   private val columnInfo: AttributeMap[ColumnStat] = AttributeMap(Seq(
@@ -101,7 +100,9 @@ class AggregateEstimationSuite extends StatsEstimationTestBase with PlanTest {
       size = Some(4 * (8 + 4)),
       attributeStats = AttributeMap(Seq("key12").map(nameToColInfo)))
 
-    withSQLConf(SQLConf.CBO_ENABLED.key -> "false") {
+    val originalValue = SQLConf.get.getConf(SQLConf.CBO_ENABLED)
+    try {
+      SQLConf.get.setConf(SQLConf.CBO_ENABLED, false)
       val noGroupAgg = Aggregate(groupingExpressions = Nil,
         aggregateExpressions = Seq(Alias(Count(Literal(1)), "cnt")()), child)
       assert(noGroupAgg.stats ==
@@ -113,6 +114,8 @@ class AggregateEstimationSuite extends StatsEstimationTestBase with PlanTest {
       assert(hasGroupAgg.stats ==
         // From UnaryNode.computeStats, childSize * outputRowSize / childRowSize
         Statistics(sizeInBytes = 48 * (8 + 4 + 8) / (8 + 4)))
+    } finally {
+      SQLConf.get.setConf(SQLConf.CBO_ENABLED, originalValue)
     }
   }
 

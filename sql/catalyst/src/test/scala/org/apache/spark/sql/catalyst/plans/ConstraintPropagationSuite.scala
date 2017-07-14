@@ -28,7 +28,7 @@ import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{DataType, DoubleType, IntegerType, LongType, StringType}
 
-class ConstraintPropagationSuite extends SparkFunSuite with PlanTest {
+class ConstraintPropagationSuite extends SparkFunSuite {
 
   private def resolveColumn(tr: LocalRelation, columnName: String): Expression =
     resolveColumn(tr.analyze, columnName)
@@ -400,26 +400,26 @@ class ConstraintPropagationSuite extends SparkFunSuite with PlanTest {
   }
 
   test("enable/disable constraint propagation") {
-    val tr = LocalRelation('a.int, 'b.string, 'c.int)
-    val filterRelation = tr.where('a.attr > 10)
+    try {
+      val tr = LocalRelation('a.int, 'b.string, 'c.int)
+      val filterRelation = tr.where('a.attr > 10)
 
-    withSQLConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED.key -> "true") {
+      SQLConf.get.setConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED, true)
       assert(filterRelation.analyze.constraints.nonEmpty)
-    }
 
-    withSQLConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED.key -> "false") {
+      SQLConf.get.setConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED, false)
       assert(filterRelation.analyze.constraints.isEmpty)
-    }
 
-    val aliasedRelation = tr.where('c.attr > 10 && 'a.attr < 5)
-      .groupBy('a, 'c, 'b)('a, 'c.as("c1"), count('a).as("a3")).select('c1, 'a, 'a3)
+      val aliasedRelation = tr.where('c.attr > 10 && 'a.attr < 5)
+        .groupBy('a, 'c, 'b)('a, 'c.as("c1"), count('a).as("a3")).select('c1, 'a, 'a3)
 
-    withSQLConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED.key -> "true") {
+      SQLConf.get.setConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED, true)
       assert(aliasedRelation.analyze.constraints.nonEmpty)
-    }
 
-    withSQLConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED.key -> "false") {
+      SQLConf.get.setConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED, false)
       assert(aliasedRelation.analyze.constraints.isEmpty)
+    } finally {
+      SQLConf.get.unsetConf(SQLConf.CONSTRAINT_PROPAGATION_ENABLED)
     }
   }
 }

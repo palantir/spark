@@ -22,8 +22,6 @@ import javax.net.ssl.SSLContext
 
 import org.scalatest.BeforeAndAfterAll
 
-import org.apache.spark.util.SparkConfWithEnv
-
 class SSLOptionsSuite extends SparkFunSuite with BeforeAndAfterAll {
 
   test("test resolving property file as spark conf ") {
@@ -133,20 +131,6 @@ class SSLOptionsSuite extends SparkFunSuite with BeforeAndAfterAll {
     assert(opts.keyPassword === Some("password"))
     assert(opts.protocol === Some("SSLv3"))
     assert(opts.enabledAlgorithms === Set("ABC", "DEF"))
-  }
-
-  test("variable substitution") {
-    val conf = new SparkConfWithEnv(Map(
-      "ENV1" -> "val1",
-      "ENV2" -> "val2"))
-
-    conf.set("spark.ssl.enabled", "true")
-    conf.set("spark.ssl.keyStore", "${env:ENV1}")
-    conf.set("spark.ssl.trustStore", "${env:ENV2}")
-
-    val opts = SSLOptions.parse(conf, "spark.ssl", defaults = None)
-    assert(opts.keyStore === Some(new File("val1")))
-    assert(opts.trustStore === Some(new File("val2")))
   }
 
 }

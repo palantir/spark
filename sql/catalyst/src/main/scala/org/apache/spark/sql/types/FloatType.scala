@@ -22,6 +22,7 @@ import scala.math.Numeric.FloatAsIfIntegral
 import scala.reflect.runtime.universe.typeTag
 
 import org.apache.spark.annotation.InterfaceStability
+import org.apache.spark.sql.catalyst.ScalaReflectionLock
 import org.apache.spark.util.Utils
 
 /**
@@ -35,7 +36,7 @@ class FloatType private() extends FractionalType {
   // this type. Otherwise, the companion object would be of type "FloatType$" in byte code.
   // Defined with a private constructor so the companion object is the only possible instantiation.
   private[sql] type InternalType = Float
-  @transient private[sql] lazy val tag = typeTag[InternalType]
+  @transient private[sql] lazy val tag = ScalaReflectionLock.synchronized { typeTag[InternalType] }
   private[sql] val numeric = implicitly[Numeric[Float]]
   private[sql] val fractional = implicitly[Fractional[Float]]
   private[sql] val ordering = new Ordering[Float] {

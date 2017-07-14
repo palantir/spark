@@ -29,7 +29,6 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.command._
-import org.apache.spark.sql.util.SchemaUtils
 
 /**
  * A command for writing data to a [[HadoopFsRelation]].  Supports both overwriting and appending.
@@ -54,7 +53,7 @@ case class InsertIntoHadoopFsRelationCommand(
     mode: SaveMode,
     catalogTable: Option[CatalogTable],
     fileIndex: Option[FileIndex])
-  extends DataWritingCommand {
+  extends RunnableCommand {
   import org.apache.spark.sql.catalyst.catalog.ExternalCatalogUtils.escapePathName
 
   override def children: Seq[LogicalPlan] = query :: Nil
@@ -63,10 +62,13 @@ case class InsertIntoHadoopFsRelationCommand(
     assert(children.length == 1)
 
     // Most formats don't do well with duplicate columns, so lets not allow that
-    SchemaUtils.checkSchemaColumnNameDuplication(
-      query.schema,
-      s"when inserting into $outputPath",
-      sparkSession.sessionState.conf.caseSensitiveAnalysis)
+    if (query.schema.fieldNames.length != query.schema.fieldNames.distinct.length) {
+      val duplicateColumns = query.schema.fieldNames.groupBy(identity).collect {
+        case (x, ys) if ys.length > 1 => "\"" + x + "\""
+      }.mkString(", ")
+      throw new AnalysisException(s"Duplicate column(s): $duplicateColumns found, " +
+        "cannot save to file.")
+    }
 
     val hadoopConf = sparkSession.sessionState.newHadoopConfWithOptions(options)
     val fs = outputPath.getFileSystem(hadoopConf)
@@ -121,16 +123,8 @@ case class InsertIntoHadoopFsRelationCommand(
 
     if (doInsertion) {
 
-      // Callback for updating metric and metastore partition metadata
-      // after the insertion job completes.
-      def refreshCallback(summary: Seq[ExecutedWriteSummary]): Unit = {
-        val updatedPartitions = summary.flatMap(_.updatedPartitions)
-          .distinct.map(PartitioningUtils.parsePathFragment)
-
-        // Updating metrics.
-        updateWritingMetrics(summary)
-
-        // Updating metastore partition metadata.
+      // Callback for updating metastore partition metadata after the insertion job completes.
+      def refreshPartitionsCallback(updatedPartitions: Seq[TablePartitionSpec]): Unit = {
         if (partitionsTrackedByCatalog) {
           val newPartitions = updatedPartitions.toSet -- initialMatchingPartitions
           if (newPartitions.nonEmpty) {
@@ -160,7 +154,7 @@ case class InsertIntoHadoopFsRelationCommand(
         hadoopConf = hadoopConf,
         partitionColumns = partitionColumns,
         bucketSpec = bucketSpec,
-        refreshFunction = refreshCallback,
+        refreshFunction = refreshPartitionsCallback,
         options = options)
 
       // refresh cached files in FileIndex

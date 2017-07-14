@@ -24,36 +24,19 @@ import org.apache.spark.sql.catalyst.plans.{Inner, PlanTest}
 import org.apache.spark.sql.catalyst.plans.logical.{ColumnStat, LocalRelation, LogicalPlan}
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
 import org.apache.spark.sql.catalyst.statsEstimation.{StatsEstimationTestBase, StatsTestPlan}
-import org.apache.spark.sql.internal.SQLConf._
+import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.internal.SQLConf.{CASE_SENSITIVE, STARSCHEMA_DETECTION}
 
 class StarJoinReorderSuite extends PlanTest with StatsEstimationTestBase {
 
-  var originalConfStarSchemaDetection = false
-  var originalConfCBOEnabled = true
-
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    originalConfStarSchemaDetection = conf.starSchemaDetection
-    originalConfCBOEnabled = conf.cboEnabled
-    conf.setConf(STARSCHEMA_DETECTION, true)
-    conf.setConf(CBO_ENABLED, false)
-  }
-
-  override def afterAll(): Unit = {
-    try {
-      conf.setConf(STARSCHEMA_DETECTION, originalConfStarSchemaDetection)
-      conf.setConf(CBO_ENABLED, originalConfCBOEnabled)
-    } finally {
-      super.afterAll()
-    }
-  }
+  override val conf = new SQLConf().copy(CASE_SENSITIVE -> true, STARSCHEMA_DETECTION -> true)
 
   object Optimize extends RuleExecutor[LogicalPlan] {
     val batches =
       Batch("Operator Optimizations", FixedPoint(100),
         CombineFilters,
         PushDownPredicate,
-        ReorderJoin,
+        ReorderJoin(conf),
         PushPredicateThroughJoin,
         ColumnPruning,
         CollapseProject) :: Nil

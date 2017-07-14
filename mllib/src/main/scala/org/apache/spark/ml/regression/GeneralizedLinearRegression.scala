@@ -26,8 +26,8 @@ import org.apache.spark.SparkException
 import org.apache.spark.annotation.{Experimental, Since}
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.PredictorParams
-import org.apache.spark.ml.feature.{Instance, OffsetInstance}
-import org.apache.spark.ml.linalg.{BLAS, Vector, Vectors}
+import org.apache.spark.ml.feature.Instance
+import org.apache.spark.ml.linalg.{BLAS, Vector}
 import org.apache.spark.ml.optim._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
@@ -138,44 +138,12 @@ private[regression] trait GeneralizedLinearRegressionBase extends PredictorParam
   @Since("2.0.0")
   def getLinkPredictionCol: String = $(linkPredictionCol)
 
-  /**
-   * Param for offset column name. If this is not set or empty, we treat all instance offsets
-   * as 0.0. The feature specified as offset has a constant coefficient of 1.0.
-   * @group param
-   */
-  @Since("2.3.0")
-  final val offsetCol: Param[String] = new Param[String](this, "offsetCol", "The offset " +
-    "column name. If this is not set or empty, we treat all instance offsets as 0.0")
-
-  /** @group getParam */
-  @Since("2.3.0")
-  def getOffsetCol: String = $(offsetCol)
-
-  /** Checks whether weight column is set and nonempty. */
-  private[regression] def hasWeightCol: Boolean =
-    isSet(weightCol) && $(weightCol).nonEmpty
-
-  /** Checks whether offset column is set and nonempty. */
-  private[regression] def hasOffsetCol: Boolean =
-    isSet(offsetCol) && $(offsetCol).nonEmpty
-
   /** Checks whether we should output link prediction. */
   private[regression] def hasLinkPredictionCol: Boolean = {
     isDefined(linkPredictionCol) && $(linkPredictionCol).nonEmpty
   }
 
-  /**
-   * The solver algorithm for optimization.
-   * Supported options: "irls" (iteratively reweighted least squares).
-   * Default: "irls"
-   *
-   * @group param
-   */
-  @Since("2.0.0")
-  final override val solver: Param[String] = new Param[String](this, "solver",
-    "The solver algorithm for optimization. Supported options: " +
-      s"${supportedSolvers.mkString(", ")}. (Default irls)",
-    ParamValidators.inArray[String](supportedSolvers))
+  import GeneralizedLinearRegression._
 
   @Since("2.0.0")
   override def validateAndTransformSchema(
@@ -204,11 +172,6 @@ private[regression] trait GeneralizedLinearRegressionBase extends PredictorParam
     }
 
     val newSchema = super.validateAndTransformSchema(schema, fitting, featuresDataType)
-
-    if (hasOffsetCol) {
-      SchemaUtils.checkNumericType(schema, $(offsetCol))
-    }
-
     if (hasLinkPredictionCol) {
       SchemaUtils.appendColumn(newSchema, $(linkPredictionCol), DoubleType)
     } else {
@@ -344,16 +307,6 @@ class GeneralizedLinearRegression @Since("2.0.0") (@Since("2.0.0") override val 
   def setWeightCol(value: String): this.type = set(weightCol, value)
 
   /**
-   * Sets the value of param [[offsetCol]].
-   * If this is not set or empty, we treat all instance offsets as 0.0.
-   * Default is not set, so all instances have offset 0.0.
-   *
-   * @group setParam
-   */
-  @Since("2.3.0")
-  def setOffsetCol(value: String): this.type = set(offsetCol, value)
-
-  /**
    * Sets the solver algorithm used for optimization.
    * Currently only supports "irls" which is also the default solver.
    *
@@ -361,7 +314,7 @@ class GeneralizedLinearRegression @Since("2.0.0") (@Since("2.0.0") override val 
    */
   @Since("2.0.0")
   def setSolver(value: String): this.type = set(solver, value)
-  setDefault(solver -> IRLS)
+  setDefault(solver -> "irls")
 
   /**
    * Sets the link prediction (linear predictor) column name.
@@ -376,7 +329,7 @@ class GeneralizedLinearRegression @Since("2.0.0") (@Since("2.0.0") override val 
 
     val numFeatures = dataset.select(col($(featuresCol))).first().getAs[Vector](0).size
     val instr = Instrumentation.create(this, dataset)
-    instr.logParams(labelCol, featuresCol, weightCol, offsetCol, predictionCol, linkPredictionCol,
+    instr.logParams(labelCol, featuresCol, weightCol, predictionCol, linkPredictionCol,
       family, solver, fitIntercept, link, maxIter, regParam, tol)
     instr.logNumFeatures(numFeatures)
 
@@ -390,16 +343,15 @@ class GeneralizedLinearRegression @Since("2.0.0") (@Since("2.0.0") override val 
       "GeneralizedLinearRegression was given data with 0 features, and with Param fitIntercept " +
         "set to false. To fit a model with 0 features, fitIntercept must be set to true." )
 
-    val w = if (!hasWeightCol) lit(1.0) else col($(weightCol))
-    val offset = if (!hasOffsetCol) lit(0.0) else col($(offsetCol)).cast(DoubleType)
+    val w = if (!isDefined(weightCol) || $(weightCol).isEmpty) lit(1.0) else col($(weightCol))
+    val instances: RDD[Instance] =
+      dataset.select(col($(labelCol)), w, col($(featuresCol))).rdd.map {
+        case Row(label: Double, weight: Double, features: Vector) =>
+          Instance(label, weight, features)
+      }
 
     val model = if (familyAndLink.family == Gaussian && familyAndLink.link == Identity) {
       // TODO: Make standardizeFeatures and standardizeLabel configurable.
-      val instances: RDD[Instance] =
-        dataset.select(col($(labelCol)), w, offset, col($(featuresCol))).rdd.map {
-          case Row(label: Double, weight: Double, offset: Double, features: Vector) =>
-            Instance(label - offset, weight, features)
-        }
       val optimizer = new WeightedLeastSquares($(fitIntercept), $(regParam), elasticNetParam = 0.0,
         standardizeFeatures = true, standardizeLabel = true)
       val wlsModel = optimizer.fit(instances)
@@ -410,11 +362,6 @@ class GeneralizedLinearRegression @Since("2.0.0") (@Since("2.0.0") override val 
         wlsModel.diagInvAtWA.toArray, 1, getSolver)
       model.setSummary(Some(trainingSummary))
     } else {
-      val instances: RDD[OffsetInstance] =
-        dataset.select(col($(labelCol)), w, offset, col($(featuresCol))).rdd.map {
-          case Row(label: Double, weight: Double, offset: Double, features: Vector) =>
-            OffsetInstance(label, weight, offset, features)
-        }
       // Fit Generalized Linear Model by iteratively reweighted least squares (IRLS).
       val initialModel = familyAndLink.initialize(instances, $(fitIntercept), $(regParam))
       val optimizer = new IterativelyReweightedLeastSquares(initialModel,
@@ -453,12 +400,6 @@ object GeneralizedLinearRegression extends DefaultParamsReadable[GeneralizedLine
     Gamma -> Inverse, Gamma -> Identity, Gamma -> Log
   )
 
-  /** String name for "irls" (iteratively reweighted least squares) solver. */
-  private[regression] val IRLS = "irls"
-
-  /** Set of solvers that GeneralizedLinearRegression supports. */
-  private[regression] val supportedSolvers = Array(IRLS)
-
   /** Set of family names that GeneralizedLinearRegression supports. */
   private[regression] lazy val supportedFamilyNames =
     supportedFamilyAndLinkPairs.map(_._1.name).toArray :+ "tweedie"
@@ -484,12 +425,12 @@ object GeneralizedLinearRegression extends DefaultParamsReadable[GeneralizedLine
      * Get the initial guess model for [[IterativelyReweightedLeastSquares]].
      */
     def initialize(
-        instances: RDD[OffsetInstance],
+        instances: RDD[Instance],
         fitIntercept: Boolean,
         regParam: Double): WeightedLeastSquaresModel = {
       val newInstances = instances.map { instance =>
         val mu = family.initialize(instance.label, instance.weight)
-        val eta = predict(mu) - instance.offset
+        val eta = predict(mu)
         Instance(eta, instance.weight, instance.features)
       }
       // TODO: Make standardizeFeatures and standardizeLabel configurable.
@@ -500,16 +441,16 @@ object GeneralizedLinearRegression extends DefaultParamsReadable[GeneralizedLine
     }
 
     /**
-     * The reweight function used to update working labels and weights
+     * The reweight function used to update offsets and weights
      * at each iteration of [[IterativelyReweightedLeastSquares]].
      */
-    val reweightFunc: (OffsetInstance, WeightedLeastSquaresModel) => (Double, Double) = {
-      (instance: OffsetInstance, model: WeightedLeastSquaresModel) => {
-        val eta = model.predict(instance.features) + instance.offset
+    val reweightFunc: (Instance, WeightedLeastSquaresModel) => (Double, Double) = {
+      (instance: Instance, model: WeightedLeastSquaresModel) => {
+        val eta = model.predict(instance.features)
         val mu = fitted(eta)
-        val newLabel = eta - instance.offset + (instance.label - mu) * link.deriv(mu)
-        val newWeight = instance.weight / (math.pow(this.link.deriv(mu), 2.0) * family.variance(mu))
-        (newLabel, newWeight)
+        val offset = eta + (instance.label - mu) * link.deriv(mu)
+        val weight = instance.weight / (math.pow(this.link.deriv(mu), 2.0) * family.variance(mu))
+        (offset, weight)
       }
     }
   }
@@ -1009,22 +950,15 @@ class GeneralizedLinearRegressionModel private[ml] (
   private lazy val familyAndLink = FamilyAndLink(this)
 
   override protected def predict(features: Vector): Double = {
-    predict(features, 0.0)
-  }
-
-  /**
-   * Calculates the predicted value when offset is set.
-   */
-  private def predict(features: Vector, offset: Double): Double = {
-    val eta = predictLink(features, offset)
+    val eta = predictLink(features)
     familyAndLink.fitted(eta)
   }
 
   /**
-   * Calculates the link prediction (linear predictor) of the given instance.
+   * Calculate the link prediction (linear predictor) of the given instance.
    */
-  private def predictLink(features: Vector, offset: Double): Double = {
-    BLAS.dot(features, coefficients) + intercept + offset
+  private def predictLink(features: Vector): Double = {
+    BLAS.dot(features, coefficients) + intercept
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -1033,16 +967,14 @@ class GeneralizedLinearRegressionModel private[ml] (
   }
 
   override protected def transformImpl(dataset: Dataset[_]): DataFrame = {
-    val predictUDF = udf { (features: Vector, offset: Double) => predict(features, offset) }
-    val predictLinkUDF = udf { (features: Vector, offset: Double) => predictLink(features, offset) }
-
-    val offset = if (!hasOffsetCol) lit(0.0) else col($(offsetCol)).cast(DoubleType)
+    val predictUDF = udf { (features: Vector) => predict(features) }
+    val predictLinkUDF = udf { (features: Vector) => predictLink(features) }
     var output = dataset
     if ($(predictionCol).nonEmpty) {
-      output = output.withColumn($(predictionCol), predictUDF(col($(featuresCol)), offset))
+      output = output.withColumn($(predictionCol), predictUDF(col($(featuresCol))))
     }
     if (hasLinkPredictionCol) {
-      output = output.withColumn($(linkPredictionCol), predictLinkUDF(col($(featuresCol)), offset))
+      output = output.withColumn($(linkPredictionCol), predictLinkUDF(col($(featuresCol))))
     }
     output.toDF()
   }
@@ -1214,7 +1146,9 @@ class GeneralizedLinearRegressionSummary private[regression] (
 
   /** Degrees of freedom. */
   @Since("2.0.0")
-  lazy val degreesOfFreedom: Long = numInstances - rank
+  lazy val degreesOfFreedom: Long = {
+    numInstances - rank
+  }
 
   /** The residual degrees of freedom. */
   @Since("2.0.0")
@@ -1222,20 +1156,18 @@ class GeneralizedLinearRegressionSummary private[regression] (
 
   /** The residual degrees of freedom for the null model. */
   @Since("2.0.0")
-  lazy val residualDegreeOfFreedomNull: Long = {
-    if (model.getFitIntercept) numInstances - 1 else numInstances
+  lazy val residualDegreeOfFreedomNull: Long = if (model.getFitIntercept) {
+    numInstances - 1
+  } else {
+    numInstances
   }
 
-  private def label: Column = col(model.getLabelCol).cast(DoubleType)
-
-  private def prediction: Column = col(predictionCol)
-
-  private def weight: Column = {
-    if (!model.hasWeightCol) lit(1.0) else col(model.getWeightCol)
-  }
-
-  private def offset: Column = {
-    if (!model.hasOffsetCol) lit(0.0) else col(model.getOffsetCol).cast(DoubleType)
+  private def weightCol: Column = {
+    if (!model.isDefined(model.weightCol) || model.getWeightCol.isEmpty) {
+      lit(1.0)
+    } else {
+      col(model.getWeightCol)
+    }
   }
 
   private[regression] lazy val devianceResiduals: DataFrame = {
@@ -1243,23 +1175,25 @@ class GeneralizedLinearRegressionSummary private[regression] (
       val r = math.sqrt(math.max(family.deviance(y, mu, weight), 0.0))
       if (y > mu) r else -1.0 * r
     }
+    val w = weightCol
     predictions.select(
-      drUDF(label, prediction, weight).as("devianceResiduals"))
+      drUDF(col(model.getLabelCol), col(predictionCol), w).as("devianceResiduals"))
   }
 
   private[regression] lazy val pearsonResiduals: DataFrame = {
     val prUDF = udf { mu: Double => family.variance(mu) }
-    predictions.select(label.minus(prediction)
-      .multiply(sqrt(weight)).divide(sqrt(prUDF(prediction))).as("pearsonResiduals"))
+    val w = weightCol
+    predictions.select(col(model.getLabelCol).minus(col(predictionCol))
+      .multiply(sqrt(w)).divide(sqrt(prUDF(col(predictionCol)))).as("pearsonResiduals"))
   }
 
   private[regression] lazy val workingResiduals: DataFrame = {
     val wrUDF = udf { (y: Double, mu: Double) => (y - mu) * link.deriv(mu) }
-    predictions.select(wrUDF(label, prediction).as("workingResiduals"))
+    predictions.select(wrUDF(col(model.getLabelCol), col(predictionCol)).as("workingResiduals"))
   }
 
   private[regression] lazy val responseResiduals: DataFrame = {
-    predictions.select(label.minus(prediction).as("responseResiduals"))
+    predictions.select(col(model.getLabelCol).minus(col(predictionCol)).as("responseResiduals"))
   }
 
   /**
@@ -1291,35 +1225,16 @@ class GeneralizedLinearRegressionSummary private[regression] (
    */
   @Since("2.0.0")
   lazy val nullDeviance: Double = {
-    val intercept: Double = if (!model.getFitIntercept) {
-      0.0
+    val w = weightCol
+    val wtdmu: Double = if (model.getFitIntercept) {
+      val agg = predictions.agg(sum(w.multiply(col(model.getLabelCol))), sum(w)).first()
+      agg.getDouble(0) / agg.getDouble(1)
     } else {
-      /*
-        Estimate intercept analytically when there is no offset, or when there is offset but
-        the model is Gaussian family with identity link. Otherwise, fit an intercept only model.
-       */
-      if (!model.hasOffsetCol ||
-        (model.hasOffsetCol && family == Gaussian && link == Identity)) {
-        val agg = predictions.agg(sum(weight.multiply(
-          label.minus(offset))), sum(weight)).first()
-        link.link(agg.getDouble(0) / agg.getDouble(1))
-      } else {
-        // Create empty feature column and fit intercept only model using param setting from model
-        val featureNull = "feature_" + java.util.UUID.randomUUID.toString
-        val paramMap = model.extractParamMap()
-        paramMap.put(model.featuresCol, featureNull)
-        if (family.name != "tweedie") {
-          paramMap.remove(model.variancePower)
-        }
-        val emptyVectorUDF = udf{ () => Vectors.zeros(0) }
-        model.parent.fit(
-          dataset.withColumn(featureNull, emptyVectorUDF()), paramMap
-        ).intercept
-      }
+      link.unlink(0.0)
     }
-    predictions.select(label, offset, weight).rdd.map {
-      case Row(y: Double, offset: Double, weight: Double) =>
-        family.deviance(y, link.unlink(intercept + offset), weight)
+    predictions.select(col(model.getLabelCol).cast(DoubleType), w).rdd.map {
+      case Row(y: Double, weight: Double) =>
+        family.deviance(y, wtdmu, weight)
     }.sum()
   }
 
@@ -1328,7 +1243,8 @@ class GeneralizedLinearRegressionSummary private[regression] (
    */
   @Since("2.0.0")
   lazy val deviance: Double = {
-    predictions.select(label, prediction, weight).rdd.map {
+    val w = weightCol
+    predictions.select(col(model.getLabelCol).cast(DoubleType), col(predictionCol), w).rdd.map {
       case Row(label: Double, pred: Double, weight: Double) =>
         family.deviance(label, pred, weight)
     }.sum()
@@ -1353,9 +1269,10 @@ class GeneralizedLinearRegressionSummary private[regression] (
   /** Akaike Information Criterion (AIC) for the fitted model. */
   @Since("2.0.0")
   lazy val aic: Double = {
-    val weightSum = predictions.select(weight).agg(sum(weight)).first().getDouble(0)
+    val w = weightCol
+    val weightSum = predictions.select(w).agg(sum(w)).first().getDouble(0)
     val t = predictions.select(
-      label, prediction, weight).rdd.map {
+      col(model.getLabelCol).cast(DoubleType), col(predictionCol), w).rdd.map {
         case Row(label: Double, pred: Double, weight: Double) =>
           (label, pred, weight)
     }

@@ -34,10 +34,10 @@ import org.apache.spark.sql.types._
  * Abstract class all optimizers should inherit of, contains the standard batches (extending
  * Optimizers can override this.
  */
-abstract class Optimizer(sessionCatalog: SessionCatalog)
+abstract class Optimizer(sessionCatalog: SessionCatalog, conf: SQLConf)
   extends RuleExecutor[LogicalPlan] {
 
-  protected def fixedPoint = FixedPoint(SQLConf.get.optimizerMaxIterations)
+  protected val fixedPoint = FixedPoint(conf.optimizerMaxIterations)
 
   def batches: Seq[Batch] = {
     Batch("Eliminate Distinct", Once, EliminateDistinct) ::
@@ -77,11 +77,11 @@ abstract class Optimizer(sessionCatalog: SessionCatalog)
     Batch("Operator Optimizations", fixedPoint, Seq(
       // Operator push down
       PushProjectionThroughUnion,
-      ReorderJoin,
+      ReorderJoin(conf),
       EliminateOuterJoin,
       PushPredicateThroughJoin,
       PushDownPredicate,
-      LimitPushDown,
+      LimitPushDown(conf),
       ColumnPruning,
       InferFiltersFromConstraints,
       // Operator combine
@@ -92,10 +92,10 @@ abstract class Optimizer(sessionCatalog: SessionCatalog)
       CombineLimits,
       CombineUnions,
       // Constant folding and strength reduction
-      NullPropagation,
+      NullPropagation(conf),
       ConstantPropagation,
       FoldablePropagation,
-      OptimizeIn,
+      OptimizeIn(conf),
       ConstantFolding,
       ReorderAssociativeOperator,
       LikeSimplification,
@@ -117,11 +117,11 @@ abstract class Optimizer(sessionCatalog: SessionCatalog)
       CombineConcats) ++
       extendedOperatorOptimizationRules: _*) ::
     Batch("Check Cartesian Products", Once,
-      CheckCartesianProducts) ::
+      CheckCartesianProducts(conf)) ::
     Batch("Join Reorder", Once,
-      CostBasedJoinReorder) ::
+      CostBasedJoinReorder(conf)) ::
     Batch("Decimal Optimizations", fixedPoint,
-      DecimalAggregates) ::
+      DecimalAggregates(conf)) ::
     Batch("Object Expressions Optimization", fixedPoint,
       EliminateMapObjects,
       CombineTypedFilters) ::
@@ -129,7 +129,7 @@ abstract class Optimizer(sessionCatalog: SessionCatalog)
       ConvertToLocalRelation,
       PropagateEmptyRelation) ::
     Batch("OptimizeCodegen", Once,
-      OptimizeCodegen) ::
+      OptimizeCodegen(conf)) ::
     Batch("RewriteSubquery", Once,
       RewritePredicateSubquery,
       CollapseProject) :: Nil
@@ -178,7 +178,8 @@ class SimpleTestOptimizer extends Optimizer(
   new SessionCatalog(
     new InMemoryCatalog,
     EmptyFunctionRegistry,
-    new SQLConf().copy(SQLConf.CASE_SENSITIVE -> true)))
+    new SQLConf().copy(SQLConf.CASE_SENSITIVE -> true)),
+  new SQLConf().copy(SQLConf.CASE_SENSITIVE -> true))
 
 /**
  * Remove redundant aliases from a query plan. A redundant alias is an alias that does not change
@@ -287,7 +288,7 @@ object RemoveRedundantProject extends Rule[LogicalPlan] {
 /**
  * Pushes down [[LocalLimit]] beneath UNION ALL and beneath the streamed inputs of outer joins.
  */
-object LimitPushDown extends Rule[LogicalPlan] {
+case class LimitPushDown(conf: SQLConf) extends Rule[LogicalPlan] {
 
   private def stripGlobalLimitIfPresent(plan: LogicalPlan): LogicalPlan = {
     plan match {
@@ -1076,7 +1077,8 @@ object CombineLimits extends Rule[LogicalPlan] {
  * the join between R and S is not a cartesian product and therefore should be allowed.
  * The predicate R.r = S.s is not recognized as a join condition until the ReorderJoin rule.
  */
-object CheckCartesianProducts extends Rule[LogicalPlan] with PredicateHelper {
+case class CheckCartesianProducts(conf: SQLConf)
+    extends Rule[LogicalPlan] with PredicateHelper {
   /**
    * Check if a join is a cartesian product. Returns true if
    * there are no join conditions involving references from both left and right.
@@ -1088,7 +1090,7 @@ object CheckCartesianProducts extends Rule[LogicalPlan] with PredicateHelper {
   }
 
   def apply(plan: LogicalPlan): LogicalPlan =
-    if (SQLConf.get.crossJoinEnabled) {
+    if (conf.crossJoinEnabled) {
       plan
     } else plan transform {
       case j @ Join(left, right, Inner | LeftOuter | RightOuter | FullOuter, condition)
@@ -1110,7 +1112,7 @@ object CheckCartesianProducts extends Rule[LogicalPlan] with PredicateHelper {
  * This uses the same rules for increasing the precision and scale of the output as
  * [[org.apache.spark.sql.catalyst.analysis.DecimalPrecision]].
  */
-object DecimalAggregates extends Rule[LogicalPlan] {
+case class DecimalAggregates(conf: SQLConf) extends Rule[LogicalPlan] {
   import Decimal.MAX_LONG_DIGITS
 
   /** Maximum number of decimal digits representable precisely in a Double */
@@ -1128,7 +1130,7 @@ object DecimalAggregates extends Rule[LogicalPlan] {
             we.copy(windowFunction = ae.copy(aggregateFunction = Average(UnscaledValue(e))))
           Cast(
             Divide(newAggExpr, Literal.create(math.pow(10.0, scale), DoubleType)),
-            DecimalType(prec + 4, scale + 4), Option(SQLConf.get.sessionLocalTimeZone))
+            DecimalType(prec + 4, scale + 4), Option(conf.sessionLocalTimeZone))
 
         case _ => we
       }
@@ -1140,7 +1142,7 @@ object DecimalAggregates extends Rule[LogicalPlan] {
           val newAggExpr = ae.copy(aggregateFunction = Average(UnscaledValue(e)))
           Cast(
             Divide(newAggExpr, Literal.create(math.pow(10.0, scale), DoubleType)),
-            DecimalType(prec + 4, scale + 4), Option(SQLConf.get.sessionLocalTimeZone))
+            DecimalType(prec + 4, scale + 4), Option(conf.sessionLocalTimeZone))
 
         case _ => ae
       }

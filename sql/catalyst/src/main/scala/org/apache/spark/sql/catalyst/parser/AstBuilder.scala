@@ -758,17 +758,15 @@ class AstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging 
    * hooks.
    */
   override def visitAliasedQuery(ctx: AliasedQueryContext): LogicalPlan = withOrigin(ctx) {
-    val alias = if (ctx.strictIdentifier == null) {
-      // For un-aliased subqueries, use a default alias name that is not likely to conflict with
-      // normal subquery names, so that parent operators can only access the columns in subquery by
-      // unqualified names. Users can still use this special qualifier to access columns if they
-      // know it, but that's not recommended.
-      "__auto_generated_subquery_name"
-    } else {
-      ctx.strictIdentifier.getText
+    // The unaliased subqueries in the FROM clause are disallowed. Instead of rejecting it in
+    // parser rules, we handle it here in order to provide better error message.
+    if (ctx.strictIdentifier == null) {
+      throw new ParseException("The unaliased subqueries in the FROM clause are not supported.",
+        ctx)
     }
 
-    SubqueryAlias(alias, plan(ctx.queryNoWith).optionalMap(ctx.sample)(withSample))
+    aliasPlan(ctx.strictIdentifier,
+      plan(ctx.queryNoWith).optionalMap(ctx.sample)(withSample))
   }
 
   /**
@@ -1069,13 +1067,6 @@ class AstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging 
   }
 
   /**
-   * Create a [[CreateStruct]] expression.
-   */
-  override def visitStruct(ctx: StructContext): Expression = withOrigin(ctx) {
-    CreateStruct(ctx.argument.asScala.map(expression))
-  }
-
-  /**
    * Create a [[First]] expression.
    */
   override def visitFirst(ctx: FirstContext): Expression = withOrigin(ctx) {
@@ -1105,7 +1096,7 @@ class AstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging 
     // Create the function call.
     val name = ctx.qualifiedName.getText
     val isDistinct = Option(ctx.setQuantifier()).exists(_.DISTINCT != null)
-    val arguments = ctx.argument.asScala.map(expression) match {
+    val arguments = ctx.namedExpression().asScala.map(expression) match {
       case Seq(UnresolvedStar(None))
         if name.toLowerCase(Locale.ROOT) == "count" && !isDistinct =>
         // Transform COUNT(*) into COUNT(1).
@@ -1266,54 +1257,25 @@ class AstBuilder(conf: SQLConf) extends SqlBaseBaseVisitor[AnyRef] with Logging 
   }
 
   /**
-   * Currently only regex in expressions of SELECT statements are supported; in other
-   * places, e.g., where `(a)?+.+` = 2, regex are not meaningful.
-   */
-  private def canApplyRegex(ctx: ParserRuleContext): Boolean = withOrigin(ctx) {
-    var parent = ctx.getParent
-    while (parent != null) {
-      if (parent.isInstanceOf[NamedExpressionContext]) return true
-      parent = parent.getParent
-    }
-    return false
-  }
-
-  /**
-   * Create a dereference expression. The return type depends on the type of the parent.
-   * If the parent is an [[UnresolvedAttribute]], it can be a [[UnresolvedAttribute]] or
-   * a [[UnresolvedRegex]] for regex quoted in ``; if the parent is some other expression,
-   * it can be [[UnresolvedExtractValue]].
+   * Create a dereference expression. The return type depends on the type of the parent, this can
+   * either be a [[UnresolvedAttribute]] (if the parent is an [[UnresolvedAttribute]]), or an
+   * [[UnresolvedExtractValue]] if the parent is some expression.
    */
   override def visitDereference(ctx: DereferenceContext): Expression = withOrigin(ctx) {
     val attr = ctx.fieldName.getText
     expression(ctx.base) match {
-      case unresolved_attr @ UnresolvedAttribute(nameParts) =>
-        ctx.fieldName.getStart.getText match {
-          case escapedIdentifier(columnNameRegex)
-            if conf.supportQuotedRegexColumnName && canApplyRegex(ctx) =>
-            UnresolvedRegex(columnNameRegex, Some(unresolved_attr.name),
-              conf.caseSensitiveAnalysis)
-          case _ =>
-            UnresolvedAttribute(nameParts :+ attr)
-        }
+      case UnresolvedAttribute(nameParts) =>
+        UnresolvedAttribute(nameParts :+ attr)
       case e =>
         UnresolvedExtractValue(e, Literal(attr))
     }
   }
 
   /**
-   * Create an [[UnresolvedAttribute]] expression or a [[UnresolvedRegex]] if it is a regex
-   * quoted in ``
+   * Create an [[UnresolvedAttribute]] expression.
    */
   override def visitColumnReference(ctx: ColumnReferenceContext): Expression = withOrigin(ctx) {
-    ctx.getStart.getText match {
-      case escapedIdentifier(columnNameRegex)
-        if conf.supportQuotedRegexColumnName && canApplyRegex(ctx) =>
-        UnresolvedRegex(columnNameRegex, None, conf.caseSensitiveAnalysis)
-      case _ =>
-        UnresolvedAttribute.quoted(ctx.getText)
-    }
-
+    UnresolvedAttribute.quoted(ctx.getText)
   }
 
   /**
