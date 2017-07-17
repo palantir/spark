@@ -1638,10 +1638,6 @@
             <artifactId>ant</artifactId>
           </exclusion>
           <exclusion>
-            <groupId>org.antlr</groupId>
-            <artifactId>antlr-runtime</artifactId>
-          </exclusion>
-          <exclusion>
             <groupId>org.apache.ant</groupId>
             <artifactId>ant</artifactId>
           </exclusion>
@@ -1802,14 +1798,6 @@
           <exclusion>
             <groupId>${hive.group}</groupId>
             <artifactId>hive-shims</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>org.antlr</groupId>
-            <artifactId>antlr-runtime</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>commons-pool</groupId>
-            <artifactId>commons-pool</artifactId>
           </exclusion>
           <exclusion>
             <groupId>org.apache.thrift</groupId>
@@ -2022,10 +2010,6 @@
         <artifactId>calcite-core</artifactId>
         <version>${calcite.version}</version>
         <exclusions>
-          <exclusion>
-            <groupId>commons-pool</groupId>
-            <artifactId>commons-pool</artifactId>
-          </exclusion>
           <exclusion>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
