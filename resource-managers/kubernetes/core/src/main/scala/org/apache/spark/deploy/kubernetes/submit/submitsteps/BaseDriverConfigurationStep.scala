@@ -73,6 +73,8 @@ private[spark] class BaseDriverConfigurationStep(
         s"Annotation with key $SPARK_APP_NAME_ANNOTATION is not allowed as it is reserved for" +
             s" Spark bookkeeping operations.")
     val allDriverAnnotations = driverCustomAnnotations ++ Map(SPARK_APP_NAME_ANNOTATION -> appName)
+    val nodeSelector = ConfigurationUtils.parsePrefixedKeyValuePairs(
+      submissionSparkConf, KUBERNETES_NODE_SELECTOR_PREFIX, "node selector")
     val driverCpuQuantity = new QuantityBuilder(false)
       .withAmount(driverCpuCores)
       .build()
@@ -117,6 +119,7 @@ private[spark] class BaseDriverConfigurationStep(
       .endMetadata()
       .withNewSpec()
         .withRestartPolicy("Never")
+        .withNodeSelector(nodeSelector.asJava)
         .endSpec()
       .build()
     val resolvedSparkConf = driverSpec.driverSparkConf.clone()

@@ -85,6 +85,11 @@ private[spark] class KubernetesClusterSchedulerBackend(
           KUBERNETES_EXECUTOR_ANNOTATION_PREFIX,
           KUBERNETES_EXECUTOR_ANNOTATIONS,
           "executor annotation")
+  private val nodeSelector =
+      ConfigurationUtils.parsePrefixedKeyValuePairs(
+          conf,
+          KUBERNETES_NODE_SELECTOR_PREFIX,
+          "node-selector")
   private var shufflePodCache: Option[ShufflePodCache] = None
   private val executorDockerImage = conf.get(EXECUTOR_DOCKER_IMAGE)
   private val dockerImagePullPolicy = conf.get(DOCKER_IMAGE_PULL_POLICY)
@@ -450,6 +455,7 @@ private[spark] class KubernetesClusterSchedulerBackend(
       .endMetadata()
       .withNewSpec()
         .withHostname(hostname)
+        .withNodeSelector(nodeSelector.asJava)
       .endSpec()
       .build()
 
