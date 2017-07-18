@@ -42,7 +42,7 @@ private[spark] object ClientArguments {
     var otherPyFiles = Seq.empty[String]
     var mainClass: Option[String] = None
     val driverArgs = mutable.Buffer.empty[String]
-    args.sliding(2).toList.collect {
+    args.sliding(2, 2).toList.collect {
       case Array("--primary-py-file", mainPyFile: String) =>
         mainAppResource = Some(PythonMainAppResource(mainPyFile))
       case Array("--primary-java-resource", primaryJavaResource: String) =>
@@ -54,7 +54,8 @@ private[spark] object ClientArguments {
       case Array("--arg", arg: String) =>
         driverArgs += arg
       case other =>
-        throw new RuntimeException(s"Unknown arguments: $other")
+        val invalid = other.mkString(" ")
+        throw new RuntimeException(s"Unknown arguments: $invalid")
     }
     require(mainAppResource.isDefined,
         "Main app resource must be defined by either --primary-py-file or --primary-java-resource.")
