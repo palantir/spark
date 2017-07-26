@@ -33,10 +33,11 @@ import java.util.concurrent.TimeUnit;
  */
 public class YarnShuffleServiceMetrics implements MetricsSource {
 
-  // converting from the dropwizard-metrics default of nanoseconds into milliseconds to match how MetricsServlet
-  // serializes times (to milliseconds) configured via the MetricsModule passed into its Jackson ObjectMapper. Without
-  // this rate factor applied, the Timer metrics from ExternalShuffleBlockManager#ShuffleMetrics with "Millis" suffixes
-  // are misleading, as they would otherwise contain values in nanoseconds units
+  // Converting from the dropwizard-metrics default of nanoseconds into milliseconds to match how
+  // MetricsServlet serializes times (to milliseconds) configured via the MetricsModule passed into
+  // its Jackson ObjectMapper. Without this rate factor applied, the Timer metrics from
+  // ExternalShuffleBlockManager#ShuffleMetrics with "Millis" suffixes are misleading, as they
+  // would otherwise contain values in nanoseconds units
   private static final double rateFactor = (double) TimeUnit.MILLISECONDS.toNanos(1L);
 
   private final MetricSet metricSet;
