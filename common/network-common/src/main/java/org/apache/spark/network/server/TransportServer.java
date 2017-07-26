@@ -17,6 +17,10 @@
 
 package org.apache.spark.network.server;
 
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -128,6 +132,9 @@ public class TransportServer implements Closeable {
         new InetSocketAddress(portToBind): new InetSocketAddress(hostToBind, portToBind);
     channelFuture = bootstrap.bind(address);
     channelFuture.syncUninterruptibly();
+    channelFuture.channel().closeFuture()
+            .addListener(future -> logger.error("Closing channel with {}.",
+                    future.isSuccess(), future.cause()));
 
     port = ((InetSocketAddress) channelFuture.channel().localAddress()).getPort();
     logger.debug("Shuffle server started on port: {}", port);
