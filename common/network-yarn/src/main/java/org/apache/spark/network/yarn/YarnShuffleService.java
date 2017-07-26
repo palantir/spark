@@ -324,6 +324,7 @@ public class YarnShuffleService extends AuxiliaryService {
    */
   @Override
   protected void serviceStop() {
+    logger.info("Stopping service");
     try {
       if (shuffleServer != null) {
         shuffleServer.close();
