@@ -17,10 +17,6 @@
 
 package org.apache.spark.network.server;
 
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -35,12 +31,12 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import org.apache.spark.network.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.spark.network.TransportContext;
 import org.apache.spark.network.util.IOMode;
+import org.apache.spark.network.util.JavaUtils;
 import org.apache.spark.network.util.NettyUtils;
 import org.apache.spark.network.util.TransportConf;
 
@@ -142,6 +138,7 @@ public class TransportServer implements Closeable {
 
   @Override
   public void close() {
+    logger.debug("Closing transportServer on port {}", port);
     if (channelFuture != null) {
       // close is a local operation and should finish within milliseconds; timeout just to be safe
       channelFuture.channel().close().awaitUninterruptibly(10, TimeUnit.SECONDS);
