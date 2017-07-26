@@ -86,6 +86,7 @@
     <module>common/kvstore</module>
     <module>common/network-common</module>
     <module>common/network-shuffle</module>
+    <module>common/network-yarn</module>
     <module>common/unsafe</module>
     <module>common/tags</module>
     <module>core</module>
@@ -682,7 +683,7 @@
       <dependency>
         <groupId>io.netty</groupId>
         <artifactId>netty-all</artifactId>
-        <version>4.1.9.Final</version>
+        <version>4.1.13.Final</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
