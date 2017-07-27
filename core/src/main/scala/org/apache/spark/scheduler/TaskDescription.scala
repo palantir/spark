@@ -20,11 +20,12 @@ package org.apache.spark.scheduler
 import java.io.{DataInputStream, DataOutputStream}
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.util.Properties
+import java.util.{Base64, Properties}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{HashMap, Map}
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.util.{ByteBufferInputStream, ByteBufferOutputStream, Utils}
 
 /**
@@ -58,7 +59,7 @@ private[spark] class TaskDescription(
   override def toString: String = "TaskDescription(TID=%d, index=%d)".format(taskId, index)
 }
 
-private[spark] object TaskDescription {
+private[spark] object TaskDescription extends Logging {
   private def serializeStringLongMap(map: Map[String, Long], dataOut: DataOutputStream): Unit = {
     dataOut.writeInt(map.size)
     for ((key, value) <- map) {
@@ -111,6 +112,10 @@ private[spark] object TaskDescription {
   }
 
   def decode(byteBuffer: ByteBuffer): TaskDescription = {
+    logTrace(s"Deserializing TaskDescription from byteBuffer $byteBuffer " +
+      s"with length ${byteBuffer.array().length} " +
+      s"and contents ${Base64.getEncoder.encodeToString(byteBuffer.array())}")
+
     val dataIn = new DataInputStream(new ByteBufferInputStream(byteBuffer))
     val taskId = dataIn.readLong()
     val attemptNumber = dataIn.readInt()
@@ -124,12 +129,17 @@ private[spark] object TaskDescription {
     // Read jars.
     val taskJars = deserializeStringLongMap(dataIn)
 
+    logDebug(s"Beginning deserialization of properties from TaskDescription with " +
+      s"taskId=$taskId attemptNumber=$attemptNumber, " +
+      s"executorId=$executorId, name=$name, index=$index")
+
     // Read properties.
     val properties = new Properties()
     val numProperties = dataIn.readInt()
     for (i <- 0 until numProperties) {
       val key = dataIn.readUTF()
       val valueLength = dataIn.readInt()
+      logTrace(s"Deserializing property value for key=$key with expected length $valueLength")
       val valueBytes = new Array[Byte](valueLength)
       dataIn.readFully(valueBytes)
       properties.setProperty(key, new String(valueBytes, StandardCharsets.UTF_8))
