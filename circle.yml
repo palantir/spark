@@ -48,6 +48,7 @@ dependencies:
     - "build_classes"
     - "build"
     - "~/miniconda"
+    - "~/.coursier"
 
 general:
   artifacts:
