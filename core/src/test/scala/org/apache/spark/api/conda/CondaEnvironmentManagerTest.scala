@@ -28,4 +28,12 @@ class CondaEnvironmentManagerTest extends org.apache.spark.SparkFunSuite with Te
     CondaEnvironmentManager.ensureExecutable(path.toString)
     assert(Files.isExecutable(path), "File should now be executable")
   }
+
+  test("CondaEnvironmentManager.redactCredentials") {
+    val original = "24u0f8 adfghjfouh https://:f35g35b_t5gbn.asfad3@my-host-name-5.foo.bar" +
+      ".baz:12345/whatever/else"
+    val redacted = "24u0f8 adfghjfouh https://:<password>@my-host-name-5.foo.bar" +
+      ".baz:12345/whatever/else"
+    assert(CondaEnvironmentManager.redactCredentials(original) == redacted)
+  }
 }

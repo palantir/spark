@@ -160,16 +160,21 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
    * @return the stdout of the process
    */
   private[this] def runOrFail(command: ProcessBuilder, description: String): String = {
+    import CondaEnvironmentManager.redactCredentials
     val out = new StringBuffer
     val err = new StringBuffer
     val collectErrOutToBuffer = new ProcessIO(
-    BasicIO.input(false),
-    BasicIO.processFully(out),
-    BasicIO.processFully(line => {
-      err append line
-      err append BasicIO.Newline
-      log.info(s"<conda> $line")
-    }))
+      BasicIO.input(false),
+      BasicIO.processFully((redactCredentials _).andThen(line => {
+        out.append(line)
+        out.append(BasicIO.Newline)
+        ()
+      })),
+      BasicIO.processFully((redactCredentials _).andThen(line => {
+        err.append(line)
+        err.append(BasicIO.Newline)
+        log.info(s"<conda> $line")
+      })))
     val exitCode = command.run(collectErrOutToBuffer).exitValue()
     if (exitCode != 0) {
       throw new SparkException(s"Attempt to $description exited with code: "
@@ -194,6 +199,15 @@ object CondaEnvironmentManager extends Logging {
 
   def isConfigured(sparkConf: SparkConf): Boolean = {
     sparkConf.contains(CONDA_BINARY_PATH)
+  }
+
+  private[this] val httpUrlToken =
+    ("(?<=\\b\\w+://([^:/@]*):)" +
+      "([^/@]+)" +
+      "(?=@([\\w-.]+)(:\\d+)?\\b)").r.unanchored
+
+  private[conda] def redactCredentials(line: String): String = {
+    httpUrlToken.replaceAllIn(line, "<password>")
   }
 
   def fromConf(sparkConf: SparkConf): CondaEnvironmentManager = {
