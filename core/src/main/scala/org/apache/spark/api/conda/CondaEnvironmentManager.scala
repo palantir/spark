@@ -20,6 +20,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.attribute.PosixFilePermission
+import java.util.regex.Pattern
 
 import scala.collection.JavaConverters._
 import scala.sys.process.BasicIO
@@ -202,12 +203,10 @@ object CondaEnvironmentManager extends Logging {
   }
 
   private[this] val httpUrlToken =
-    ("(?<=\\b\\w+://([^:/@]*):)" +
-      "([^/@]+)" +
-      "(?=@([\\w-.]+)(:\\d+)?\\b)").r.unanchored
+    Pattern.compile("(\\b\\w+://[^:/@]*:)([^/@]+)(?=@([\\w-.]+)(:\\d+)?\\b)")
 
   private[conda] def redactCredentials(line: String): String = {
-    httpUrlToken.replaceAllIn(line, "<password>")
+    httpUrlToken.matcher(line).replaceAll("$1<password>")
   }
 
   def fromConf(sparkConf: SparkConf): CondaEnvironmentManager = {
