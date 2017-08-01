@@ -36,4 +36,11 @@ class CondaEnvironmentManagerTest extends org.apache.spark.SparkFunSuite with Te
       ".baz:12345/whatever/else"
     assert(CondaEnvironmentManager.redactCredentials(original) == redacted)
   }
+
+  test("CondaEnvironmentManager.redactTwoCredentials") {
+    val original = "random:https://:creds1@x-5.bar/whatever/else][http://us_r:creds2@yy.bar:222"
+    val redacted = "random:https://:<password>@x-5.bar/whatever/else]" +
+      "[http://us_r:<password>@yy.bar:222"
+    assert(CondaEnvironmentManager.redactCredentials(original) == redacted)
+  }
 }
