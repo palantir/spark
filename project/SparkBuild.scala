@@ -480,7 +480,7 @@ object OldDeps {
       .join
   }
 
-  def oldDepsSettings() = Defaults.coreDefaultSettings ++ Seq(
+  def oldDepsSettings() = Defaults.coreDefaultSettings ++ coursier.CoursierPlugin.projectSettings ++ Seq(
     name := "old-deps",
     libraryDependencies := allPreviousArtifactKeys.value.flatten
   )
