@@ -471,7 +471,9 @@ object ExcludedDependencies {
  */
 object OldDeps {
 
-  lazy val project = Project("oldDeps", file("dev"), settings = oldDepsSettings)
+  lazy val project = Project("oldDeps", file("dev"))
+    .enablePlugins(coursier.CoursierPlugin)
+    .settings(oldDepsSettings(): _*)
 
   lazy val allPreviousArtifactKeys = Def.settingDyn[Seq[Set[ModuleID]]] {
     SparkBuild.mimaProjects
@@ -480,7 +482,7 @@ object OldDeps {
       .join
   }
 
-  def oldDepsSettings() = Defaults.coreDefaultSettings ++ coursier.CoursierPlugin.projectSettings ++ Seq(
+  def oldDepsSettings() = Seq(
     name := "old-deps",
     libraryDependencies := allPreviousArtifactKeys.value.flatten
   )
