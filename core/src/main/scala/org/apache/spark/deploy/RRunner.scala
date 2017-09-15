@@ -25,15 +25,15 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.fs.Path
 
+import org.apache.spark.SparkException
+import org.apache.spark.SparkUserAppException
 import org.apache.spark.api.conda.CondaEnvironment
 import org.apache.spark.api.r.RBackend
 import org.apache.spark.api.r.RUtils
 import org.apache.spark.api.r.SparkRDefaults
+import org.apache.spark.deploy.Common.Provenance
 import org.apache.spark.internal.Logging
 import org.apache.spark.util.RedirectThread
-import org.apache.spark.SparkException
-import org.apache.spark.SparkUserAppException
-import org.apache.spark.deploy.Common.Provenance
 
 /**
  * Main class used to launch SparkR applications using spark-submit. It executes R as a
