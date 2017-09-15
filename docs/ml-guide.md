@@ -18,7 +18,7 @@ At a high level, it provides tools such as:
 
 **The MLlib RDD-based API is now in maintenance mode.**
 
-As of Spark 2.0, the [RDD](programming-guide.html#resilient-distributed-datasets-rdds)-based APIs in the `spark.mllib` package have entered maintenance mode.
+As of Spark 2.0, the [RDD](rdd-programming-guide.html#resilient-distributed-datasets-rdds)-based APIs in the `spark.mllib` package have entered maintenance mode.
 The primary Machine Learning API for Spark is now the [DataFrame](sql-programming-guide.html)-based API in the `spark.ml` package.
 
 *What are the implications?*
@@ -104,6 +104,24 @@ release of Spark:
 MLlib is under active development.
 The APIs marked `Experimental`/`DeveloperApi` may change in future releases,
 and the migration guide below will explain all changes between releases.
+
+## From 2.2 to 2.3
+
+### Breaking changes
+
+There are no breaking changes.
+
+### Deprecations and changes of behavior
+
+**Deprecations**
+
+There are no deprecations.
+
+**Changes of behavior**
+
+* [SPARK-21027](https://issues.apache.org/jira/browse/SPARK-21027):
+ We are now setting the default parallelism used in `OneVsRest` to be 1 (i.e. serial), in 2.2 and earlier version,
+ the `OneVsRest` parallelism would be parallelism of the default threadpool in scala.
 
 ## From 2.1 to 2.2
 

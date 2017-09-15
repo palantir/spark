@@ -14,10 +14,13 @@ important matters to keep in mind when developing this feature.
 
 # Building Spark with Kubernetes Support
 
-To build Spark with Kubernetes support, use the `kubernetes` profile when invoking Maven. For example, to simply compile
-the Kubernetes core implementation module along with its dependencies:
+To build Spark with Kubernetes support, use the `kubernetes` profile when invoking Maven. For example, to simply compile the Kubernetes core implementation module along with its dependencies:
 
     build/mvn compile -Pkubernetes -pl resource-managers/kubernetes/core -am -DskipTests
+
+If this is the first time you compile the Kubernetes core implementation module, run the following command to install the dependencies and compile:
+
+    build/mvn install -Pkubernetes -pl resource-managers/kubernetes/core -am -DskipTests
 
 To build a distribution of Spark with Kubernetes support, use the `dev/make-distribution.sh` script, and add the
 `kubernetes` profile as part of the build arguments. Any other build arguments can be specified as one would expect when
@@ -64,10 +67,12 @@ build/mvn integration-test \
 # Running against an arbitrary cluster
 
 In order to run against any cluster, use the following:
+```sh
 build/mvn integration-test \
     -Pkubernetes -Pkubernetes-integration-tests \
     -pl resource-managers/kubernetes/integration-tests -am
     -DextraScalaTestArgs="-Dspark.kubernetes.test.master=k8s://https://<master> -Dspark.docker.test.driverImage=<driver-image> -Dspark.docker.test.executorImage=<executor-image>"
+```
 
 # Preserve the Minikube VM
 

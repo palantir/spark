@@ -36,19 +36,24 @@ private[spark] class BaseDriverConfigurationStepSuite extends SparkFunSuite {
   private val CUSTOM_ANNOTATION_VALUE = "customAnnotationValue"
   private val DEPRECATED_CUSTOM_ANNOTATION_KEY = "customAnnotationDeprecated"
   private val DEPRECATED_CUSTOM_ANNOTATION_VALUE = "customAnnotationDeprecatedValue"
+  private val DRIVER_CUSTOM_ENV_KEY1 = "customDriverEnv1"
+  private val DRIVER_CUSTOM_ENV_KEY2 = "customDriverEnv2"
 
   test("Set all possible configurations from the user.") {
     val sparkConf = new SparkConf()
         .set(KUBERNETES_DRIVER_POD_NAME, "spark-driver-pod")
-        .set(org.apache.spark.internal.config.DRIVER_CLASS_PATH, "/opt/spark/spark-exmaples.jar")
+        .set(org.apache.spark.internal.config.DRIVER_CLASS_PATH, "/opt/spark/spark-examples.jar")
         .set("spark.driver.cores", "2")
         .set(KUBERNETES_DRIVER_LIMIT_CORES, "4")
-        .set(org.apache.spark.internal.config.DRIVER_MEMORY, 256L)
+        .set(org.apache.spark.internal.config.DRIVER_MEMORY.key, "256M")
         .set(KUBERNETES_DRIVER_MEMORY_OVERHEAD, 200L)
         .set(DRIVER_DOCKER_IMAGE, "spark-driver:latest")
         .set(s"spark.kubernetes.driver.annotation.$CUSTOM_ANNOTATION_KEY", CUSTOM_ANNOTATION_VALUE)
         .set("spark.kubernetes.driver.annotations",
             s"$DEPRECATED_CUSTOM_ANNOTATION_KEY=$DEPRECATED_CUSTOM_ANNOTATION_VALUE")
+        .set(s"$KUBERNETES_DRIVER_ENV_KEY$DRIVER_CUSTOM_ENV_KEY1", "customDriverEnv1")
+        .set(s"$KUBERNETES_DRIVER_ENV_KEY$DRIVER_CUSTOM_ENV_KEY2", "customDriverEnv2")
+
     val submissionStep = new BaseDriverConfigurationStep(
         APP_ID,
         RESOURCE_NAME_PREFIX,
@@ -74,17 +79,19 @@ private[spark] class BaseDriverConfigurationStepSuite extends SparkFunSuite {
         .asScala
         .map(env => (env.getName, env.getValue))
         .toMap
-    assert(envs.size === 4)
-    assert(envs(ENV_SUBMIT_EXTRA_CLASSPATH) === "/opt/spark/spark-exmaples.jar")
-    assert(envs(ENV_DRIVER_MEMORY) === "456m")
+    assert(envs.size === 6)
+    assert(envs(ENV_SUBMIT_EXTRA_CLASSPATH) === "/opt/spark/spark-examples.jar")
+    assert(envs(ENV_DRIVER_MEMORY) === "256M")
     assert(envs(ENV_DRIVER_MAIN_CLASS) === MAIN_CLASS)
     assert(envs(ENV_DRIVER_ARGS) === "arg1 arg2")
+    assert(envs(DRIVER_CUSTOM_ENV_KEY1) === "customDriverEnv1")
+    assert(envs(DRIVER_CUSTOM_ENV_KEY2) === "customDriverEnv2")
     val resourceRequirements = preparedDriverSpec.driverContainer.getResources
     val requests = resourceRequirements.getRequests.asScala
     assert(requests("cpu").getAmount === "2")
-    assert(requests("memory").getAmount === "256M")
+    assert(requests("memory").getAmount === "256Mi")
     val limits = resourceRequirements.getLimits.asScala
-    assert(limits("memory").getAmount === "456M")
+    assert(limits("memory").getAmount === "456Mi")
     assert(limits("cpu").getAmount === "4")
     val driverPodMetadata = preparedDriverSpec.driverPod.getMetadata
     assert(driverPodMetadata.getName === "spark-driver-pod")

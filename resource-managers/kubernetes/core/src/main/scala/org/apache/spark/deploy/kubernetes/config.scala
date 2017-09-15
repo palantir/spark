@@ -126,6 +126,8 @@ package object config extends Logging {
       .stringConf
       .createOptional
 
+  private[spark] val KUBERNETES_DRIVER_ENV_KEY = "spark.kubernetes.driverEnv."
+
   private[spark] val KUBERNETES_DRIVER_ANNOTATIONS =
     ConfigBuilder("spark.kubernetes.driver.annotations")
       .doc("Custom annotations that will be added to the driver pod. This should be a" +
@@ -448,6 +450,22 @@ package object config extends Logging {
       .timeConf(TimeUnit.MINUTES)
       .createWithDefault(5)
 
+  private[spark] val EXECUTOR_SUBMITTED_SMALL_FILES_SECRET =
+    ConfigBuilder("spark.kubernetes.mountdependencies.smallfiles.executor.secretName")
+      .doc("Name of the secret that should be mounted into the executor containers for" +
+        " distributing submitted small files without the resource staging server.")
+      .internal()
+      .stringConf
+      .createOptional
+
+  private[spark] val EXECUTOR_SUBMITTED_SMALL_FILES_SECRET_MOUNT_PATH =
+    ConfigBuilder("spark.kubernetes.mountdependencies.smallfiles.executor.secretMountPath")
+      .doc(s"Mount path in the executors for the secret given by" +
+        s" ${EXECUTOR_SUBMITTED_SMALL_FILES_SECRET.key}")
+      .internal()
+      .stringConf
+      .createOptional
+
   private[spark] val EXECUTOR_INIT_CONTAINER_CONFIG_MAP =
     ConfigBuilder("spark.kubernetes.initcontainer.executor.configmapname")
       .doc("Name of the config map to use in the init-container that retrieves submitted files" +
@@ -490,6 +508,19 @@ package object config extends Logging {
       .doc("Specify the hard cpu limit for the driver pod")
       .stringConf
       .createOptional
+
+  private[spark] val KUBERNETES_DRIVER_CLUSTER_NODENAME_DNS_LOOKUP_ENABLED =
+    ConfigBuilder("spark.kubernetes.driver.hdfslocality.clusterNodeNameDNSLookup.enabled")
+      .doc("Whether or not HDFS locality support code should look up DNS for full hostnames of" +
+        " cluster nodes. In some K8s clusters, notably GKE, cluster node names are short" +
+        " hostnames, and so comparing them against HDFS datanode hostnames always fail. To fix," +
+        " enable this flag. This is disabled by default because DNS lookup can be expensive." +
+        " The driver can slow down and fail to respond to executor heartbeats in time." +
+        " If enabling this flag, make sure your DNS server has enough capacity" +
+        " for the workload.")
+      .internal()
+      .booleanConf
+      .createWithDefault(false)
 
   private[spark] val KUBERNETES_EXECUTOR_LIMIT_CORES =
     ConfigBuilder("spark.kubernetes.executor.limit.cores")

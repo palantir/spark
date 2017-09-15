@@ -249,7 +249,7 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
             val appSecManager = new SecurityManager(conf)
             SparkUI.createHistoryUI(conf, replayBus, appSecManager, appInfo.name,
               HistoryServer.getAttemptURI(appId, attempt.attemptId),
-              attempt.startTime)
+              Some(attempt.lastUpdated), attempt.startTime)
             // Do not call ui.bind() to avoid creating a new server for each application
           }
 
@@ -317,7 +317,7 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
       val newLastScanTime = getNewLastScanTime()
       logDebug(s"Scanning $logDir with lastScanTime==$lastScanTime")
       val statusList = Option(fs.listStatus(new Path(logDir))).map(_.toSeq)
-        .getOrElse(Seq[FileStatus]())
+        .getOrElse(Seq.empty[FileStatus])
       // scan for modified applications, replay and merge them
       val logInfos: Seq[FileStatus] = statusList
         .filter { entry =>

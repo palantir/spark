@@ -1546,10 +1546,10 @@ class SQLQuerySuite extends QueryTest with SharedSQLContext {
       Seq(Row(d)))
     checkAnswer(
       df.selectExpr("b * a + b"),
-      Seq(Row(BigDecimal(2.12321))))
+      Seq(Row(BigDecimal("2.12321"))))
     checkAnswer(
       df.selectExpr("b * a - b"),
-      Seq(Row(BigDecimal(0.12321))))
+      Seq(Row(BigDecimal("0.12321"))))
     checkAnswer(
       df.selectExpr("b * a * b"),
       Seq(Row(d)))
@@ -2656,6 +2656,25 @@ class SQLQuerySuite extends QueryTest with SharedSQLContext {
         "cannot resolve '`v.i`' given input columns: [__auto_generated_subquery_name.i]")
 
       checkAnswer(sql("SELECT __auto_generated_subquery_name.i from (SELECT i FROM v)"), Row(1))
+    }
+  }
+
+  test("SPARK-21743: top-most limit should not cause memory leak") {
+    // In unit test, Spark will fail the query if memory leak detected.
+    spark.range(100).groupBy("id").count().limit(1).collect()
+  }
+
+  test("SPARK-21652: rule confliction of InferFiltersFromConstraints and ConstantPropagation") {
+    withTempView("t1", "t2") {
+      Seq((1, 1)).toDF("col1", "col2").createOrReplaceTempView("t1")
+      Seq(1, 2).toDF("col").createOrReplaceTempView("t2")
+      val df = sql(
+        """
+          |SELECT *
+          |FROM t1, t2
+          |WHERE t1.col1 = 1 AND 1 = t1.col2 AND t1.col1 = t2.col AND t1.col2 = t2.col
+        """.stripMargin)
+      checkAnswer(df, Row(1, 1, 1))
     }
   }
 }

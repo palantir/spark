@@ -87,7 +87,7 @@ package object config {
     .intConf
     .createOptional
 
-  private[spark] val PY_FILES = ConfigBuilder("spark.submit.pyFiles")
+  private[spark] val PY_FILES = ConfigBuilder("spark.yarn.dist.pyFiles")
     .internal()
     .stringConf
     .toSequence
@@ -324,6 +324,15 @@ package object config {
       .booleanConf
       .createWithDefault(false)
 
+  private[spark] val BUFFER_WRITE_CHUNK_SIZE =
+    ConfigBuilder("spark.buffer.write.chunkSize")
+      .internal()
+      .doc("The chunk size during writing out the bytes of ChunkedByteBuffer.")
+      .bytesConf(ByteUnit.BYTE)
+      .checkValue(_ <= Int.MaxValue, "The chunk size during writing out the bytes of" +
+        " ChunkedByteBuffer should not larger than Int.MaxValue.")
+      .createWithDefault(64 * 1024 * 1024)
+
   private[spark] val CHECKPOINT_COMPRESS =
     ConfigBuilder("spark.checkpoint.compress")
       .doc("Whether to compress RDD checkpoints. Generally a good idea. Compression will use " +
@@ -351,6 +360,17 @@ package object config {
         "retry for maxAttempts times.")
       .intConf
       .createWithDefault(3)
+
+  private[spark] val REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS =
+    ConfigBuilder("spark.reducer.maxBlocksInFlightPerAddress")
+      .doc("This configuration limits the number of remote blocks being fetched per reduce task" +
+        " from a given host port. When a large number of blocks are being requested from a given" +
+        " address in a single fetch or simultaneously, this could crash the serving executor or" +
+        " Node Manager. This is especially useful to reduce the load on the Node Manager when" +
+        " external shuffle is enabled. You can mitigate the issue by setting it to a lower value.")
+      .intConf
+      .checkValue(_ > 0, "The max no. of blocks in flight cannot be non-positive.")
+      .createWithDefault(Int.MaxValue)
 
   private[spark] val REDUCER_MAX_REQ_SIZE_SHUFFLE_TO_MEM =
     ConfigBuilder("spark.reducer.maxReqSizeShuffleToMem")

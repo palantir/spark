@@ -1424,7 +1424,9 @@ def substring(str, pos, len):
     """
     Substring starts at `pos` and is of length `len` when str is String type or
     returns the slice of byte array that starts at `pos` in byte and is of length `len`
-    when str is Binary type
+    when str is Binary type.
+
+    .. note:: The position is not zero based, but 1 based index.
 
     >>> df = spark.createDataFrame([('abcd',)], ['s',])
     >>> df.select(substring(df.s, 1, 2).alias('s')).collect()
@@ -1882,9 +1884,9 @@ def json_tuple(col, *fields):
 @since(2.1)
 def from_json(col, schema, options={}):
     """
-    Parses a column containing a JSON string into a [[StructType]] or [[ArrayType]]
-    of [[StructType]]s with the specified schema. Returns `null`, in the case of an unparseable
-    string.
+    Parses a column containing a JSON string into a :class:`StructType` or :class:`ArrayType`
+    of :class:`StructType`\\s with the specified schema. Returns `null`, in the case of an
+    unparseable string.
 
     :param col: string column in json format
     :param schema: a StructType or ArrayType of StructType to use when parsing the json column.
@@ -1919,10 +1921,12 @@ def from_json(col, schema, options={}):
 @since(2.1)
 def to_json(col, options={}):
     """
-    Converts a column containing a [[StructType]] or [[ArrayType]] of [[StructType]]s into a
-    JSON string. Throws an exception, in the case of an unsupported type.
+    Converts a column containing a :class:`StructType`, :class:`ArrayType` of
+    :class:`StructType`\\s, a :class:`MapType` or :class:`ArrayType` of :class:`MapType`\\s
+    into a JSON string. Throws an exception, in the case of an unsupported type.
 
-    :param col: name of column containing the struct or array of the structs
+    :param col: name of column containing the struct, array of the structs, the map or
+        array of the maps.
     :param options: options to control converting. accepts the same options as the json datasource
 
     >>> from pyspark.sql import Row
@@ -1935,6 +1939,14 @@ def to_json(col, options={}):
     >>> df = spark.createDataFrame(data, ("key", "value"))
     >>> df.select(to_json(df.value).alias("json")).collect()
     [Row(json=u'[{"age":2,"name":"Alice"},{"age":3,"name":"Bob"}]')]
+    >>> data = [(1, {"name": "Alice"})]
+    >>> df = spark.createDataFrame(data, ("key", "value"))
+    >>> df.select(to_json(df.value).alias("json")).collect()
+    [Row(json=u'{"name":"Alice"}')]
+    >>> data = [(1, [{"name": "Alice"}, {"name": "Bob"}])]
+    >>> df = spark.createDataFrame(data, ("key", "value"))
+    >>> df.select(to_json(df.value).alias("json")).collect()
+    [Row(json=u'[{"name":"Alice"},{"name":"Bob"}]')]
     """
 
     sc = SparkContext._active_spark_context
@@ -2088,10 +2100,22 @@ class UserDefinedFunction(object):
         """
         Wrap this udf with a function and attach docstring from func
         """
-        @functools.wraps(self.func)
+
+        # It is possible for a callable instance without __name__ attribute or/and
+        # __module__ attribute to be wrapped here. For example, functools.partial. In this case,
+        # we should avoid wrapping the attributes from the wrapped function to the wrapper
+        # function. So, we take out these attribute names from the default names to set and
+        # then manually assign it after being wrapped.
+        assignments = tuple(
+            a for a in functools.WRAPPER_ASSIGNMENTS if a != '__name__' and a != '__module__')
+
+        @functools.wraps(self.func, assigned=assignments)
         def wrapper(*args):
             return self(*args)
 
+        wrapper.__name__ = self._name
+        wrapper.__module__ = (self.func.__module__ if hasattr(self.func, '__module__')
+                              else self.func.__class__.__module__)
         wrapper.func = self.func
         wrapper.returnType = self.returnType
 
