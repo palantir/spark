@@ -49,7 +49,6 @@ private abstract class BaseRRDD[T: ClassTag, U: ClassTag](
   override def getPartitions: Array[Partition] = parent.partitions
 
   override def compute(partition: Partition, context: TaskContext): Iterator[U] = {
-    sparkContext.build
     val runner = new RRunner[U](
       func, deserializer, serializer, packageNames, broadcastVars, condaInstructions, numPartitions)
 
