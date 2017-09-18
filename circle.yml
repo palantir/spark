@@ -40,7 +40,7 @@ dependencies:
     - ./build/mvn -DskipTests -Phadoop-cloud -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pyarn -Phive -Psparkr install
       # Copy all of */target/scala_2.11/classes to build_classes/
     - >
-      rsync --info=stats2,misc1,flist0 -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --exclude 'target/streams' --exclude 'assembly/target' --exclude 'common/network-yarn/target' --exclude 'examples/target' --exclude '***/*.jar' --include 'target/***' --include '**/' --exclude '*' . build_classes/
+      rsync --info=stats2,misc1,flist0 -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --exclude 'target/streams' --exclude 'assembly/target' --exclude 'common/network-yarn/target' --exclude 'examples/target' --exclude '***/*.jar' --include 'target/***' --include 'target_mvn/***' --include '**/' --exclude '*' . build_classes/
     - |
       # Make sbt fetch all the external deps to ~/.ivy2 so it gets cached
       ./build/sbt -Phadoop-cloud -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pyarn -Phive -Psparkr update oldDeps/update

@@ -150,4 +150,5 @@ export MAVEN_OPTS=${MAVEN_OPTS:-"$_COMPILE_JVM_OPTS"}
 echo "Using \`mvn\` from path: $MVN_BIN" 1>&2
 
 # Last, call the `mvn` command as usual
-${MVN_BIN} -DzincPort=${ZINC_PORT} -e "$@"
+# TODO(dsanduleac): not sure why setting it under project.properties in pom.xml doesn't work
+${MVN_BIN} -DzincPort=${ZINC_PORT} -Dalt.build.dir=target_mvn -e "$@"
