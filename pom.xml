@@ -109,6 +109,8 @@
   </modules>
 
   <properties>
+    <!-- comment this out to restore target to default i.e. ${project.baseDir}/target -->
+    <alt.build.dir>target_mvn</alt.build.dir>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>1.8</java.version>
@@ -2327,6 +2329,7 @@
               <javacArg>${java.version}</javacArg>
               <javacArg>-Xlint:all,-serial,-path,-try</javacArg>
             </javacArgs>
+            <outputDir>${project.build.directory}/output</outputDir>
           </configuration>
         </plugin>
         <plugin>
@@ -2834,6 +2837,18 @@
   </build>
 
   <profiles>
+
+    <profile>
+        <id>alternateBuildDir</id>
+        <activation>
+            <property>
+                <name>alt.build.dir</name>
+            </property>
+        </activation>
+        <build>
+            <directory>${alt.build.dir}</directory>
+        </build>
+    </profile>
 
     <!--
       This profile is enabled automatically by the sbt build. It changes the scope for shaded
