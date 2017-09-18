@@ -82,7 +82,7 @@ private[spark] abstract class CondaAwareWorkerFactory(
     condaEnv.map(_.activatedEnvironment(requestedEnvVars)).getOrElse(requestedEnvVars)
   }
 
-  final def create(): Socket = {
+  def create(): Socket = {
     if (useDaemon) {
       synchronized {
         if (idleWorkers.nonEmpty) {

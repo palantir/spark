@@ -28,9 +28,9 @@ import org.apache.spark._
 import org.apache.spark.api.conda.CondaAwareWorkerFactory
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 
-private[spark] final class PythonWorkerFactory(requestedPythonExec: Option[String],
-                                               requestedEnvVars: Map[String, String],
-                                               condaInstructions: Option[CondaSetupInstructions])
+private[spark] class PythonWorkerFactory(requestedPythonExec: Option[String],
+                                         requestedEnvVars: Map[String, String],
+                                         condaInstructions: Option[CondaSetupInstructions])
     extends CondaAwareWorkerFactory(requestedEnvVars, condaInstructions) {
 
   override lazy val binary: String = {
