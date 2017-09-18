@@ -2327,7 +2327,8 @@
               <javacArg>${java.version}</javacArg>
               <javacArg>-Xlint:all,-serial,-path,-try</javacArg>
             </javacArgs>
-            <outputDir>${project.build.directory}/output</outputDir>
+            <outputDir>${project.build.directory}/classes</outputDir>
+            <testOutputDir>${project.build.directory}/test-classes</testOutputDir>
           </configuration>
         </plugin>
         <plugin>
@@ -2742,7 +2743,7 @@
           <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
           <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
           <configLocation>scalastyle-config.xml</configLocation>
-          <outputFile>${basedir}/target/scalastyle-output.xml</outputFile>
+          <outputFile>${project.build.directory}/scalastyle-output.xml</outputFile>
           <inputEncoding>${project.build.sourceEncoding}</inputEncoding>
           <outputEncoding>${project.reporting.outputEncoding}</outputEncoding>
         </configuration>
