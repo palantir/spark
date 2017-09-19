@@ -2327,8 +2327,8 @@
               <javacArg>${java.version}</javacArg>
               <javacArg>-Xlint:all,-serial,-path,-try</javacArg>
             </javacArgs>
-            <outputDir>${project.build.directory}/classes</outputDir>
-            <testOutputDir>${project.build.directory}/test-classes</testOutputDir>
+            <!-- <outputDir>${project.build.directory}/classes</outputDir> -->
+            <!-- <testOutputDir>${project.build.directory}/test-classes</testOutputDir> -->
           </configuration>
         </plugin>
         <plugin>
