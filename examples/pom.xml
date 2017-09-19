@@ -112,8 +112,8 @@
   </dependencies>
 
   <build>
-    <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
-    <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
+    <outputDirectory>${build.directory}/scala-${scala.binary.version}/classes</outputDirectory>
+    <testOutputDirectory>${build.directory}/scala-${scala.binary.version}/test-classes</testOutputDirectory>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -152,3 +152,4 @@
     </profile>
   </profiles>
 </project>
+

@@ -2745,7 +2745,7 @@
           <sourceDirectory>${basedir}/src/main/scala</sourceDirectory>
           <testSourceDirectory>${basedir}/src/test/scala</testSourceDirectory>
           <configLocation>scalastyle-config.xml</configLocation>
-          <outputFile>${project.build.directory}/scalastyle-output.xml</outputFile>
+          <outputFile>${build.directory}/scalastyle-output.xml</outputFile>
           <inputEncoding>${project.build.sourceEncoding}</inputEncoding>
           <outputEncoding>${project.reporting.outputEncoding}</outputEncoding>
         </configuration>
@@ -2767,7 +2767,7 @@
           <sourceDirectories>${basedir}/src/main/java,${basedir}/src/main/scala</sourceDirectories>
           <testSourceDirectory>${basedir}/src/test/java</testSourceDirectory>
           <configLocation>dev/checkstyle.xml</configLocation>
-          <outputFile>${basedir}/target/checkstyle-output.xml</outputFile>
+          <outputFile>${build.directory}/checkstyle-output.xml</outputFile>
           <inputEncoding>${project.build.sourceEncoding}</inputEncoding>
           <outputEncoding>${project.reporting.outputEncoding}</outputEncoding>
         </configuration>
@@ -3172,3 +3172,4 @@
     </profile>
   </profiles>
 </project>
+
