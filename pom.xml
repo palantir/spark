@@ -109,8 +109,6 @@
   </modules>
 
   <properties>
-    <!-- comment this out to restore target to default i.e. ${project.baseDir}/target -->
-    <alt.build.dir>target_mvn</alt.build.dir>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>1.8</java.version>
@@ -2236,6 +2234,9 @@
   </dependencyManagement>
 
   <build>
+    <!-- comment this out to restore it to default i.e. ${project.baseDir}/target -->
+    <directory>target_mvn</directory>
+
     <pluginManagement>
       <plugins>
         <plugin>
@@ -2329,8 +2330,6 @@
               <javacArg>${java.version}</javacArg>
               <javacArg>-Xlint:all,-serial,-path,-try</javacArg>
             </javacArgs>
-            <!-- <outputDir>${project.build.directory}/classes</outputDir> -->
-            <!-- <testOutputDir>${project.build.directory}/test-classes</testOutputDir> -->
           </configuration>
         </plugin>
         <plugin>
