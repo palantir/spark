@@ -44,7 +44,7 @@ dependencies:
       ./build/sbt -Phadoop-cloud -Phadoop-palantir -Pkinesis-asl -Pkubernetes -Pyarn -Phive -Psparkr update oldDeps/update test:compile
     - |
       # Copy all of */target and */target_mvn to build_classes/
-      rsync --info=stats2,misc1,flist0 -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --exclude 'target*/streams' --exclude 'assembly/*' --exclude 'common/network-yarn/target*' --exclude 'examples/target*' --exclude '***/*.jar' --include 'target/***' --include 'target_mvn/***' --include '**/' --exclude '*' . build_classes/
+      rsync --info=stats2,misc1,flist0 -a --delete-excluded --prune-empty-dirs --exclude build_classes/ --exclude 'target*/streams' --exclude 'assembly/*' --exclude '***/*.jar' --include 'target/***' --include 'target_mvn/***' --include '**/' --exclude '*' . build_classes/
   cache_directories:
     - "build_classes"
     - "build"
