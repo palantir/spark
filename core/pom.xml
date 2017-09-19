@@ -396,8 +396,8 @@
 
   </dependencies>
   <build>
-    <outputDirectory>${build.directory}/scala-${scala.binary.version}/classes</outputDirectory>
-    <testOutputDirectory>${build.directory}/scala-${scala.binary.version}/test-classes</testOutputDirectory>
+    <outputDirectory>${project.build.directory}/scala-${scala.binary.version}/classes</outputDirectory>
+    <testOutputDirectory>${project.build.directory}/scala-${scala.binary.version}/test-classes</testOutputDirectory>
     <resources>
       <resource>
         <directory>${project.basedir}/src/main/resources</directory>
@@ -512,4 +512,5 @@
   </profiles>
 
 </project>
+
 
