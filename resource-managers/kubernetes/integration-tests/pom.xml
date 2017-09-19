@@ -281,7 +281,7 @@
               <outputDirectory>${project.build.directory}/docker/examples/jars</outputDirectory>
               <resources>
                 <resource>
-                  <directory>${project.parent.basedir}/examples/target/scala-2.11/jars</directory>
+                  <directory>${project.parent.basedir}/examples/target_mvn/scala-2.11/jars</directory>
                   <filtering>true</filtering>
                 </resource>
               </resources>
