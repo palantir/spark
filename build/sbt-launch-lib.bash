@@ -120,7 +120,7 @@ get_mem_opts () {
   else
     # a ham-fisted attempt to move some memory settings in concert
     # so they need not be messed around with individually.
-    local mem=${1:-1024}
+    local mem=${1:-2048}
     local codecache=$(( $mem / 8 ))
     (( $codecache > 128 )) || codecache=128
     (( $codecache < 512 )) || codecache=512
