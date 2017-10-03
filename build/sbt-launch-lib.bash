@@ -124,7 +124,9 @@ get_mem_opts () {
     local codecache=$(( $mem / 8 ))
     (( $codecache > 128 )) || codecache=128
     (( $codecache < 512 )) || codecache=512
-    local class_metadata_size=$(( $codecache * 2 ))
+    # local class_metadata_size=$(( $codecache * 2 ))
+    # FIXME(dsanduleac): getting OOM GC Overhead Exceeded, suggested bumping this up to 2048
+    local codecache=$mem
     local class_metadata_opt=$([[ "$java_version" < "1.8" ]] && echo "MaxPermSize" || echo "MaxMetaspaceSize")
 
     local arg_xms=$([[ "${java_args[@]}" == *-Xms* ]] && echo "" || echo "-Xms${mem}m")
@@ -132,7 +134,7 @@ get_mem_opts () {
     local arg_rccs=$([[ "${java_args[@]}" == *-XX:ReservedCodeCacheSize* ]] && echo "" || echo "-XX:ReservedCodeCacheSize=${codecache}m")
     local arg_meta=$([[ "${java_args[@]}" == *-XX:${class_metadata_opt}* && ! "$java_version" < "1.8" ]] && echo "" || echo "-XX:${class_metadata_opt}=${class_metadata_size}m")
 
-    echo "${arg_xms} ${arg_xmx} ${arg_rccs} ${arg_meta} -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled"
+    echo "${arg_xms} ${arg_xmx} ${arg_rccs} ${arg_meta} -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled"
   fi
 }
 
