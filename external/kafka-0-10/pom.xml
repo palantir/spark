@@ -87,10 +87,21 @@
     </dependency>
 
   </dependencies>
+
   <build>
     <outputDirectory>${project.build.directory}/scala-${scala.binary.version}/classes</outputDirectory>
     <testOutputDirectory>${project.build.directory}/scala-${scala.binary.version}/test-classes</testOutputDirectory>
   </build>
+
+  <profiles>
+    <profile>
+      <id>scala-2.12</id>
+      <properties>
+        <kafka.version>0.10.1.1</kafka.version>
+      </properties>
+    </profile>
+  </profiles>
+
 </project>
 
 

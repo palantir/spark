@@ -279,6 +279,12 @@ streaming_flume_sink = Module(
     source_file_regexes=[
         "external/flume-sink",
     ],
+    build_profile_flags=[
+        "-Pflume",
+    ],
+    environ={
+        "ENABLE_FLUME_TESTS": "1"
+    },
     sbt_test_goals=[
         "streaming-flume-sink/test",
     ]
@@ -291,6 +297,12 @@ streaming_flume = Module(
     source_file_regexes=[
         "external/flume",
     ],
+    build_profile_flags=[
+        "-Pflume",
+    ],
+    environ={
+        "ENABLE_FLUME_TESTS": "1"
+    },
     sbt_test_goals=[
         "streaming-flume/test",
     ]
@@ -302,7 +314,13 @@ streaming_flume_assembly = Module(
     dependencies=[streaming_flume, streaming_flume_sink],
     source_file_regexes=[
         "external/flume-assembly",
-    ]
+    ],
+    build_profile_flags=[
+        "-Pflume",
+    ],
+    environ={
+        "ENABLE_FLUME_TESTS": "1"
+    }
 )
 
 
@@ -519,6 +537,14 @@ kubernetes = Module(
     source_file_regexes=["resource-managers/kubernetes/core"],
     build_profile_flags=["-Pkubernetes"],
     sbt_test_goals=["kubernetes/test"]
+)
+
+cloud = Module(
+    name="hadoop-cloud",
+    dependencies=[],
+    source_file_regexes=["hadoop-cloud/"],
+    build_profile_flags=["-Phadoop-cloud"],
+    sbt_test_goals=["hadoop-cloud/test"]
 )
 
 # The root module is a dummy module which is used to run all of the tests.
