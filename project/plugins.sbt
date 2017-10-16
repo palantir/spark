@@ -42,4 +42,4 @@ addSbtPlugin("com.simplytyped" % "sbt-antlr4" % "0.7.11")
 addSbtPlugin("org.spark-project" % "sbt-pom-reader" % "1.0.0-spark")
 
 // sbt-coursier parallelizes downloads of dependencies.
-addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.0-RC11")
+addSbtPlugin("io.get-coursier" % "sbt-coursier" % "1.0.0-RC12")
