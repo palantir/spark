@@ -116,7 +116,7 @@ object CondaEnvironment {
   }
 
   /** A channel that definitely does not have credentials set. */
-  private[CondaEnvironment] case class UnauthenticatedChannel(uri: URI) extends AnyVal {
+  private[CondaEnvironment] case class UnauthenticatedChannel(uri: URI) {
     require(uri.getUserInfo == null)
   }
 
