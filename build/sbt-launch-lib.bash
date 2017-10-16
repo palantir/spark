@@ -124,9 +124,7 @@ get_mem_opts () {
     local codecache=$(( $mem / 8 ))
     (( $codecache > 128 )) || codecache=128
     (( $codecache < 512 )) || codecache=512
-    # local class_metadata_size=$(( $codecache * 2 ))
-    # FIXME(dsanduleac): getting OOM GC Overhead Exceeded, suggested bumping this up to 2048
-    local codecache=$mem
+    local class_metadata_size=$(( $codecache * 2 ))
     local class_metadata_opt=$([[ "$java_version" < "1.8" ]] && echo "MaxPermSize" || echo "MaxMetaspaceSize")
 
     local arg_xms=$([[ "${java_args[@]}" == *-Xms* ]] && echo "" || echo "-Xms${mem}m")
