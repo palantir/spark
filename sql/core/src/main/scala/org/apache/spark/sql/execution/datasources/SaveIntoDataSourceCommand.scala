@@ -46,4 +46,13 @@ case class SaveIntoDataSourceCommand(
 
     Seq.empty[Row]
   }
+
+  override def simpleString: String = {
+    s"SaveIntoDataSourceCommand ${dataSource}, ${sanitize(options)}, $mode"
+  }
+
+  private def sanitize(options: Map[String, String]) = options.map {
+    case (k, v) if k == "password" => (k, "REDACTED")
+    case (k, v) => (k, v)
+  }
 }
