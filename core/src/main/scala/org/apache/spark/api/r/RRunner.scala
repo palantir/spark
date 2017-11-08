@@ -70,7 +70,7 @@ private[spark] class RRunner[U](
 
     // The stdout/stderr is shared by multiple tasks, because we use one daemon
     // to launch child process as worker.
-    val errThread = RRunner.createRWorker(listenPort)
+    val errThread = RRunner.createRWorker(condaSetupInstructions, listenPort)
 
     // We use two sockets to separate input and output, then it's easy to manage
     // the lifecycle of them to avoid deadlock.
@@ -376,7 +376,9 @@ private[r] object RRunner {
   /**
    * ProcessBuilder used to launch worker R processes.
    */
-  def createRWorker(port: Int): BufferedStreamThread = {
+  def createRWorker(condaSetupInstructions: Option[CondaSetupInstructions],
+                    port: Int)
+      : BufferedStreamThread = {
     val useDaemon = SparkEnv.get.conf.getBoolean("spark.sparkr.use.daemon", true)
     if (!Utils.isWindows && useDaemon) {
       synchronized {
@@ -384,7 +386,7 @@ private[r] object RRunner {
           // we expect one connections
           val serverSocket = new ServerSocket(0, 1, InetAddress.getByName("localhost"))
           val daemonPort = serverSocket.getLocalPort
-          errThread = createRProcess(daemonPort, "daemon.R")
+          errThread = createRProcess(condaSetupInstructions, daemonPort, "daemon.R")
           // the socket used to send out the input of task
           serverSocket.setSoTimeout(10000)
           val sock = serverSocket.accept()
@@ -406,7 +408,7 @@ private[r] object RRunner {
         errThread
       }
     } else {
-      createRProcess(port, "worker.R")
+      createRProcess(condaSetupInstructions, port, "worker.R")
     }
   }
 }
