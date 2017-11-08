@@ -39,7 +39,7 @@ case class MapPartitionsRWrapper(
    * Get the conda instructions eagerly - when the RDD is created.
    */
   val condaInstructions: Option[CondaSetupInstructions] =
-    SparkContext.getOrCreate().buildCondaInstructions()
+    SparkContext.getActive.flatMap(_.buildCondaInstructions())
 
   def apply(iter: Iterator[Any]): Iterator[Any] = {
     // If the content of current DataFrame is serialized R data?

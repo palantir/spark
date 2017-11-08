@@ -330,7 +330,6 @@ private[r] object RRunner {
     thread
   }
 
-
   private def createRProcess(
       condaSetupInstructions: Option[CondaSetupInstructions], port: Int, script: String)
   : BufferedStreamThread = {
