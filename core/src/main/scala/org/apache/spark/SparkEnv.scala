@@ -28,7 +28,6 @@ import com.google.common.collect.MapMaker
 
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
-import org.apache.spark.api.conda.WorkerRegistry
 import org.apache.spark.api.python.PythonWorkerFactory
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.internal.Logging
@@ -74,6 +73,10 @@ class SparkEnv (
 
   private[spark] var isStopped = false
 
+  case class PythonWorkerKey(pythonExec: Option[String], envVars: Map[String, String],
+                             condaInstructions: Option[CondaSetupInstructions])
+  private val pythonWorkers = mutable.HashMap[PythonWorkerKey, PythonWorkerFactory]()
+
   // A general, soft-reference map for metadata needed during HadoopRDD split computation
   // (e.g., HadoopFileRDD uses this to cache JobConfs and InputFormats).
   private[spark] val hadoopJobMetadata = new MapMaker().softValues().makeMap[String, Any]()
@@ -84,7 +87,7 @@ class SparkEnv (
 
     if (!isStopped) {
       isStopped = true
-      pythonWorkers.foreach((_, factory) => factory.stop())
+      pythonWorkers.values.foreach(_.stop())
       mapOutputTracker.stop()
       shuffleManager.stop()
       broadcastManager.stop()
@@ -111,8 +114,33 @@ class SparkEnv (
     }
   }
 
-  private[spark] val pythonWorkers: WorkerRegistry = new WorkerRegistry(key =>
-    new PythonWorkerFactory(key.exec, key.envVars, key.condaInstructions))
+  private[spark]
+  def createPythonWorker(pythonExec: Option[String], envVars: Map[String, String],
+                         condaInstructions: Option[CondaSetupInstructions]): java.net.Socket = {
+    synchronized {
+      val key = PythonWorkerKey(pythonExec, envVars, condaInstructions)
+      pythonWorkers.getOrElseUpdate(key,
+        new PythonWorkerFactory(pythonExec, envVars, condaInstructions)).create()
+    }
+  }
+
+  private[spark]
+  def destroyPythonWorker(pythonExec: Option[String], envVars: Map[String, String],
+                          condaInstructions: Option[CondaSetupInstructions], worker: Socket) {
+    synchronized {
+      val key = PythonWorkerKey(pythonExec, envVars, condaInstructions)
+      pythonWorkers.get(key).foreach(_.stopWorker(worker))
+    }
+  }
+
+  private[spark]
+  def releasePythonWorker(pythonExec: Option[String], envVars: Map[String, String],
+                          condaInstructions: Option[CondaSetupInstructions], worker: Socket) {
+    synchronized {
+      val key = PythonWorkerKey(pythonExec, envVars, condaInstructions)
+      pythonWorkers.get(key).foreach(_.releaseWorker(worker))
+    }
+  }
 }
 
 object SparkEnv extends Logging {
