@@ -220,7 +220,7 @@ object CondaEnvironmentManager extends Logging {
   }
 
   /**
-   * Helper method to create a conda environment from [[CondaSetupInstructions]].
+   * Helper method to create a conda environment from [[CondaEnvironment.CondaSetupInstructions]].
    * This is intended to be called on the executor with serialized instructions.
    */
   def createCondaEnvironment(instructions: CondaSetupInstructions): CondaEnvironment = {
