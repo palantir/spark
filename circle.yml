@@ -3,6 +3,7 @@ machine:
     version: oraclejdk8
   post:
     - sudo apt-get --assume-yes install r-base r-base-dev
+    - R -e ".libPaths()"
     - R -e "install.packages(c('knitr', 'rmarkdown', 'testthat', 'e1071', 'survival'), repos='http://cran.us.r-project.org')"
     - |
       if [[ ! -d ${CONDA_ROOT} ]]; then
