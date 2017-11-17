@@ -20,7 +20,7 @@ machine:
   environment:
     TERM: dumb
     R_HOME: /usr/lib/R
-    R_LIBS: /usr/lib/R/lib
+    R_LIBS: $HOME/R/lib
     CONDA_BIN: $HOME/miniconda/bin/conda
     CONDA_ROOT: $HOME/miniconda
 
