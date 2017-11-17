@@ -3,7 +3,7 @@ machine:
     version: oraclejdk8
   post:
     - sudo apt-get --assume-yes install r-base r-base-dev
-    - R_LIBS_SITE="$HOME/spark/R/lib" R -e ".libPaths()"
+    - echo ".libPaths(\"$HOME/spark/R/lib\")" > $HOME/.Rprofile
     - R -e "install.packages(c('knitr', 'rmarkdown', 'testthat', 'e1071', 'survival'), repos='http://cran.us.r-project.org')"
     - |
       if [[ ! -d ${CONDA_ROOT} ]]; then
@@ -21,7 +21,6 @@ machine:
   environment:
     TERM: dumb
     R_HOME: /usr/lib/R
-    R_LIBS_SITE: $HOME/spark/R/lib
     CONDA_BIN: $HOME/miniconda/bin/conda
     CONDA_ROOT: $HOME/miniconda
 
