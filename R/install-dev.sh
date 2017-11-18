@@ -44,7 +44,7 @@ pushd "$FWDIR" > /dev/null
 "$R_SCRIPT_PATH/R" CMD INSTALL --library="$LIB_DIR" "$FWDIR/pkg/"
 
 # Install SparkR packages
-R -e "install.packages(c('knitr', 'rmarkdown', 'testthat', 'e1071', 'survival'), repos='http://cran.us.r-project.org', lib='$HOME/spark/R/lib')"
+echo '.libPaths("$HOME/r-lib")' >> $FWDIR/.Rprofile
 
 # Zip the SparkR package so that it can be distributed to worker nodes on YARN
 cd "$LIB_DIR"
