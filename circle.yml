@@ -3,7 +3,7 @@ machine:
     version: oraclejdk8
   post:
     - sudo apt-get --assume-yes install r-base r-base-dev
-    - sudo chmod 777 /usr/local/lib/R/site-library
+    - sudo chmod 777 /usr/local/lib/R/site-library 
     - /usr/lib/R/bin/R -e "install.packages(c('knitr', 'rmarkdown', 'testthat', 'e1071', 'survival'), repos='http://cran.us.r-project.org', lib='/usr/local/lib/R/site-library')"
     - |
       if [[ ! -d ${CONDA_ROOT} ]]; then
