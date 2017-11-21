@@ -18,7 +18,7 @@
 context("include R packages")
 
 # JavaSparkContext handle
-config <- list(spark.conda.channelUrls="https://repo.continuum.io/pkgs/r/", spark.conda.bootstrapPackages="r,r-plyr")
+config <- list(spark.conda.channelUrls="https://repo.continuum.io/pkgs/r/", spark.conda.bootstrapPackages="r,plyr")
 sparkSession <- sparkR.session(master = sparkRTestMaster, enableHiveSupport = FALSE, sparkConfig = config)
 sc <- callJStatic("org.apache.spark.sql.api.r.SQLUtils", "getJavaSparkContext", sparkSession)
 
@@ -28,6 +28,7 @@ rdd <- parallelize(sc, nums, 2L)
 
 test_that("include inside function", {
   # Only run the test if plyr is installed.
+
   suppressPackageStartupMessages(library(plyr))
   generateData <- function(x) {
     suppressPackageStartupMessages(library(plyr))
