@@ -34,7 +34,7 @@
     <sbt.project.name>spark-dist-hadoop-palantir</sbt.project.name>
     <build.testJarPhase>none</build.testJarPhase>
     <build.copyDependenciesPhase>none</build.copyDependenciesPhase>
-    <hadoop.version>2.8.0-palantir.8</hadoop.version>
+    <hadoop.version>2.9.0-palantir.2</hadoop.version>
     <curator.version>2.7.1</curator.version>
   </properties>
 
@@ -109,11 +109,6 @@
         <groupId>org.apache.spark</groupId>
         <artifactId>spark-dist_${scala.binary.version}-hadoop-palantir</artifactId>
         <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.spark</groupId>
-        <artifactId>spark-dist</artifactId>
-        <version>${project.version}-hadoop-${hadoop.version}</version>
       </dependency>
     <!--
       Propagate these from spark-parent hadoop-palantir profile

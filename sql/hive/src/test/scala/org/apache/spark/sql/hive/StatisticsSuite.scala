@@ -755,7 +755,7 @@ class StatisticsSuite extends StatisticsCollectionTestBase with TestHiveSingleto
   test("change stats after insert command for hive table") {
     val table = s"change_stats_insert_hive_table"
     Seq(false, true).foreach { autoUpdate =>
-      withSQLConf(SQLConf.AUTO_UPDATE_SIZE.key -> autoUpdate.toString) {
+      withSQLConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED.key -> autoUpdate.toString) {
         withTable(table) {
           sql(s"CREATE TABLE $table (i int, j string)")
           // analyze to get initial stats
@@ -783,7 +783,7 @@ class StatisticsSuite extends StatisticsCollectionTestBase with TestHiveSingleto
   test("change stats after load data command") {
     val table = "change_stats_load_table"
     Seq(false, true).foreach { autoUpdate =>
-      withSQLConf(SQLConf.AUTO_UPDATE_SIZE.key -> autoUpdate.toString) {
+      withSQLConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED.key -> autoUpdate.toString) {
         withTable(table) {
           sql(s"CREATE TABLE $table (i INT, j STRING) STORED AS PARQUET")
           // analyze to get initial stats
@@ -817,7 +817,7 @@ class StatisticsSuite extends StatisticsCollectionTestBase with TestHiveSingleto
   test("change stats after add/drop partition command") {
     val table = "change_stats_part_table"
     Seq(false, true).foreach { autoUpdate =>
-      withSQLConf(SQLConf.AUTO_UPDATE_SIZE.key -> autoUpdate.toString) {
+      withSQLConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED.key -> autoUpdate.toString) {
         withTable(table) {
           sql(s"CREATE TABLE $table (i INT, j STRING) PARTITIONED BY (ds STRING, hr STRING)")
           // table has two partitions initially
@@ -937,26 +937,20 @@ class StatisticsSuite extends StatisticsCollectionTestBase with TestHiveSingleto
   }
 
   test("test statistics of LogicalRelation converted from Hive serde tables") {
-    val parquetTable = "parquetTable"
-    val orcTable = "orcTable"
-    withTable(parquetTable, orcTable) {
-      sql(s"CREATE TABLE $parquetTable (key STRING, value STRING) STORED AS PARQUET")
-      sql(s"CREATE TABLE $orcTable (key STRING, value STRING) STORED AS ORC")
-      sql(s"INSERT INTO TABLE $parquetTable SELECT * FROM src")
-      sql(s"INSERT INTO TABLE $orcTable SELECT * FROM src")
+    Seq("orc", "parquet").foreach { format =>
+      Seq(true, false).foreach { isConverted =>
+        withSQLConf(
+          HiveUtils.CONVERT_METASTORE_ORC.key -> s"$isConverted",
+          HiveUtils.CONVERT_METASTORE_PARQUET.key -> s"$isConverted") {
+          withTable(format) {
+            sql(s"CREATE TABLE $format (key STRING, value STRING) STORED AS $format")
+            sql(s"INSERT INTO TABLE $format SELECT * FROM src")
 
-      // the default value for `spark.sql.hive.convertMetastoreParquet` is true, here we just set it
-      // for robustness
-      withSQLConf(HiveUtils.CONVERT_METASTORE_PARQUET.key -> "true") {
-        checkTableStats(parquetTable, hasSizeInBytes = false, expectedRowCounts = None)
-        sql(s"ANALYZE TABLE $parquetTable COMPUTE STATISTICS")
-        checkTableStats(parquetTable, hasSizeInBytes = true, expectedRowCounts = Some(500))
-      }
-      withSQLConf(HiveUtils.CONVERT_METASTORE_ORC.key -> "true") {
-        // We still can get tableSize from Hive before Analyze
-        checkTableStats(orcTable, hasSizeInBytes = true, expectedRowCounts = None)
-        sql(s"ANALYZE TABLE $orcTable COMPUTE STATISTICS")
-        checkTableStats(orcTable, hasSizeInBytes = true, expectedRowCounts = Some(500))
+            checkTableStats(format, hasSizeInBytes = !isConverted, expectedRowCounts = None)
+            sql(s"ANALYZE TABLE $format COMPUTE STATISTICS")
+            checkTableStats(format, hasSizeInBytes = true, expectedRowCounts = Some(500))
+          }
+        }
       }
     }
   }

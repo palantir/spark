@@ -2,7 +2,13 @@ machine:
   java:
     version: oraclejdk8
   post:
-    - sudo apt-get --assume-yes install r-base r-base-dev
+    - sudo sh -c 'echo "deb http://cran.rstudio.com/bin/linux/ubuntu trusty/" >> /etc/apt/sources.list'
+    - gpg --keyserver keyserver.ubuntu.com --recv-key E084DAB9
+    - gpg -a --export E084DAB9 | sudo apt-key add -
+    - sudo apt-get update
+    - sudo apt-get --assume-yes install r-base r-base-dev qpdf
+    - sudo chmod 777 /usr/local/lib/R/site-library 
+    - /usr/lib/R/bin/R -e "install.packages(c('knitr', 'rmarkdown', 'testthat', 'e1071', 'survival', 'roxygen2'), repos='http://cran.us.r-project.org', lib='/usr/local/lib/R/site-library')"
     - |
       if [[ ! -d ${CONDA_ROOT} ]]; then
           echo "Installing Miniconda...";
@@ -12,8 +18,8 @@ machine:
           echo "Using cached Miniconda install";
       fi
     - ln -s ~/miniconda $(pyenv root)/versions/miniconda3-latest
-    - 'pyenv versions | grep -q miniconda3-latest/envs/python2 || $CONDA_BIN create -y -n python2 python==2.7.11 numpy'
-    - 'pyenv versions | grep -q miniconda3-latest/envs/python3 || $CONDA_BIN create -y -n python3 python==3.4.4 numpy'
+    - 'pyenv versions | grep -q miniconda3-latest/envs/python2 || $CONDA_BIN create -y -n python2 python==2.7.11 numpy | tee -a "$CIRCLE_ARTIFACTS/run-conda.log"'
+    - 'pyenv versions | grep -q miniconda3-latest/envs/python3 || $CONDA_BIN create -y -n python3 python==3.4.4 numpy | tee -a "$CIRCLE_ARTIFACTS/run-conda.log"'
     - pyenv global miniconda3-latest/envs/python2 miniconda3-latest/envs/python3 #pypy-4.0.1
     - pyenv rehash
   environment:
