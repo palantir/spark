@@ -229,10 +229,10 @@ object CondaEnvironmentManager extends Logging {
     val condaEnvManager = CondaEnvironmentManager.fromConf(env.conf)
     val envDir = {
       // Which local dir to create it in?
-      val localDirs = env.blockManager.diskBlockManager.localDirs
+      val localDirs = "/tmp"
       val hash = Utils.nonNegativeHash(condaPackages)
       val dirId = hash % localDirs.length
-      Utils.createTempDir(localDirs(dirId).getAbsolutePath, "conda").getAbsolutePath
+      Utils.createTempDir(localDirs, "conda").getAbsolutePath
     }
     condaEnvManager.create(envDir, condaPackages, instructions.channels)
   }
