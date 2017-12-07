@@ -23,7 +23,9 @@ import java.util.Locale
 
 import scala.collection.mutable
 import scala.util.Properties
+
 import com.google.common.collect.MapMaker
+
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.api.python.PythonWorkerFactory
