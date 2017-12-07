@@ -17,15 +17,13 @@
 
 package org.apache.spark
 
-import java.io.File
+import java.io.{DataOutputStream, File, IOException}
 import java.net.Socket
 import java.util.Locale
 
 import scala.collection.mutable
 import scala.util.Properties
-
 import com.google.common.collect.MapMaker
-
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.api.python.PythonWorkerFactory
@@ -76,6 +74,7 @@ class SparkEnv (
   case class PythonWorkerKey(pythonExec: Option[String], envVars: Map[String, String],
                              condaInstructions: Option[CondaSetupInstructions])
   private val pythonWorkers = mutable.HashMap[PythonWorkerKey, PythonWorkerFactory]()
+  private var rDaemonChannel: DataOutputStream = _
 
   // A general, soft-reference map for metadata needed during HadoopRDD split computation
   // (e.g., HadoopFileRDD uses this to cache JobConfs and InputFormats).
@@ -88,6 +87,7 @@ class SparkEnv (
     if (!isStopped) {
       isStopped = true
       pythonWorkers.values.foreach(_.stop())
+      destroyRDaemonChannel()
       mapOutputTracker.stop()
       shuffleManager.stop()
       broadcastManager.stop()
@@ -111,6 +111,34 @@ class SparkEnv (
           }
         case None => // We just need to delete tmp dir created by driver, so do nothing on executor
       }
+    }
+  }
+
+  private[spark] def setRDaemonChannel(daemonChannel: DataOutputStream) {
+    rDaemonChannel = daemonChannel
+  }
+
+  private[spark] def rDaemonExists(): Boolean = {
+    rDaemonChannel != null
+  }
+
+  private[spark] def destroyRDaemonChannel(): Unit = {
+    if (rDaemonChannel != null) {
+      rDaemonChannel.close()
+      rDaemonChannel = null
+    }
+  }
+
+  private[spark] def createRWorkerFromDaemon(port: Int) {
+    try {
+      rDaemonChannel.writeInt(port)
+      rDaemonChannel.flush()
+    } catch {
+      case e: IOException =>
+        // daemon process died
+        destroyRDaemonChannel()
+        // fail the current task, retry by scheduler
+        throw e
     }
   }
 

@@ -70,7 +70,7 @@ private[spark] class RRunner[U](
 
     // The stdout/stderr is shared by multiple tasks, because we use one daemon
     // to launch child process as worker.
-    val errThread = RRunner.createRWorker(condaSetupInstructions, listenPort)
+    val errThread = RRunner.createRWorker(condaSetupInstructions, listenPort, SparkEnv.get)
 
     // We use two sockets to separate input and output, then it's easy to manage
     // the lifecycle of them to avoid deadlock.
@@ -317,7 +317,6 @@ private[r] object RRunner {
   // This daemon currently only works on UNIX-based systems now, so we should
   // also fall back to launching workers (worker.R) directly.
   private[this] var errThread: BufferedStreamThread = _
-  private[this] var daemonChannel: DataOutputStream = _
 
   /**
    * Start a thread to print the process's stderr to ours
@@ -376,12 +375,12 @@ private[r] object RRunner {
    * ProcessBuilder used to launch worker R processes.
    */
   def createRWorker(condaSetupInstructions: Option[CondaSetupInstructions],
-                    port: Int)
+                    port: Int, env: SparkEnv)
       : BufferedStreamThread = {
     val useDaemon = SparkEnv.get.conf.getBoolean("spark.sparkr.use.daemon", true)
     if (!Utils.isWindows && useDaemon) {
       synchronized {
-        if (daemonChannel == null) {
+        if (!env.rDaemonExists()) {
           // we expect one connections
           val serverSocket = new ServerSocket(0, 1, InetAddress.getByName("localhost"))
           val daemonPort = serverSocket.getLocalPort
@@ -389,17 +388,15 @@ private[r] object RRunner {
           // the socket used to send out the input of task
           serverSocket.setSoTimeout(10000)
           val sock = serverSocket.accept()
-          daemonChannel = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream))
+          env.setRDaemonChannel(
+            new DataOutputStream(new BufferedOutputStream(sock.getOutputStream)))
           serverSocket.close()
         }
         try {
-          daemonChannel.writeInt(port)
-          daemonChannel.flush()
+          env.createRWorkerFromDaemon(port)
         } catch {
           case e: IOException =>
             // daemon process died
-            daemonChannel.close()
-            daemonChannel = null
             errThread = null
             // fail the current task, retry by scheduler
             throw e
