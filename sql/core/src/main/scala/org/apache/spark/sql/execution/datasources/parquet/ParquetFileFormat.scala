@@ -509,6 +509,7 @@ object ParquetFileFormat extends Logging {
       .expireAfterAccess(4, TimeUnit.HOURS)
       .concurrencyLevel(1)
       .softValues()
+      .maximumSize(1024)
       .removalListener(new RemovalListener[Path, ParquetFileSplitter] {
           override def onRemoval(removalNotification:
                                  RemovalNotification[Path, ParquetFileSplitter]): Unit = {
