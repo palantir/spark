@@ -18,8 +18,10 @@
 context("include R packages")
 
 # JavaSparkContext handle
-config <- list(spark.conda.channelUrls="https://repo.continuum.io/pkgs/r/", spark.conda.bootstrapPackages="r,plyr")
-sparkSession <- sparkR.session(master = sparkRTestMaster, enableHiveSupport = FALSE, sparkConfig = config)
+config <- list(spark.conda.channelUrls = "https://repo.continuum.io/pkgs/r/",
+  spark.conda.bootstrapPackages = "r,plyr")
+sparkSession <- sparkR.session(master = sparkRTestMaster,
+  enableHiveSupport = FALSE, sparkConfig = config)
 sc <- callJStatic("org.apache.spark.sql.api.r.SQLUtils", "getJavaSparkContext", sparkSession)
 
 # Partitioned data
