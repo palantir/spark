@@ -332,11 +332,6 @@ spark.addCondaChannel <- function(url) {
   callJMethod(jsc, "addCondaChannel", url)
 }
 
-spark.buildCondaInstructions <- function() {
-  sc <- callJMethod(getSparkContext(), "sc")
-  callJMethod(sc, "buildCondaInstructions")
-}
-
 #' Get the root directory that contains files added through spark.addFile.
 #'
 #' @rdname spark.getSparkFilesRootDirectory
