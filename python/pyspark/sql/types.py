@@ -1042,6 +1042,14 @@ def _infer_type(obj):
     if hasattr(obj, '__UDT__'):
         return obj.__UDT__
 
+    # check if this is a pandas timestamp, if pandas is available
+    try: 
+        import pandas as pd
+        if isinstance(pd.Timestamp):
+            return TimestampType
+    except Exception:
+        pass
+
     dataType = _type_mappings.get(type(obj))
     if dataType is DecimalType:
         # the precision and scale of `obj` may be different from row to row.
