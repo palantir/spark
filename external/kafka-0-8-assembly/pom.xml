@@ -123,8 +123,8 @@
   </dependencies>
 
   <build>
-  <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
-  <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
+  <outputDirectory>${project.build.directory}/scala-${scala.binary.version}/classes</outputDirectory>
+  <testOutputDirectory>${project.build.directory}/scala-${scala.binary.version}/test-classes</testOutputDirectory>
   <plugins>
     <plugin>
       <groupId>org.apache.maven.plugins</groupId>
@@ -172,4 +172,6 @@
   </plugins>
 </build>
 </project>
+
+
 
