@@ -487,3 +487,4 @@ private object KubernetesClusterSchedulerBackend {
       " Consider boosting spark executor memory overhead."
   }
 }
+
