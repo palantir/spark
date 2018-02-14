@@ -69,16 +69,10 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
   }
 
   def create(
-    baseDir: String,
-    condaPackages: Seq[String],
-    condaChannelUrls: Seq[String]): CondaEnvironment =
-  create(baseDir, condaPackages, condaChannelUrls, Nil)
-
-  def create(
               baseDir: String,
               condaPackages: Seq[String],
               condaChannelUrls: Seq[String],
-              condaExtraArgs: Seq[String]): CondaEnvironment = {
+              condaExtraArgs: Seq[String] = Nil): CondaEnvironment = {
     require(condaPackages.nonEmpty, "Expected at least one conda package.")
     require(condaChannelUrls.nonEmpty, "Can't have an empty list of conda channel URLs")
     val name = "conda-env"

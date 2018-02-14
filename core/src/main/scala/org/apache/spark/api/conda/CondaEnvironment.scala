@@ -38,7 +38,7 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
                              val envName: String,
                              bootstrapPackages: Seq[String],
                              bootstrapChannels: Seq[String],
-                             extraArgs: Seq[String]) extends Logging {
+                             extraArgs: Seq[String] = Nil) extends Logging {
 
   import CondaEnvironment._
 
