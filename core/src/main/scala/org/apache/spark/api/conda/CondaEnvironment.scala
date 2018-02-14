@@ -37,7 +37,8 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
                              val rootPath: Path,
                              val envName: String,
                              bootstrapPackages: Seq[String],
-                             bootstrapChannels: Seq[String]) extends Logging {
+                             bootstrapChannels: Seq[String],
+                             extraArgs: Seq[String]) extends Logging {
 
   import CondaEnvironment._
 
@@ -71,6 +72,7 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
   def installPackages(packages: Seq[String]): Unit = {
     manager.runCondaProcess(rootPath,
       List("install", "-n", envName, "-y")
+        ::: extraArgs.toList
         ::: "--" :: packages.toList,
       description = s"install dependencies in conda env $condaEnvDir",
       channels = channels.iterator.map(_.url).toList
