@@ -69,6 +69,12 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
   }
 
   def create(
+    baseDir: String,
+    condaPackages: Seq[String],
+    condaChannelUrls: Seq[String]): CondaEnvironment =
+  create(baseDir, condaPackages, condaChannelUrls, Nil)
+
+  def create(
               baseDir: String,
               condaPackages: Seq[String],
               condaChannelUrls: Seq[String],
@@ -238,7 +244,7 @@ object CondaEnvironmentManager extends Logging {
       val dirId = hash % localDirs.length
       Utils.createTempDir(localDirs(dirId).getAbsolutePath, "conda").getAbsolutePath
     }
-    condaEnvManager.create(envDir, condaPackages, instructions.channels)
+    condaEnvManager.create(envDir, condaPackages, instructions.channels, instructions.extraArgs)
   }
 
 }
