@@ -41,6 +41,7 @@ import org.apache.spark.SparkException
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.CONDA_BINARY_PATH
+import org.apache.spark.internal.config.CONDA_EXTRA_ARGUMENTS
 import org.apache.spark.internal.config.CONDA_GLOBAL_PACKAGE_DIRS
 import org.apache.spark.internal.config.CONDA_VERBOSITY
 import org.apache.spark.util.Utils
@@ -85,10 +86,13 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
 
     val verbosityFlags = 0.until(verbosity).map(_ => "-v").toList
 
+    val extraArgs = SparkEnv.get.conf.get(CONDA_EXTRA_ARGUMENTS)
+
     // Attempt to create environment
     runCondaProcess(
       linkedBaseDir,
       List("create", "-n", name, "-y", "--no-default-packages")
+        ::: extraArgs.toList
         ::: verbosityFlags
         ::: "--" :: condaPackages.toList,
       description = "create conda env",

@@ -24,7 +24,9 @@ import javax.ws.rs.core.UriBuilder
 
 import scala.collection.mutable
 
+import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
+import org.apache.spark.internal.config.CONDA_EXTRA_ARGUMENTS
 
 /**
  * A stateful class that describes a Conda environment and also keeps track of packages that have
@@ -69,9 +71,10 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
   }
 
   def installPackages(packages: Seq[String]): Unit = {
+    val extraArgs = SparkEnv.get.conf.get(CONDA_EXTRA_ARGUMENTS)
     manager.runCondaProcess(rootPath,
       List("install", "-n", envName, "-y")
-        ::: "--" :: packages.toList,
+        ::: extraArgs.toList ::: "--" :: packages.toList,
       description = s"install dependencies in conda env $condaEnvDir",
       channels = channels.iterator.map(_.url).toList
     )
