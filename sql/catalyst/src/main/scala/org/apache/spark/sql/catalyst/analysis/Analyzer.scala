@@ -18,7 +18,6 @@
 package org.apache.spark.sql.catalyst.analysis
 
 import scala.collection.mutable.ArrayBuffer
-
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst._
 import org.apache.spark.sql.catalyst.catalog._
@@ -30,7 +29,7 @@ import org.apache.spark.sql.catalyst.expressions.objects.{LambdaVariable, MapObj
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules._
-import org.apache.spark.sql.catalyst.trees.TreeNodeRef
+import org.apache.spark.sql.catalyst.trees.{CurrentOrigin, TreeNodeRef}
 import org.apache.spark.sql.catalyst.util.toPrettySQL
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
@@ -815,14 +814,16 @@ class Analyzer(
     private def resolve(e: Expression, q: LogicalPlan): Expression = e match {
       case u @ UnresolvedAttribute(nameParts) =>
         // Leave unchanged if resolution fails. Hopefully will be resolved next round.
-        val result =
-          withPosition(u) {
-            q.resolveChildren(nameParts, resolver)
-              .orElse(resolveLiteralFunction(nameParts, u, q))
-              .getOrElse(u)
-          }
-        logDebug(s"Resolving $u to $result")
-        result
+        CurrentOrigin.withOrigin(u.origin) {
+          val result =
+            withPosition(u) {
+              q.resolveChildren(nameParts, resolver)
+                .orElse(resolveLiteralFunction(nameParts, u, q))
+                .getOrElse(u)
+            }
+          logDebug(s"Resolving $u to $result")
+          result
+        }
       case UnresolvedExtractValue(child, fieldExpr) if child.resolved =>
         ExtractValue(child, fieldExpr, resolver)
       case _ => e.mapChildren(resolve(_, q))
