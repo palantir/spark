@@ -23,6 +23,7 @@ import scala.collection.JavaConverters._
 import io.fabric8.kubernetes.api.model.{ContainerBuilder, HasMetadata, PodBuilder}
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
+import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.submit.KubernetesDriverSpec
 
@@ -36,6 +37,9 @@ class DependencyResolutionStepSuite extends SparkFunSuite {
     "apps/files/file1.txt",
     "local:///var/apps/files/file2.txt")
 
+  private val CONFIGURED_JARS_DOWNLOAD_PATH = "/var/data/spark-submitted-jars"
+  private val CONFIGURED_FILES_DOWNLOAD_PATH = "/var/data/spark-submitted-files"
+
   test("Added dependencies should be resolved in Spark configuration and environment") {
     val dependencyResolutionStep = new DependencyResolutionStep(
       SPARK_JARS,
@@ -44,19 +48,21 @@ class DependencyResolutionStepSuite extends SparkFunSuite {
     val baseDriverSpec = KubernetesDriverSpec(
       driverPod = driverPod,
       driverContainer = new ContainerBuilder().build(),
-      driverSparkConf = new SparkConf(false),
+      driverSparkConf = new SparkConf(false)
+        .set(JARS_DOWNLOAD_LOCATION, CONFIGURED_JARS_DOWNLOAD_PATH)
+        .set(FILES_DOWNLOAD_LOCATION, CONFIGURED_FILES_DOWNLOAD_PATH),
       otherKubernetesResources = Seq.empty[HasMetadata])
     val preparedDriverSpec = dependencyResolutionStep.configureDriver(baseDriverSpec)
     assert(preparedDriverSpec.driverPod === driverPod)
     assert(preparedDriverSpec.otherKubernetesResources.isEmpty)
     val resolvedSparkJars = preparedDriverSpec.driverSparkConf.get("spark.jars").split(",").toSet
     val expectedResolvedSparkJars = Set(
-      "apps/jars/jar1.jar",
+      s"$CONFIGURED_JARS_DOWNLOAD_PATH/jar1.jar",
       "/var/apps/jars/jar2.jar")
     assert(resolvedSparkJars === expectedResolvedSparkJars)
     val resolvedSparkFiles = preparedDriverSpec.driverSparkConf.get("spark.files").split(",").toSet
     val expectedResolvedSparkFiles = Set(
-      "apps/files/file1.txt",
+      s"$CONFIGURED_FILES_DOWNLOAD_PATH/file1.txt",
       "/var/apps/files/file2.txt")
     assert(resolvedSparkFiles === expectedResolvedSparkFiles)
     val driverEnv = preparedDriverSpec.driverContainer.getEnv.asScala

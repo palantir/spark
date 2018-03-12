@@ -20,6 +20,7 @@ import java.io.File
 
 import io.fabric8.kubernetes.api.model.ContainerBuilder
 
+import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.KubernetesUtils
 import org.apache.spark.deploy.k8s.submit.KubernetesDriverSpec
@@ -33,10 +34,12 @@ private[spark] class DependencyResolutionStep(
     sparkFiles: Seq[String]) extends DriverConfigurationStep {
 
   override def configureDriver(driverSpec: KubernetesDriverSpec): KubernetesDriverSpec = {
-    val resolvedSparkJars = KubernetesUtils.resolveFileUrisAndPath(sparkJars)
-    val resolvedSparkFiles = KubernetesUtils.resolveFileUrisAndPath(sparkFiles)
-
     val sparkConf = driverSpec.driverSparkConf.clone()
+    val resolvedSparkJars = KubernetesUtils.resolveFileUrisAndPath(
+      sparkJars, sparkConf.get(JARS_DOWNLOAD_LOCATION))
+    val resolvedSparkFiles = KubernetesUtils.resolveFileUrisAndPath(
+      sparkFiles, sparkConf.get(FILES_DOWNLOAD_LOCATION))
+
     if (resolvedSparkJars.nonEmpty) {
       sparkConf.set("spark.jars", resolvedSparkJars.mkString(","))
     }
