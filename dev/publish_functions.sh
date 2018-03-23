@@ -33,4 +33,5 @@ make_dist() {
   file_name="spark-dist-${version}-${hadoop_name}.tgz"
   ./dev/make-distribution.sh --name "hadoop-palantir" --tgz "$@" $build_flags
   curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T "$file_name" "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
+  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST "https://api.bintray.com/content/palantir/releases/spark/${version}/publish"
 }
