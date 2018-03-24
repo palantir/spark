@@ -421,6 +421,10 @@ class SessionCatalog(
     externalCatalog.getTable(db, table)
   }
 
+  def getFileIndexForTable(name: TableIdentifier): FileIndex = {
+
+  }
+
   /**
    * Load files stored in given path into an existing metastore table.
    * If no database is specified, assume the table is in the current database.
