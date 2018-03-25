@@ -18,6 +18,7 @@
 package org.apache.spark.sql.catalyst.catalog
 
 import org.apache.spark.sql.catalyst.analysis.{FunctionAlreadyExistsException, NoSuchDatabaseException, NoSuchFunctionException, NoSuchTableException}
+import org.apache.spark.sql.catalyst.catalog.files.CatalogFileIndex
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.ListenerBus
@@ -191,6 +192,8 @@ abstract class ExternalCatalog
   protected def doAlterTableStats(db: String, table: String, stats: Option[CatalogStatistics]): Unit
 
   def getTable(db: String, table: String): CatalogTable
+
+  def getFileIndex(db: String, table: String, defaultSize: Long): CatalogFileIndex
 
   def tableExists(db: String, table: String): Boolean
 

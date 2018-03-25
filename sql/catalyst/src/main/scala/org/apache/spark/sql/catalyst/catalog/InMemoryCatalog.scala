@@ -29,6 +29,7 @@ import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.{FunctionIdentifier, TableIdentifier}
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.catalog.ExternalCatalogUtils._
+import org.apache.spark.sql.catalyst.catalog.files.CatalogFileIndex
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.util.StringUtils
 import org.apache.spark.sql.types.StructType
@@ -59,7 +60,7 @@ class InMemoryCatalog(
   }
 
   // Database name -> description
-  private val catalog = new scala.collection.mutable.HashMap[String, DatabaseDesc]
+  protected val catalog = new scala.collection.mutable.HashMap[String, DatabaseDesc]
 
   private def partitionExists(db: String, table: String, spec: TablePartitionSpec): Boolean = {
     requireTableExists(db, table)
@@ -326,6 +327,9 @@ class InMemoryCatalog(
     requireTableExists(db, table)
     catalog(db).tables(table).table
   }
+
+  override def getFileIndex(db: String, table: String, defaultSize: Long): CatalogFileIndex =
+    throw new UnsupportedOperationException("getFileIndex is not implemented")
 
   override def tableExists(db: String, table: String): Boolean = synchronized {
     requireDbExists(db)

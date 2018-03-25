@@ -395,11 +395,12 @@ case class DataSource(
 
         val fileCatalog = if (sparkSession.sqlContext.conf.manageFilesourcePartitions &&
             catalogTable.isDefined && catalogTable.get.tracksPartitionsInCatalog) {
-          val defaultTableSize = sparkSession.sessionState.conf.defaultSizeInBytes
-          new DefaultCatalogFileIndex(
-            sparkSession,
-            catalogTable.get,
-            catalogTable.get.stats.map(_.sizeInBytes.toLong).getOrElse(defaultTableSize))
+          sparkSession.sessionState.catalog.getTableFileIndex(catalogTable.get.identifier)
+//          val defaultTableSize = sparkSession.sessionState.conf.defaultSizeInBytes
+//          new DefaultCatalogFileIndex(
+//            sparkSession,
+//            catalogTable.get,
+//            catalogTable.get.stats.map(_.sizeInBytes.toLong).getOrElse(defaultTableSize))
         } else {
           new InMemoryFileIndex(
             sparkSession, globbedPaths, options, Some(partitionSchema), fileStatusCache)
