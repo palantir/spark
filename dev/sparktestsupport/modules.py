@@ -124,28 +124,28 @@ sql = Module(
 )
 
 
-hive = Module(
-    name="hive",
-    dependencies=[sql],
-    source_file_regexes=[
-        "sql/hive/",
-        "bin/spark-sql",
-    ],
-    build_profile_flags=[
-        "-Phive",
-    ],
-    sbt_test_goals=[
-        "hive/test",
-    ],
-    test_tags=[
-        "org.apache.spark.tags.ExtendedHiveTest"
-    ]
-)
+# hive = Module(
+#     name="hive",
+#     dependencies=[sql],
+#     source_file_regexes=[
+#         "sql/hive/",
+#         "bin/spark-sql",
+#     ],
+#     build_profile_flags=[
+#         "-Phive",
+#     ],
+#     sbt_test_goals=[
+#         "hive/test",
+#     ],
+#     test_tags=[
+#         "org.apache.spark.tags.ExtendedHiveTest"
+#     ]
+# )
 
 
 repl = Module(
     name="repl",
-    dependencies=[hive],
+    dependencies=[],
     source_file_regexes=[
         "repl/",
     ],
