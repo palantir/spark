@@ -218,6 +218,12 @@ jobs:
     parallelism: 2
     steps:
       - checkout
+      # These two steps restore all the target directories except jars
+      # Necessary because of SPARK_PREPEND_CLASSES being used in python tests, and some python tests
+      # accessing classes from the core/test configuration.
+      - *restore-build-sbt-cache
+      - *link-in-build-sbt-cache
+      # ---
       # Python tests need assembly files build by the `build-sbt` job
       # e.g. external/kafka-0-8-assembly/target/scala-2.11/spark-streaming-kafka-0-8-assembly-2.4.0-SNAPSHOT.jar
       - attach_workspace:
