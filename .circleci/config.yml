@@ -32,8 +32,21 @@ deployable-branches-and-tags: &deployable-branches-and-tags
 # Step templates
 
 step_templates:
-  - restore_cache: &restore-build-binaries-cache
+  restore-build-binaries-cache: &restore-build-binaries-cache
+    restore_cache:
       key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
+  restore-ivy-cache: &restore-ivy-cache
+    restore_cache:
+      keys:
+        - v7-ivy-dependency-cache-{{ .Branch }}-{{ checksum "pom.xml" }}
+        # if cache for exact version of `pom.xml` is not present then load any most recent one
+        - v7-ivy-dependency-cache-{{ .Branch }}-
+        - v7-ivy-dependency-cache-master-{{ checksum "pom.xml" }}
+        - v7-ivy-dependency-cache-master-
+  restore-home-sbt-cache: &restore-home-sbt-cache
+    restore_cache:
+      keys:
+        - v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
 
 jobs:
   build-maven:
@@ -131,16 +144,8 @@ jobs:
             if [[ -d "$BUILD_SBT_CACHE" ]]; then
               rsync --info=stats2,misc1,flist0 -a --link-dest="$BUILD_SBT_CACHE" "$BUILD_SBT_CACHE/" .
             fi
-      - restore_cache: &restore-ivy-cache
-          keys:
-            - v7-ivy-dependency-cache-{{ .Branch }}-{{ checksum "pom.xml" }}
-            # if cache for exact version of `pom.xml` is not present then load any most recent one
-            - v7-ivy-dependency-cache-{{ .Branch }}-
-            - v7-ivy-dependency-cache-master-{{ checksum "pom.xml" }}
-            - v7-ivy-dependency-cache-master-
-      - restore_cache: &restore-home-sbt-cache
-          keys:
-            - v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
+      - *restore-ivy-cache
+      - *restore-home-sbt-cache
       - *restore-build-binaries-cache
       - run:
           name: Download all external dependencies for the test configuration (which extends compile) and ensure we update first
