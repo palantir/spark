@@ -351,7 +351,7 @@ mllib = Module(
 
 examples = Module(
     name="examples",
-    dependencies=[graphx, mllib, streaming, hive],
+    dependencies=[graphx, mllib, streaming],
     source_file_regexes=[
         "examples/",
     ],
@@ -384,7 +384,7 @@ pyspark_core = Module(
 
 pyspark_sql = Module(
     name="pyspark-sql",
-    dependencies=[pyspark_core, hive],
+    dependencies=[pyspark_core],
     source_file_regexes=[
         "python/pyspark/sql"
     ],
@@ -486,7 +486,7 @@ pyspark_ml = Module(
 
 sparkr = Module(
     name="sparkr",
-    dependencies=[hive, mllib],
+    dependencies=[mllib],
     source_file_regexes=[
         "R/",
     ],
