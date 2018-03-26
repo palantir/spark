@@ -84,8 +84,7 @@ jobs:
       # Failed to execute goal on project spark-assembly_2.11: Could not resolve dependencies for project org.apache.spark:spark-assembly_2.11:pom:2.4.0-SNAPSHOT
       - restore_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - restore_cache:
-          key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
+      - *restore-build-binaries-cache
       - run: dev/run-style-tests.py | tee /tmp/run-style-tests.log
       - store_artifacts:
           path: /tmp/run-style-tests.log
@@ -101,8 +100,7 @@ jobs:
           key: build-maven-{{ .Branch }}-{{ .BuildNum }}
       - restore_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - restore_cache:
-          key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
+      - *restore-build-binaries-cache
       - run: |
           dev/run-build-tests.py | tee /tmp/run-build-tests.log
       - store_artifacts:
@@ -134,10 +132,10 @@ jobs:
             - v7-ivy-dependency-cache-{{ .Branch }}-
             - v7-ivy-dependency-cache-master-{{ checksum "pom.xml" }}
             - v7-ivy-dependency-cache-master-
-      - restore_cache:
+      - restore_cache: &restore-home-sbt-cache
           keys:
             - v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
-      - restore_cache:
+      - restore_cache: &restore-build-binaries-cache
           key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
       - run:
           name: Download all external dependencies for the test configuration (which extends compile) and ensure we update first
@@ -189,11 +187,8 @@ jobs:
       - attach_workspace:
           at: .
       - *restore-ivy-cache
-      - restore_cache:
-          key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
-      - restore_cache:
-          keys:
-            - v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
+      - *restore-build-binaries-cache
+      - *restore-home-sbt-cache
       - run: |
           dev/run-backcompat-tests.py | tee /tmp/run-backcompat-tests.log
       - store_artifacts:
@@ -251,11 +246,8 @@ jobs:
       - attach_workspace:
          at: .
       - *restore-ivy-cache
-      - restore_cache:
-          key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
-      - restore_cache:
-          keys:
-            - v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
+      - *restore-build-binaries-cache
+      - *restore-home-sbt-cache
       - restore_cache:
           keys:
             - v1-test-results-{{ .Branch }}-{{ .BuildNum }}
@@ -336,8 +328,7 @@ jobs:
       - checkout
       - restore_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - restore_cache:
-          key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
+      - *restore-build-binaries-cache
       - run:
           command: dev/set_version_and_package.sh
       # This is potentially costly but we can't use the workspace as it would conflict with
@@ -361,8 +352,7 @@ jobs:
           key: v1-maven-build-with-version-{{ .Branch }}-{{ .Revision }}
       - restore_cache:
           key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
-      - restore_cache:
-          key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
+      - *restore-build-binaries-cache
 
       - run: echo "user=$BINTRAY_USERNAME" > .credentials
       - run: echo "password=$BINTRAY_PASSWORD" >> .credentials
