@@ -191,7 +191,7 @@ jobs:
           paths:
             - 'assembly/target/scala-*/jars'
             - 'examples/target/scala-*/jars'
-            - 'external/*/target/scala-*/jars'
+            - 'external/*/target/scala-*/*.jar'
 
   run-backcompat-tests:
     # depends on build-sbt
