@@ -80,8 +80,6 @@ jobs:
     resource_class: small
     steps:
       - checkout
-      - restore_cache:
-          key: build-maven-{{ .Branch }}-{{ .BuildNum }}
       # Need maven dependency cache, otherwise checkstyle tests fail as such:
       # Failed to execute goal on project spark-assembly_2.11: Could not resolve dependencies for project org.apache.spark:spark-assembly_2.11:pom:2.4.0-SNAPSHOT
       - restore_cache:
@@ -135,11 +133,8 @@ jobs:
             # if cache for exact version of `pom.xml` is not present then load any most recent one
             - v5-ivy-dependency-cache-
       - restore_cache:
-          key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - restore_cache:
           keys:
             - v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
-      # Given the build-sbt cache, this is superfluous, but leave it in in case we will want to remove the former
       - restore_cache:
           key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
       - run:
@@ -193,9 +188,6 @@ jobs:
           at: .
       - restore_cache:
           key: v5-ivy-dependency-cache-{{ checksum "pom.xml" }}
-      # TODO(dsanduleac): do we need the maven cache?
-      - restore_cache:
-          key: maven-dependency-cache-{{ checksum "pom.xml" }}
       - restore_cache:
           key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
       - restore_cache:
@@ -402,8 +394,6 @@ workflows:
             - build-maven
           <<: *all-branches-and-tags
       - build-sbt:
-          requires:
-            - build-maven
           <<: *all-branches-and-tags
       - run-backcompat-tests:
           requires:
@@ -424,7 +414,7 @@ workflows:
       - build-maven-versioned:
           requires:
             - build-maven
-          <<: *deployable-branches-and-tags
+          <<: *all-branches-and-tags
       - deploy:
           requires:
             - build-maven
