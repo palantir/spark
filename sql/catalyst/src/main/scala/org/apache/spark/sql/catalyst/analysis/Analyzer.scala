@@ -811,7 +811,7 @@ class Analyzer(
       }
     }
 
-    private def resolve(e: Expression, q: LogicalPlan): Expression = e match {
+    private def resolve(e: Expression, q: LogicalPlan): Expression = e.transformUp {
       case u @ UnresolvedAttribute(nameParts) =>
         // Leave unchanged if resolution fails. Hopefully will be resolved next round.
         CurrentOrigin.withOrigin(u.origin) {
