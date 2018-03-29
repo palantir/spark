@@ -30,7 +30,7 @@ import org.apache.spark.sql.catalyst.expressions.objects.{LambdaVariable, MapObj
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules._
-import org.apache.spark.sql.catalyst.trees.{CurrentOrigin, TreeNodeRef}
+import org.apache.spark.sql.catalyst.trees.TreeNodeRef
 import org.apache.spark.sql.catalyst.util.toPrettySQL
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
@@ -823,7 +823,6 @@ class Analyzer(
           }
         logDebug(s"Resolving $u to $result")
         result
-
       case UnresolvedExtractValue(child, fieldExpr) if child.resolved =>
         ExtractValue(child, fieldExpr, resolver)
       case _ => e.mapChildren(resolve(_, q))
