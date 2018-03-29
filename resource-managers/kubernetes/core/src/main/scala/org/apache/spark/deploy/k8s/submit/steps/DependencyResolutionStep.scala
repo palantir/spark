@@ -16,12 +16,7 @@
  */
 package org.apache.spark.deploy.k8s.submit.steps
 
-import java.io.File
-
-import io.fabric8.kubernetes.api.model.ContainerBuilder
-
 import org.apache.spark.deploy.k8s.Config._
-import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.KubernetesUtils
 import org.apache.spark.deploy.k8s.submit.KubernetesDriverSpec
 
@@ -30,35 +25,17 @@ import org.apache.spark.deploy.k8s.submit.KubernetesDriverSpec
  * user may provide remote files or files with local:// schemes.
  */
 private[spark] class DependencyResolutionStep(
-    sparkJars: Seq[String],
     sparkFiles: Seq[String]) extends DriverConfigurationStep {
 
   override def configureDriver(driverSpec: KubernetesDriverSpec): KubernetesDriverSpec = {
     val sparkConf = driverSpec.driverSparkConf.clone()
-    val resolvedSparkJars = KubernetesUtils.resolveFileUrisAndPath(
-      sparkJars, sparkConf.get(JARS_DOWNLOAD_LOCATION))
     val resolvedSparkFiles = KubernetesUtils.resolveFileUrisAndPath(
       sparkFiles, sparkConf.get(FILES_DOWNLOAD_LOCATION))
 
-    if (resolvedSparkJars.nonEmpty) {
-      sparkConf.set("spark.jars", resolvedSparkJars.mkString(","))
-    }
     if (resolvedSparkFiles.nonEmpty) {
       sparkConf.set("spark.files", resolvedSparkFiles.mkString(","))
     }
-    val resolvedDriverContainer = if (resolvedSparkJars.nonEmpty) {
-      new ContainerBuilder(driverSpec.driverContainer)
-        .addNewEnv()
-          .withName(ENV_MOUNTED_CLASSPATH)
-          .withValue(resolvedSparkJars.mkString(File.pathSeparator))
-          .endEnv()
-        .build()
-    } else {
-      driverSpec.driverContainer
-    }
 
-    driverSpec.copy(
-      driverContainer = resolvedDriverContainer,
-      driverSparkConf = sparkConf)
+    driverSpec.copy(driverSparkConf = sparkConf)
   }
 }

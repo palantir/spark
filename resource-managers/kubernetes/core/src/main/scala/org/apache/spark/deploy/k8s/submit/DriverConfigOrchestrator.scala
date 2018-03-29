@@ -119,10 +119,8 @@ private[spark] class DriverConfigOrchestrator(
       ))
     } else Nil
 
-    val dependencyResolutionStep = if (sparkJars.nonEmpty || sparkFiles.nonEmpty) {
-      Seq(new DependencyResolutionStep(
-        sparkJars,
-        sparkFiles))
+    val dependencyResolutionStep = if (sparkFiles.nonEmpty) {
+      Seq(new DependencyResolutionStep(sparkFiles))
     } else {
       Nil
     }

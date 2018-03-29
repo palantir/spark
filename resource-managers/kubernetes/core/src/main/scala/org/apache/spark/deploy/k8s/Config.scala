@@ -141,14 +141,6 @@ private[spark] object Config extends Logging {
       .checkValue(interval => interval > 0, s"Logging interval must be a positive time value.")
       .createWithDefaultString("1s")
 
-  val JARS_DOWNLOAD_LOCATION =
-    ConfigBuilder("spark.kubernetes.mountDependencies.jarsDownloadDir")
-      .doc("Location to download jars to in the driver and executors. When using " +
-        "spark-submit, this directory must be empty and will be mounted as an empty directory " +
-        "volume on the driver and executor pod.")
-      .stringConf
-      .createWithDefault("/var/spark-data/spark-jars")
-
   val FILES_DOWNLOAD_LOCATION =
     ConfigBuilder("spark.kubernetes.mountDependencies.filesDownloadDir")
       .doc("Location to download files to in the driver and executors. When using " +
