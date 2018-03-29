@@ -815,16 +815,15 @@ class Analyzer(
     private def resolve(e: Expression, q: LogicalPlan): Expression = e.transformUp {
       case u @ UnresolvedAttribute(nameParts) =>
         // Leave unchanged if resolution fails. Hopefully will be resolved next round.
-        CurrentOrigin.withOrigin(u.origin) {
-          val result =
-            withPosition(u) {
-              q.resolveChildren(nameParts, resolver)
-                .orElse(resolveLiteralFunction(nameParts, u, q))
-                .getOrElse(u)
-            }
-          logDebug(s"Resolving $u to $result")
-          result
-        }
+        val result =
+          withPosition(u) {
+            q.resolveChildren(nameParts, resolver)
+              .orElse(resolveLiteralFunction(nameParts, u, q))
+              .getOrElse(u)
+          }
+        logDebug(s"Resolving $u to $result")
+        result
+
       case UnresolvedExtractValue(child, fieldExpr) if child.resolved =>
         ExtractValue(child, fieldExpr, resolver)
       case _ => e.mapChildren(resolve(_, q))
