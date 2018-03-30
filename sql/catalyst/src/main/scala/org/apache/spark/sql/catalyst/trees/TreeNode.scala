@@ -184,7 +184,9 @@ abstract class TreeNode[BaseType <: TreeNode[BaseType]] extends Product {
     val arr = Array.ofDim[B](productArity)
     var i = 0
     while (i < arr.length) {
-      arr(i) = f(productElement(i))
+      CurrentOrigin.withOrigin(origin) {
+        arr(i) = f(productElement(i))
+      }
       i += 1
     }
     arr
