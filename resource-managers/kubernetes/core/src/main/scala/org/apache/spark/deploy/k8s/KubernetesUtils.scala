@@ -62,6 +62,15 @@ private[spark] object KubernetesUtils {
     }
   }
 
+  def resolveLocalFile(uri: String): String = {
+    val fileUri = Utils.resolveURI(uri)
+    val fileScheme = Option(fileUri.getScheme).getOrElse("file")
+    fileScheme match {
+      case "local" => fileUri.getPath
+      case _ => uri
+    }
+  }
+
   private def resolveFileUri(uri: String, downloadPath: String): String = {
     val fileUri = Utils.resolveURI(uri)
     val fileScheme = Option(fileUri.getScheme).getOrElse("file")

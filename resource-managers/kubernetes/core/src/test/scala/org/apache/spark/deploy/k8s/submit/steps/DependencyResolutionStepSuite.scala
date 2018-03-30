@@ -16,6 +16,10 @@
  */
 package org.apache.spark.deploy.k8s.submit.steps
 
+import java.io.File
+
+import scala.collection.JavaConverters._
+
 import io.fabric8.kubernetes.api.model.{ContainerBuilder, HasMetadata, PodBuilder}
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
@@ -24,14 +28,20 @@ import org.apache.spark.deploy.k8s.submit.KubernetesDriverSpec
 
 class DependencyResolutionStepSuite extends SparkFunSuite {
 
+  private val SPARK_JARS = Seq(
+    "https://localhost:9000/apps/jars/jar1.jar",
+    "local:///var/apps/jars/jar2.jar")
+
   private val SPARK_FILES = Seq(
     "apps/files/file1.txt",
     "local:///var/apps/files/file2.txt")
 
+  private val CONFIGURED_JARS_DOWNLOAD_PATH = "/var/data/spark-submitted-jars"
   private val CONFIGURED_FILES_DOWNLOAD_PATH = "/var/data/spark-submitted-files"
 
   test("Added dependencies should be resolved in Spark configuration and environment") {
     val dependencyResolutionStep = new DependencyResolutionStep(
+      SPARK_JARS,
       SPARK_FILES)
     val driverPod = new PodBuilder().build()
     val baseDriverSpec = KubernetesDriverSpec(
@@ -43,6 +53,11 @@ class DependencyResolutionStepSuite extends SparkFunSuite {
     val preparedDriverSpec = dependencyResolutionStep.configureDriver(baseDriverSpec)
     assert(preparedDriverSpec.driverPod === driverPod)
     assert(preparedDriverSpec.otherKubernetesResources.isEmpty)
+    val resolvedSparkJars = preparedDriverSpec.driverSparkConf.get("spark.jars").split(",").toSet
+    val expectedResolvedSparkJars = Set(
+      SPARK_JARS(0),
+      "/var/apps/jars/jar2.jar")
+    assert(resolvedSparkJars === expectedResolvedSparkJars)
     val resolvedSparkFiles = preparedDriverSpec.driverSparkConf.get("spark.files").split(",").toSet
     val expectedResolvedSparkFiles = Set(
       s"$CONFIGURED_FILES_DOWNLOAD_PATH/file1.txt",

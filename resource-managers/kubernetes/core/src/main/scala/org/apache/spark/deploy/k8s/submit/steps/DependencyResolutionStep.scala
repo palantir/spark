@@ -25,6 +25,7 @@ import org.apache.spark.deploy.k8s.submit.KubernetesDriverSpec
  * user may provide remote files or files with local:// schemes.
  */
 private[spark] class DependencyResolutionStep(
+    sparkJars: Seq[String],
     sparkFiles: Seq[String]) extends DriverConfigurationStep {
 
   override def configureDriver(driverSpec: KubernetesDriverSpec): KubernetesDriverSpec = {
@@ -34,6 +35,11 @@ private[spark] class DependencyResolutionStep(
 
     if (resolvedSparkFiles.nonEmpty) {
       sparkConf.set("spark.files", resolvedSparkFiles.mkString(","))
+    }
+
+    if (sparkJars.nonEmpty) {
+      sparkConf.set("spark.jars",
+        sparkJars.map(jar => KubernetesUtils.resolveLocalFile(jar)).mkString(","))
     }
 
     driverSpec.copy(driverSparkConf = sparkConf)
