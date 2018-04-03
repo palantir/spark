@@ -59,7 +59,7 @@ step_templates:
         if [[ -d "$BUILD_SBT_CACHE" ]]; then
           rsync --info=stats2,misc1,flist0 -a --link-dest="$BUILD_SBT_CACHE" "$BUILD_SBT_CACHE/" .
         fi
-  checkout-code:
+  checkout-code: &checkout-code
     run:
       name: Checkout code
       command: |
