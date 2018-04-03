@@ -63,9 +63,6 @@ step_templates:
     run:
       name: Checkout code
       command: |
-        #!/bin/sh
-        set -e
-
         # Copy of circle's checkout command with fix for fetching tags from
         # https://discuss.circleci.com/t/fetching-circle-tag-doesnt-seem-to-work/19014/2
 
