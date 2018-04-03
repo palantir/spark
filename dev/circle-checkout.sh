@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# Copy of circle's checkout command with fix for fetching tags from
+# https://discuss.circleci.com/t/fetching-circle-tag-doesnt-seem-to-work/19014/2
+
 # Workaround old docker images with incorrect $HOME
 # check https://github.com/docker/docker/issues/2968 for details
 if [ "${HOME}" = "/" ]
