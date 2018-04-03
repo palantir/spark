@@ -73,7 +73,8 @@ jobs:
             - build-maven-{{ .Branch }}-{{ .BuildNum }}
             - build-maven-{{ .Branch }}-
             - build-maven-master-
-      - checkout
+      # circle's checkout is broken for tags - https://discuss.circleci.com/t/fetching-circle-tag-doesnt-seem-to-work/19014/2
+      - run: dev/circle-checkout.sh
       - restore_cache:
           keys:
             - maven-dependency-cache-{{ checksum "pom.xml" }}
@@ -110,7 +111,7 @@ jobs:
     <<: *test-defaults
     resource_class: small
     steps:
-      - checkout
+      - run: dev/circle-checkout.sh
       # Need maven dependency cache, otherwise checkstyle tests fail as such:
       # Failed to execute goal on project spark-assembly_2.11: Could not resolve dependencies for project org.apache.spark:spark-assembly_2.11:pom:2.4.0-SNAPSHOT
       - restore_cache:
@@ -126,7 +127,7 @@ jobs:
     <<: *test-defaults
     resource_class: small
     steps:
-      - checkout
+      - run: dev/circle-checkout.sh
       - restore_cache:
           key: build-maven-{{ .Branch }}-{{ .BuildNum }}
       - restore_cache:
@@ -147,7 +148,7 @@ jobs:
             - v1-build-sbt-{{ .Branch }}-{{ .Revision }}
             - v1-build-sbt-{{ .Branch }}-
             - v1-build-sbt-master-
-      - checkout
+      - run: dev/circle-checkout.sh
       - run:
           name: Hard link cache contents into current build directory
           command: |
@@ -197,7 +198,7 @@ jobs:
     # depends on build-sbt
     <<: *defaults
     steps:
-      - checkout
+      - run: dev/circle-checkout.sh
       - attach_workspace:
           at: .
       - *restore-ivy-cache
@@ -217,7 +218,7 @@ jobs:
       - image: palantirtechnologies/circle-spark-python
     parallelism: 2
     steps:
-      - checkout
+      - run: dev/circle-checkout.sh
       # These two steps restore all the target directories except jars
       # Necessary because of SPARK_PREPEND_CLASSES being used in python tests, and some python tests
       # accessing classes from the core/test configuration.
@@ -241,7 +242,7 @@ jobs:
     docker:
       - image: palantirtechnologies/circle-spark-r
     steps:
-      - checkout
+      - run: dev/circle-checkout.sh
       - attach_workspace:
           at: .
       - run:
@@ -262,7 +263,7 @@ jobs:
       - run:
           name: Before running tests, ensure we created the CIRCLE_TEST_REPORTS directory
           command: mkdir -p $CIRCLE_TEST_REPORTS
-      - checkout
+      - run: dev/circle-checkout.sh
       - attach_workspace:
          at: .
       # These two steps restore all the target directories except jars
@@ -349,7 +350,7 @@ jobs:
     docker:
       - image: palantirtechnologies/circle-spark-r
     steps:
-      - checkout
+      - run: dev/circle-checkout.sh
       - restore_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
       - *restore-build-binaries-cache
