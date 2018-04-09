@@ -193,7 +193,7 @@ abstract class ExternalCatalog
 
   def getTable(db: String, table: String): CatalogTable
 
-  def getFileIndex(db: String, table: String, defaultSize: Long): CatalogFileIndex
+  def getFileIndex(table: CatalogTable, defaultSize: Long): CatalogFileIndex
 
   def tableExists(db: String, table: String): Boolean
 

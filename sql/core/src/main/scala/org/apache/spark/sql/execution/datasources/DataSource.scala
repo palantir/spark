@@ -395,7 +395,7 @@ case class DataSource(
 
         val fileCatalog = if (sparkSession.sqlContext.conf.manageFilesourcePartitions &&
             catalogTable.isDefined && catalogTable.get.tracksPartitionsInCatalog) {
-          sparkSession.sessionState.catalog.getTableFileIndex(catalogTable.get.identifier)
+          sparkSession.sessionState.catalog.getTableFileIndex(catalogTable.get)
         } else {
           new InMemoryFileIndex(
             sparkSession, globbedPaths, options, Some(partitionSchema), fileStatusCache)

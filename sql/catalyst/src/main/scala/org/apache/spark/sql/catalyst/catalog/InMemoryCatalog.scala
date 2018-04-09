@@ -50,17 +50,17 @@ class InMemoryCatalog(
 
   import CatalogTypes.TablePartitionSpec
 
-  case class TableDesc(var table: CatalogTable) {
+  private class TableDesc(var table: CatalogTable) {
     val partitions = new mutable.HashMap[TablePartitionSpec, CatalogTablePartition]
   }
 
-  case class DatabaseDesc(var db: CatalogDatabase) {
+  private class DatabaseDesc(var db: CatalogDatabase) {
     val tables = new mutable.HashMap[String, TableDesc]
     val functions = new mutable.HashMap[String, CatalogFunction]
   }
 
   // Database name -> description
-  protected val catalog = new scala.collection.mutable.HashMap[String, DatabaseDesc]
+  private val catalog = new scala.collection.mutable.HashMap[String, DatabaseDesc]
 
   private def partitionExists(db: String, table: String, spec: TablePartitionSpec): Boolean = {
     requireTableExists(db, table)
@@ -328,7 +328,7 @@ class InMemoryCatalog(
     catalog(db).tables(table).table
   }
 
-  override def getFileIndex(db: String, table: String, defaultSize: Long): CatalogFileIndex =
+  override def getFileIndex(table: CatalogTable, defaultSize: Long): CatalogFileIndex =
     throw new UnsupportedOperationException("getFileIndex is not implemented")
 
   override def tableExists(db: String, table: String): Boolean = synchronized {

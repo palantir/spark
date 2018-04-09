@@ -424,17 +424,11 @@ class SessionCatalog(
 
   /**
    *
-   * @param name
+   * @param table
    * @return
    */
-  @throws[NoSuchDatabaseException]
-  @throws[NoSuchTableException]
-  def getTableFileIndex(name: TableIdentifier): CatalogFileIndex = {
-    val db = formatDatabaseName(name.database.getOrElse(getCurrentDatabase))
-    val table = formatTableName(name.table)
-    requireDbExists(db)
-    requireTableExists(TableIdentifier(table, Some(db)))
-    externalCatalog.getFileIndex(db, table, conf.defaultSizeInBytes)
+  def getTableFileIndex(table: CatalogTable): CatalogFileIndex = {
+    externalCatalog.getFileIndex(table, conf.defaultSizeInBytes)
   }
 
   /**

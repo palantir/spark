@@ -1259,14 +1259,12 @@ private[spark] class HiveExternalCatalog(conf: SparkConf, hadoopConf: Configurat
     client.listFunctions(db, pattern)
   }
 
-  override def getFileIndex(db: String, table: String, defaultSize: Long): CatalogFileIndex =
+  override def getFileIndex(table: CatalogTable, defaultSize: Long): CatalogFileIndex =
     synchronized {
-      requireTableExists(db, table)
-      val catalogTable = getTable(db, table)
       new DefaultCatalogFileIndex(
         SparkSession.getActiveSession.get,
-        catalogTable,
-        catalogTable.stats.map(_.sizeInBytes.toLong).getOrElse(defaultSize))
+        table,
+        table.stats.map(_.sizeInBytes.toLong).getOrElse(defaultSize))
     }
 }
 

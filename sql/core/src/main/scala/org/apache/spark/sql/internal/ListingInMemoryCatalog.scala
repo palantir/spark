@@ -20,7 +20,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.catalog.InMemoryCatalog
+import org.apache.spark.sql.catalyst.catalog.{CatalogTable, InMemoryCatalog}
 import org.apache.spark.sql.catalyst.catalog.files.CatalogFileIndex
 import org.apache.spark.sql.execution.datasources.DefaultCatalogFileIndex
 
@@ -29,13 +29,11 @@ class ListingInMemoryCatalog(
     hadoopConfig: Configuration = new Configuration)
   extends InMemoryCatalog(conf, hadoopConfig) {
 
-  override def getFileIndex(db: String, table: String, defaultSize: Long): CatalogFileIndex =
+  override def getFileIndex(table: CatalogTable, defaultSize: Long): CatalogFileIndex =
     synchronized {
-      requireTableExists(db, table)
-      val catalogTable = catalog(db).tables(table).table
       new DefaultCatalogFileIndex(
         SparkSession.getActiveSession.get,
-        catalogTable,
-        catalogTable.stats.map(_.sizeInBytes.toLong).getOrElse(defaultSize))
+        table,
+        table.stats.map(_.sizeInBytes.toLong).getOrElse(defaultSize))
     }
 }
