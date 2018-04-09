@@ -423,10 +423,10 @@ class SessionCatalog(
   }
 
   /**
-    *
-    * @param name
-    * @return
-    */
+   *
+   * @param name
+   * @return
+   */
   @throws[NoSuchDatabaseException]
   @throws[NoSuchTableException]
   def getTableFileIndex(name: TableIdentifier): CatalogFileIndex = {

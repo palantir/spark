@@ -50,11 +50,11 @@ class InMemoryCatalog(
 
   import CatalogTypes.TablePartitionSpec
 
-  private class TableDesc(var table: CatalogTable) {
+  case class TableDesc(var table: CatalogTable) {
     val partitions = new mutable.HashMap[TablePartitionSpec, CatalogTablePartition]
   }
 
-  private class DatabaseDesc(var db: CatalogDatabase) {
+  case class DatabaseDesc(var db: CatalogDatabase) {
     val tables = new mutable.HashMap[String, TableDesc]
     val functions = new mutable.HashMap[String, CatalogFunction]
   }

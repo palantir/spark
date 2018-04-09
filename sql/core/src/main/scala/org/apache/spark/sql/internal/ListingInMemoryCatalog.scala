@@ -25,9 +25,9 @@ import org.apache.spark.sql.catalyst.catalog.files.CatalogFileIndex
 import org.apache.spark.sql.execution.datasources.DefaultCatalogFileIndex
 
 class ListingInMemoryCatalog(
-                              conf: SparkConf = new SparkConf,
-                              hadoopConfig: Configuration = new Configuration)
-  extends InMemoryCatalog {
+    conf: SparkConf = new SparkConf,
+    hadoopConfig: Configuration = new Configuration)
+  extends InMemoryCatalog(conf, hadoopConfig) {
 
   override def getFileIndex(db: String, table: String, defaultSize: Long): CatalogFileIndex =
     synchronized {
