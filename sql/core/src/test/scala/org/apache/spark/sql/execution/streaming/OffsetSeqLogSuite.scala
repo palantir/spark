@@ -19,9 +19,6 @@ package org.apache.spark.sql.execution.streaming
 
 import java.io.File
 
-import org.json4s.{JValue, StringInput}
-import org.json4s.jackson.JsonMethods
-
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.catalyst.util.stringToFile
 import org.apache.spark.sql.internal.SQLConf
@@ -39,7 +36,6 @@ class OffsetSeqLogSuite extends SparkFunSuite with SharedSQLContext {
       Map(key -> shufflePartitions.toString)
     }
 
-    val json: JValue = JsonMethods.parse(StringInput("""{}"""))
     // None set
     assert(new OffsetSeqMetadata(0, 0, Map.empty) === OffsetSeqMetadata.fromJson("""{}"""))
 
