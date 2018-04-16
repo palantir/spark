@@ -37,32 +37,31 @@ class OffsetSeqLogSuite extends SparkFunSuite with SharedSQLContext {
     }
 
     // None set
-    assert(new OffsetSeqMetadata(0, 0, Map.empty) === OffsetSeqMetadata.fromJson("""{}"""))
+    assert(new OffsetSeqMetadata(0, 0, Map.empty) === OffsetSeqMetadata("""{}"""))
 
     // One set
     assert(new OffsetSeqMetadata(1, 0, Map.empty) ===
-      OffsetSeqMetadata.fromJson("""{"batchWatermarkMs":1}"""))
+      OffsetSeqMetadata("""{"batchWatermarkMs":1}"""))
     assert(new OffsetSeqMetadata(0, 2, Map.empty) ===
-      OffsetSeqMetadata.fromJson("""{"batchTimestampMs":2}"""))
+      OffsetSeqMetadata("""{"batchTimestampMs":2}"""))
     assert(OffsetSeqMetadata(0, 0, getConfWith(shufflePartitions = 2)) ===
-      OffsetSeqMetadata.fromJson(s"""{"conf": {"$key":2}}"""))
+      OffsetSeqMetadata(s"""{"conf": {"$key":2}}"""))
 
     // Two set
     assert(new OffsetSeqMetadata(1, 2, Map.empty) ===
-      OffsetSeqMetadata.fromJson("""{"batchWatermarkMs":1,"batchTimestampMs":2}"""))
+      OffsetSeqMetadata("""{"batchWatermarkMs":1,"batchTimestampMs":2}"""))
     assert(OffsetSeqMetadata(1, 0, getConfWith(shufflePartitions = 3)) ===
-      OffsetSeqMetadata.fromJson(s"""{"batchWatermarkMs":1,"conf": {"$key":3}}"""))
+      OffsetSeqMetadata(s"""{"batchWatermarkMs":1,"conf": {"$key":3}}"""))
     assert(OffsetSeqMetadata(0, 2, getConfWith(shufflePartitions = 3)) ===
-      OffsetSeqMetadata.fromJson(s"""{"batchTimestampMs":2,"conf": {"$key":3}}"""))
+      OffsetSeqMetadata(s"""{"batchTimestampMs":2,"conf": {"$key":3}}"""))
 
     // All set
     assert(OffsetSeqMetadata(1, 2, getConfWith(shufflePartitions = 3)) ===
-      OffsetSeqMetadata.fromJson(
-        s"""{"batchWatermarkMs":1,"batchTimestampMs":2,"conf": {"$key":3}}"""))
+      OffsetSeqMetadata(s"""{"batchWatermarkMs":1,"batchTimestampMs":2,"conf": {"$key":3}}"""))
 
     // Drop unknown fields
     assert(OffsetSeqMetadata(1, 2, getConfWith(shufflePartitions = 3)) ===
-      OffsetSeqMetadata.fromJson(
+      OffsetSeqMetadata(
         s"""{"batchWatermarkMs":1,"batchTimestampMs":2,"conf": {"$key":3}},"unknown":1"""))
   }
 

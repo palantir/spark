@@ -19,7 +19,6 @@ package org.apache.spark.sql.execution.streaming
 
 import org.json4s.NoTypeHints
 import org.json4s.jackson.Serialization
-import org.json4s.reflect.PrimaryConstructor
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.RuntimeConfig
@@ -61,7 +60,7 @@ object OffsetSeq {
    * `nulls` in the sequence are converted to `None`s.
    */
   def fill(metadata: Option[String], offsets: Offset*): OffsetSeq = {
-    OffsetSeq(offsets.map(Option(_)), metadata.map(OffsetSeqMetadata.fromJson))
+    OffsetSeq(offsets.map(Option(_)), metadata.map(OffsetSeqMetadata.apply))
   }
 }
 
@@ -87,7 +86,7 @@ object OffsetSeqMetadata extends Logging {
   private implicit val format = Serialization.formats(NoTypeHints)
   private val relevantSQLConfs = Seq(SHUFFLE_PARTITIONS, STATE_STORE_PROVIDER_CLASS)
 
-  def fromJson(json: String): OffsetSeqMetadata = Serialization.read[OffsetSeqMetadata](json)
+  def apply(json: String): OffsetSeqMetadata = Serialization.read[OffsetSeqMetadata](json)
 
   def apply(
       batchWatermarkMs: Long,
