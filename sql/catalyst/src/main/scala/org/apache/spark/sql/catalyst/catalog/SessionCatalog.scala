@@ -34,6 +34,7 @@ import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst._
 import org.apache.spark.sql.catalyst.analysis._
 import org.apache.spark.sql.catalyst.analysis.FunctionRegistry.FunctionBuilder
+import org.apache.spark.sql.catalyst.catalog.files.CatalogFileIndex
 import org.apache.spark.sql.catalyst.expressions.{Expression, ExpressionInfo}
 import org.apache.spark.sql.catalyst.parser.{CatalystSqlParser, ParserInterface}
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, SubqueryAlias, View}
@@ -419,6 +420,15 @@ class SessionCatalog(
     requireDbExists(db)
     requireTableExists(TableIdentifier(table, Some(db)))
     externalCatalog.getTable(db, table)
+  }
+
+  /**
+   *
+   * @param table
+   * @return
+   */
+  def getTableFileIndex(table: CatalogTable): CatalogFileIndex = {
+    externalCatalog.getFileIndex(table, conf.defaultSizeInBytes)
   }
 
   /**

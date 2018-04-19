@@ -29,6 +29,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.metrics.source.HiveCatalogMetrics
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.catalog.files.FileIndex
 import org.apache.spark.sql.execution.streaming.FileStreamSink
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.SerializableConfiguration
@@ -57,7 +58,7 @@ class InMemoryFileIndex(
   // or "/.../_spark_metadata/0" (a file in the metadata dir). `rootPathsSpecified` might contain
   // such streaming metadata dir or files, e.g. when after globbing "basePath/*" where "basePath"
   // is the output of a streaming query.
-  override val rootPaths =
+  override val rootPaths: Seq[Path] =
     rootPathsSpecified.filterNot(FileStreamSink.ancestorIsMetadataDirectory(_, hadoopConf))
 
   @volatile private var cachedLeafFiles: mutable.LinkedHashMap[Path, FileStatus] = _

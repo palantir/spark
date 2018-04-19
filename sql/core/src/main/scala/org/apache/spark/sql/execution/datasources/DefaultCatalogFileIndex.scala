@@ -24,9 +24,8 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.catalog.CatalogTable
+import org.apache.spark.sql.catalyst.catalog.files.{CatalogFileIndex, FileIndex}
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.types.StructType
-
 
 /**
  * A [[FileIndex]] for a metastore catalog table.
@@ -35,10 +34,10 @@ import org.apache.spark.sql.types.StructType
  * @param table the metadata of the table
  * @param sizeInBytes the table's data size in bytes
  */
-class CatalogFileIndex(
+class DefaultCatalogFileIndex(
     sparkSession: SparkSession,
     val table: CatalogTable,
-    override val sizeInBytes: Long) extends FileIndex {
+    override val sizeInBytes: Long) extends CatalogFileIndex {
 
   protected val hadoopConf: Configuration = sparkSession.sessionState.newHadoopConf()
 
@@ -50,24 +49,15 @@ class CatalogFileIndex(
 
   private val baseLocation: Option[URI] = table.storage.locationUri
 
-  override def partitionSchema: StructType = table.partitionSchema
-
-  override def rootPaths: Seq[Path] = baseLocation.map(new Path(_)).toSeq
-
-  override def listFiles(
-      partitionFilters: Seq[Expression], dataFilters: Seq[Expression]): Seq[PartitionDirectory] = {
-    filterPartitions(partitionFilters).listFiles(Nil, dataFilters)
-  }
-
   override def refresh(): Unit = fileStatusCache.invalidateAll()
 
   /**
-   * Returns a [[InMemoryFileIndex]] for this table restricted to the subset of partitions
+   * Returns a [[FileIndex]] for this table restricted to the subset of partitions
    * specified by the given partition-pruning filters.
    *
    * @param filters partition-pruning filters
    */
-  def filterPartitions(filters: Seq[Expression]): InMemoryFileIndex = {
+  def filterPartitions(filters: Seq[Expression]): FileIndex = {
     if (table.partitionColumnNames.nonEmpty) {
       val startTime = System.nanoTime()
       val selectedPartitions = sparkSession.sessionState.catalog.listPartitionsByFilter(
@@ -89,13 +79,11 @@ class CatalogFileIndex(
     }
   }
 
-  override def inputFiles: Array[String] = filterPartitions(Nil).inputFiles
-
   // `CatalogFileIndex` may be a member of `HadoopFsRelation`, `HadoopFsRelation` may be a member
   // of `LogicalRelation`, and `LogicalRelation` may be used as the cache key. So we need to
   // implement `equals` and `hashCode` here, to make it work with cache lookup.
   override def equals(o: Any): Boolean = o match {
-    case other: CatalogFileIndex => this.table.identifier == other.table.identifier
+    case other: DefaultCatalogFileIndex => this.table.identifier == other.table.identifier
     case _ => false
   }
 

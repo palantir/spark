@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources
+package org.apache.spark.sql.catalyst.catalog.files
 
 import org.apache.hadoop.fs._
 

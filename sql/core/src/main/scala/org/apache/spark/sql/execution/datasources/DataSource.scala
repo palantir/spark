@@ -31,6 +31,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
 import org.apache.spark.sql.catalyst.catalog.{BucketSpec, CatalogStorageFormat, CatalogTable, CatalogUtils}
+import org.apache.spark.sql.catalyst.catalog.files.FileIndex
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
@@ -394,11 +395,7 @@ case class DataSource(
 
         val fileCatalog = if (sparkSession.sqlContext.conf.manageFilesourcePartitions &&
             catalogTable.isDefined && catalogTable.get.tracksPartitionsInCatalog) {
-          val defaultTableSize = sparkSession.sessionState.conf.defaultSizeInBytes
-          new CatalogFileIndex(
-            sparkSession,
-            catalogTable.get,
-            catalogTable.get.stats.map(_.sizeInBytes.toLong).getOrElse(defaultTableSize))
+          sparkSession.sessionState.catalog.getTableFileIndex(catalogTable.get)
         } else {
           new InMemoryFileIndex(
             sparkSession, globbedPaths, options, Some(partitionSchema), fileStatusCache)

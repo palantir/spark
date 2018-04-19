@@ -23,6 +23,7 @@ import scala.collection.mutable
 
 import org.apache.spark.sql.{SparkSession, SQLContext}
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
+import org.apache.spark.sql.catalyst.catalog.files.FileIndex
 import org.apache.spark.sql.execution.FileRelation
 import org.apache.spark.sql.sources.{BaseRelation, DataSourceRegister}
 import org.apache.spark.sql.types.{StructField, StructType}
