@@ -89,6 +89,8 @@ case class DataSource(
 
   case class SourceInfo(name: String, schema: StructType, partitionColumns: Seq[String])
 
+  lazy val fileIndexFactory: CatalogFileIndexFactory =
+    CatalogFileIndexFactory.reflect(sparkSession.sparkContext.conf)
   lazy val providingClass: Class[_] =
     DataSource.lookupDataSource(className, sparkSession.sessionState.conf)
   lazy val sourceInfo: SourceInfo = sourceSchema()
@@ -361,12 +363,11 @@ case class DataSource(
           catalogTable.get.partitionColumnNames.nonEmpty
         val (fileCatalog, dataSchema, partitionSchema) = if (useCatalogFileIndex) {
           val defaultTableSize = sparkSession.sessionState.conf.defaultSizeInBytes
-          CatalogFileIndex.reflect(
-            sparkSession.sparkContext.conf,
+          val index = fileIndexFactory.create(
             sparkSession,
             catalogTable.get,
-            catalogTable.get.stats.map(_.sizeInBytes.toLong).getOrElse(defaultTableSize)),
-          catalogTable.get.dataSchema, catalogTable.get.partitionSchema)
+            catalogTable.get.stats.map(_.sizeInBytes.toLong).getOrElse(defaultTableSize))
+          (index, catalogTable.get.dataSchema, catalogTable.get.partitionSchema)
         } else {
           val index = createInMemoryFileIndex(globbedPaths)
           val (resultDataSchema, resultPartitionSchema) =

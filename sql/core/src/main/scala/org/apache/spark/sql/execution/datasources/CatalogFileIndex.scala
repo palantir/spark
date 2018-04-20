@@ -17,14 +17,14 @@
 
 package org.apache.spark.sql.execution.datasources
 
-import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.catalog.CatalogTable
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.internal.StaticSQLConf.CATALOG_FILE_INDEX_IMPLEMENTATION
 import org.apache.spark.util.Utils
-
 
 /**
  * A [[FileIndex]] for a metastore catalog table.
@@ -41,23 +41,25 @@ trait CatalogFileIndex extends FileIndex {
 
 }
 
-object CatalogFileIndex {
+trait CatalogFileIndexFactory {
 
-  def reflect[T, Arg1 <: AnyRef, Arg2 <: AnyRef, Arg3 <: AnyRef](
-      conf: SparkConf,
-      ctorArg1: Arg1,
-      ctorArg2: Arg2,
-      ctorArg3: Arg3)(
-      implicit ctorArgTag1: ClassTag[Arg1],
-      ctorArgTag2: ClassTag[Arg2],
-      ctorArgTag3: ClassTag[Arg3]): T = {
+  /**
+   * Creates [[CatalogFileIndex]] for given table
+   */
+  def create(
+    spark: SparkSession,
+    catalogTable: CatalogTable,
+    tableSize: Long): CatalogFileIndex
+
+}
+
+object CatalogFileIndexFactory {
+
+  def reflect[T <: CatalogFileIndexFactory](conf: SparkConf): T = {
     val className = fileIndexClassName(conf)
     try {
-      val clazz = Utils.classForName(className)
-      val ctor = clazz.getDeclaredConstructor(
-        ctorArgTag1.runtimeClass, ctorArgTag2.runtimeClass, ctorArgTag3.runtimeClass)
-      val args = Array[AnyRef](ctorArg1, ctorArg2, ctorArg3)
-      ctor.newInstance(args: _*).asInstanceOf[T]
+      val ctor = Utils.classForName(className).getDeclaredConstructor()
+      ctor.newInstance().asInstanceOf[T]
     } catch {
       case NonFatal(e) =>
         throw new IllegalArgumentException(s"Error while instantiating '$className':", e)
