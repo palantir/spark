@@ -102,6 +102,16 @@ class HiveCatalogFileIndex(
   override def hashCode(): Int = table.identifier.hashCode()
 }
 
+object HiveCatalogFileIndexFactory extends CatalogFileIndexFactory {
+  /**
+    * Creates [[CatalogFileIndex]] for given table
+    */
+  override def create(
+     spark: SparkSession, catalogTable: CatalogTable, tableSize: Long): CatalogFileIndex =
+    new HiveCatalogFileIndex(spark, catalogTable, tableSize)
+
+}
+
 /**
  * An override of the standard HDFS listing based catalog, that overrides the partition spec with
  * the information from the metastore.

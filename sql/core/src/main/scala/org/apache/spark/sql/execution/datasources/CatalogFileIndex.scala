@@ -68,7 +68,7 @@ object CatalogFileIndexFactory {
 
   private def fileIndexClassName(conf: SparkConf): String = {
     conf.get(CATALOG_FILE_INDEX_IMPLEMENTATION) match {
-      case "hive" => "org.apache.spark.sql.execution.datasources.HiveCatalogFileIndex"
+      case "hive" => "org.apache.spark.sql.execution.datasources.HiveCatalogFileIndexFactory"
       case name => name
     }
   }
