@@ -102,7 +102,7 @@ class HiveCatalogFileIndex(
   override def hashCode(): Int = table.identifier.hashCode()
 }
 
-object HiveCatalogFileIndexFactory extends CatalogFileIndexFactory {
+class HiveCatalogFileIndexFactory extends CatalogFileIndexFactory {
   override def create(
      spark: SparkSession, catalogTable: CatalogTable, tableSize: Long): CatalogFileIndex =
     new HiveCatalogFileIndex(spark, catalogTable, tableSize)
