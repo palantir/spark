@@ -195,7 +195,7 @@ case object ParseErrorListener extends BaseErrorListener {
     val (start, stop) = offendingSymbol match {
       case token: CommonToken =>
         val start = Origin (Some (line), Some (token.getStartIndex) )
-        val length = token.getStopIndex - token.getStartIndex
+        val length = token.getStopIndex - token.getStartIndex + 1
         val stop = Origin (Some (line), Some (token.getCharPositionInLine + length) )
         (start, stop)
       case _ =>
