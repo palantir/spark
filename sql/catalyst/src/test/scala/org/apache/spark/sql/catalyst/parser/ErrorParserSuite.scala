@@ -22,8 +22,12 @@ import org.apache.spark.SparkFunSuite
  * Test various parser errors.
  */
 class ErrorParserSuite extends SparkFunSuite {
-  def intercept(sql: String, line: Int, startPosition: Int, stopPosition: Int,
-                messages: String*): Unit = {
+  def intercept(
+      sql: String,
+      line: Int,
+      startPosition: Int,
+      stopPosition: Int,
+      messages: String*): Unit = {
     val e = intercept[ParseException](CatalystSqlParser.parsePlan(sql))
 
     // Check position.
