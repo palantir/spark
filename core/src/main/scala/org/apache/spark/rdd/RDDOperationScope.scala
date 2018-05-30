@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonPropertyOr
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.google.common.base.Objects
 
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
@@ -43,10 +42,10 @@ import org.apache.spark.internal.Logging
  */
 @JsonInclude(Include.NON_ABSENT)
 @JsonPropertyOrder(Array("id", "name", "parent"))
-private[spark] class RDDOperationScope(
-    val name: String,
-    val parent: Option[RDDOperationScope] = None,
-    val id: String = RDDOperationScope.nextScopeId().toString) {
+private[spark] case class RDDOperationScope(
+    name: String,
+    parent: Option[RDDOperationScope] = None,
+    id: String = RDDOperationScope.nextScopeId().toString) {
 
   def toJson: String = {
     RDDOperationScope.jsonMapper.writeValueAsString(this)
@@ -60,16 +59,6 @@ private[spark] class RDDOperationScope(
   def getAllScopes: Seq[RDDOperationScope] = {
     parent.map(_.getAllScopes).getOrElse(Seq.empty) ++ Seq(this)
   }
-
-  override def equals(other: Any): Boolean = {
-    other match {
-      case s: RDDOperationScope =>
-        id == s.id && name == s.name && parent == s.parent
-      case _ => false
-    }
-  }
-
-  override def hashCode(): Int = Objects.hashCode(id, name, parent)
 
   override def toString: String = toJson
 }
