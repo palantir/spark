@@ -19,7 +19,7 @@ package org.apache.spark.rdd
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonPropertyOrder}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonProperty, JsonPropertyOrder}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -43,9 +43,9 @@ import org.apache.spark.internal.Logging
 @JsonInclude(Include.NON_ABSENT)
 @JsonPropertyOrder(Array("id", "name", "parent"))
 private[spark] case class RDDOperationScope(
-    name: String,
-    parent: Option[RDDOperationScope] = None,
-    id: String = RDDOperationScope.nextScopeId().toString) {
+    @JsonProperty("name") name: String,
+    @JsonProperty("parent") parent: Option[RDDOperationScope] = None,
+    @JsonProperty("id") id: String = RDDOperationScope.nextScopeId().toString) {
 
   def toJson: String = {
     RDDOperationScope.jsonWriter.writeValueAsString(this)
