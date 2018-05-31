@@ -70,6 +70,8 @@ private[spark] case class RDDOperationScope(
 private[spark] object RDDOperationScope extends Logging {
   private val (jsonReader, jsonWriter) = {
     val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+    mapper.getSerializerProviderInstance
+      .findTypedValueSerializer(classOf[RDDOperationScope], true, null)
     (mapper.readerFor(classOf[RDDOperationScope]), mapper.writerFor(classOf[RDDOperationScope]))
   }
   private val scopeCounter = new AtomicInteger(0)
