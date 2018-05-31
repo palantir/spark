@@ -48,7 +48,7 @@ private[spark] case class RDDOperationScope(
     id: String = RDDOperationScope.nextScopeId().toString) {
 
   def toJson: String = {
-    RDDOperationScope.jsonMapper.writeValueAsString(this)
+    RDDOperationScope.jsonWriter.writeValueAsString(this)
   }
 
   /**
@@ -68,11 +68,14 @@ private[spark] case class RDDOperationScope(
  * An RDD scope tracks the series of operations that created a given RDD.
  */
 private[spark] object RDDOperationScope extends Logging {
-  private val jsonMapper = new ObjectMapper().registerModule(DefaultScalaModule)
+  private val (jsonReader, jsonWriter) = {
+    val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+    (mapper.readerFor(classOf[RDDOperationScope]), mapper.writerFor(classOf[RDDOperationScope]))
+  }
   private val scopeCounter = new AtomicInteger(0)
 
   def fromJson(s: String): RDDOperationScope = {
-    jsonMapper.readValue(s, classOf[RDDOperationScope])
+    jsonReader.readValue[RDDOperationScope](s)
   }
 
   /** Return a globally unique operation scope ID. */
