@@ -22,7 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonProperty, JsonPropertyOrder}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.module.scala.ser.OptionSerializer
 
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
@@ -44,7 +46,8 @@ import org.apache.spark.internal.Logging
 @JsonPropertyOrder(Array("id", "name", "parent"))
 private[spark] case class RDDOperationScope(
     @JsonProperty("name") name: String,
-    @JsonProperty("parent") parent: Option[RDDOperationScope] = None,
+    @JsonProperty("parent") @JsonSerialize(using = classOf[OptionSerializer])
+    parent: Option[RDDOperationScope] = None,
     @JsonProperty("id") id: String = RDDOperationScope.nextScopeId().toString) {
 
   def toJson: String = {
