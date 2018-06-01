@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonProperty, 
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.{MapperFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 
