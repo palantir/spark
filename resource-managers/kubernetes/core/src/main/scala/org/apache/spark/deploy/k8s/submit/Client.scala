@@ -24,6 +24,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import org.apache.spark.SparkConf
+import org.apache.spark.deploy.SparkApplication
 import org.apache.spark.deploy.k8s.SparkKubernetesClientFactory
 import org.apache.spark.deploy.k8s.config._
 import org.apache.spark.deploy.k8s.constants._
@@ -66,6 +67,9 @@ private[spark] object ClientArguments {
         driverArgs.toArray)
   }
 }
+
+
+// YIFEI TOOD: Old - reconcile this
 
 private[spark] class Client(
     submissionSteps: Seq[DriverConfigurationStep],
@@ -150,53 +154,44 @@ private[spark] class Client(
   }
 }
 
-private[spark] object Client {
-  def run(sparkConf: SparkConf, clientArguments: ClientArguments): Unit = {
-    val namespace = sparkConf.get(KUBERNETES_NAMESPACE)
+private[spark] class KubernetesClientApplication extends SparkApplication {
+
+  override def start(args: Array[String], conf: SparkConf): Unit = {
+    val clientArguments = ClientArguments.fromCommandLineArgs(args)
+    val namespace = conf.get(KUBERNETES_NAMESPACE)
     val kubernetesAppId = s"spark-${UUID.randomUUID().toString.replaceAll("-", "")}"
     val launchTime = System.currentTimeMillis()
-    val waitForAppCompletion = sparkConf.get(WAIT_FOR_APP_COMPLETION)
-    val appName = sparkConf.getOption("spark.app.name").getOrElse("spark")
-    val master = resolveK8sMaster(sparkConf.get("spark.master"))
-    val loggingInterval = Option(sparkConf.get(REPORT_INTERVAL)).filter( _ => waitForAppCompletion)
+    val waitForAppCompletion = conf.get(WAIT_FOR_APP_COMPLETION)
+    val appName = conf.getOption("spark.app.name").getOrElse("spark")
+    val master = resolveK8sMaster(conf.get("spark.master"))
+    val loggingInterval = Option(conf.get(REPORT_INTERVAL)).filter( _ => waitForAppCompletion)
     val loggingPodStatusWatcher = new LoggingPodStatusWatcherImpl(
-        kubernetesAppId, loggingInterval)
+      kubernetesAppId, loggingInterval)
     val configurationStepsOrchestrator = new DriverConfigurationStepsOrchestrator(
-        namespace,
-        kubernetesAppId,
-        launchTime,
-        clientArguments.mainAppResource,
-        appName,
-        clientArguments.mainClass,
-        clientArguments.driverArgs,
-        clientArguments.otherPyFiles,
-        sparkConf)
+      namespace,
+      kubernetesAppId,
+      launchTime,
+      clientArguments.mainAppResource,
+      appName,
+      clientArguments.mainClass,
+      clientArguments.driverArgs,
+      clientArguments.otherPyFiles,
+      conf)
     Utils.tryWithResource(SparkKubernetesClientFactory.createKubernetesClient(
-        master,
-        Some(namespace),
-        APISERVER_AUTH_SUBMISSION_CONF_PREFIX,
-        sparkConf,
-        None,
-        None)) { kubernetesClient =>
+      master,
+      Some(namespace),
+      APISERVER_AUTH_SUBMISSION_CONF_PREFIX,
+      conf,
+      None,
+      None)) { kubernetesClient =>
       new Client(
-          configurationStepsOrchestrator.getAllConfigurationSteps(),
-          sparkConf,
-          kubernetesClient,
-          waitForAppCompletion,
-          appName,
-          loggingPodStatusWatcher).run()
+        configurationStepsOrchestrator.getAllConfigurationSteps(),
+        conf,
+        kubernetesClient,
+        waitForAppCompletion,
+        appName,
+        loggingPodStatusWatcher).run()
     }
   }
-
-   /**
-    * Entry point from SparkSubmit in spark-core
-    *
-    * @param args Array of strings that have interchanging values that will be
-    *             parsed by ClientArguments with the identifiers that precede the values
-    */
-  def main(args: Array[String]): Unit = {
-    val parsedArguments = ClientArguments.fromCommandLineArgs(args)
-    val sparkConf = new SparkConf()
-    run(sparkConf, parsedArguments)
-  }
 }
+
