@@ -21,10 +21,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonPropertyOrder}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
-import com.fasterxml.jackson.databind.{MapperFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.base.Objects
+
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 
