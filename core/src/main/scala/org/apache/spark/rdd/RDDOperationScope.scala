@@ -19,11 +19,12 @@ package org.apache.spark.rdd
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonProperty, JsonPropertyOrder}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonPropertyOrder}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.databind.{MapperFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-
+import com.google.common.base.Objects
 import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 
@@ -42,13 +43,14 @@ import org.apache.spark.internal.Logging
  */
 @JsonInclude(Include.NON_ABSENT)
 @JsonPropertyOrder(Array("id", "name", "parent"))
-private[spark] case class RDDOperationScope(
-    @JsonProperty("name") name: String,
-    @JsonProperty("parent") parent: Option[RDDOperationScope] = None,
-    @JsonProperty("id") id: String = RDDOperationScope.nextScopeId().toString) {
+private[spark] class RDDOperationScope(
+    val name: String,
+    @JsonSerialize(typing = JsonSerialize.Typing.STATIC)
+    val parent: Option[RDDOperationScope] = None,
+    val id: String = RDDOperationScope.nextScopeId().toString) {
 
   def toJson: String = {
-    RDDOperationScope.jsonWriter.writeValueAsString(this)
+    RDDOperationScope.jsonMapper.writeValueAsString(this)
   }
 
   /**
@@ -60,6 +62,16 @@ private[spark] case class RDDOperationScope(
     parent.map(_.getAllScopes).getOrElse(Seq.empty) ++ Seq(this)
   }
 
+  override def equals(other: Any): Boolean = {
+    other match {
+      case s: RDDOperationScope =>
+        id == s.id && name == s.name && parent == s.parent
+      case _ => false
+    }
+  }
+
+  override def hashCode(): Int = Objects.hashCode(id, name, parent)
+
   override def toString: String = toJson
 }
 
@@ -68,15 +80,11 @@ private[spark] case class RDDOperationScope(
  * An RDD scope tracks the series of operations that created a given RDD.
  */
 private[spark] object RDDOperationScope extends Logging {
-  private val (jsonReader, jsonWriter) = {
-    val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-      .enable(MapperFeature.USE_STATIC_TYPING)
-    (mapper.readerFor(classOf[RDDOperationScope]), mapper.writerFor(classOf[RDDOperationScope]))
-  }
+  private val jsonMapper = new ObjectMapper().registerModule(DefaultScalaModule)
   private val scopeCounter = new AtomicInteger(0)
 
   def fromJson(s: String): RDDOperationScope = {
-    jsonReader.readValue[RDDOperationScope](s)
+    jsonMapper.readValue(s, classOf[RDDOperationScope])
   }
 
   /** Return a globally unique operation scope ID. */
