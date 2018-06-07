@@ -91,7 +91,7 @@ class ParquetMetadataFileSplitter(
     val statFilter: (FileStatus => Seq[FileSplit]) = { stat =>
       val filePath = stat.getPath
       if (referencedFiles.contains(filePath)) {
-        eligible(filePath)
+        eligible.getOrElse(filePath, Seq())
       } else {
         log.warn(s"Found _metadata file for $root," +
           s" but no entries for blocks in ${filePath}. Retaining whole file.")
