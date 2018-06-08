@@ -64,9 +64,6 @@ object BuildCommons {
       "streaming-flume-sink", "streaming-flume",
       "streaming-kafka-0-8", "ganglia-lgpl", "streaming-kinesis-asl",
       "docker-integration-tests", "hadoop-cloud",
-      "kubernetes-integration-tests",
-      "kubernetes-integration-tests-spark-jobs", "kubernetes-integration-tests-spark-jobs-helpers",
-      "kubernetes-docker-minimal-bundle",
       "spark-dist-hadoop-palantir"
     ).map(ProjectRef(buildLocation, _))
 

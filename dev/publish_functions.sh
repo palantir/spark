@@ -22,6 +22,9 @@ publish_artifacts() {
   echo "</server></servers></settings>" >> $tmp_settings
 
   ./build/mvn -T 1C --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
+  cd resource-managers/kubernetes/docker
+  ./gradlew --info bintrayUpload
+  cd -
 }
 
 make_dist() {

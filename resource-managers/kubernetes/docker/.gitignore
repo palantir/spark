@@ -1,0 +1,4 @@
+src/main/resources/docker-resources.tgz
+.gradle
+build
+

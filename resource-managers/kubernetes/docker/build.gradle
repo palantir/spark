@@ -1,0 +1,68 @@
+buildscript {
+  repositories {
+    jcenter()
+    maven { url "http://palantir.bintray.com/releases" }
+  }
+
+  dependencies {
+    classpath 'gradle.plugin.com.palantir:gradle-circle-style:1.1.2'
+    classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
+    classpath 'com.netflix.nebula:nebula-dependency-recommender:5.2.0'
+    classpath 'com.netflix.nebula:nebula-publishing-plugin:5.1.5'
+  }
+}
+
+plugins {
+  id 'com.palantir.git-version' version '0.9.1'
+  id 'java-gradle-plugin'
+}
+
+repositories {
+  jcenter()
+  maven { url "http://palantir.bintray.com/releases" }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'nebula.dependency-recommender'
+version System.env.CIRCLE_TAG ?: gitVersion()
+group 'org.apache.spark'
+
+sourceCompatibility = 1.8
+
+dependencyRecommendations {
+  strategy OverrideTransitives
+  propertiesFile file: project.rootProject.file('versions.props')
+}
+
+test {
+  minHeapSize = "512m"
+  maxHeapSize = "512m"
+}
+
+if (System.env.CIRCLE_TEST_REPORTS) {
+  test.reports.junitXml.destination = new File(System.env.CIRCLE_TEST_REPORTS, it.getName())
+}
+
+dependencies {
+  compileOnly gradleApi()
+  compile 'org.apache.commons:commons-compress'
+  compile 'commons-io:commons-io'
+  testCompile 'org.assertj:assertj-core'
+  testCompile 'org.mockito:mockito-core'
+  testCompile 'junit:junit'
+  testCompile 'com.spotify:docker-client'
+  testCompile gradleApi()
+  testCompile gradleTestKit()
+}
+
+task prepareResources(type:Exec) {
+  workingDir "$rootDir"
+  commandLine 'scripts/copy-docker-items-to-resources.sh'
+}
+
+tasks.compileJava.dependsOn tasks.prepareResources
+tasks.idea.dependsOn tasks.prepareResources
+
+apply from: "${rootDir}/gradle/publish.gradle"
+
