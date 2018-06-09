@@ -198,8 +198,6 @@ jobs:
       - *restore-build-binaries-cache
       - run: |
           dev/run-build-tests.py | tee /tmp/run-build-tests.log
-      - run: |
-          cd resource-managers/kubernetes/docker && ./gradlew test && cd -
       - store_artifacts:
           path: /tmp/run-build-tests.log
           destination: run-build-tests.log
@@ -264,6 +262,8 @@ jobs:
     resource_class: small
     steps:
       - *checkout-code
+      - run: |
+          dev/run-spark-docker-gradle-plugin-tests.py | tee /tmp/run-spark-docker-gradle-plugin-tests.log
 
   run-backcompat-tests:
     # depends on build-sbt
@@ -484,6 +484,8 @@ workflows:
           <<: *all-branches-and-tags
       - build-sbt:
           <<: *all-branches-and-tags
+      - build-spark-docker-gradle-plugin:
+          <<: *all-branches-and-tags
       - run-backcompat-tests:
           requires:
             - build-sbt
@@ -491,6 +493,10 @@ workflows:
       - run-scala-tests:
           requires:
             - build-sbt
+          <<: *all-branches-and-tags
+      - run-spark-docker-gradle-plugin-tests:
+          requires:
+            - build-spark-docker-gradle-plugin
           <<: *all-branches-and-tags
       - run-python-tests:
           requires:
