@@ -2,5 +2,5 @@
 set -euo pipefail
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT/resource-managers/kubernetes/docker"
-./gradlew --info build
+./gradlew --info compileJava compileTestJava
 cd -

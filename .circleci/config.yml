@@ -167,6 +167,7 @@ jobs:
     <<: *defaults
     steps:
       - *checkout-code
+      - setup_remote_docker
       - run: dev/build-spark-docker-gradle-plugin.sh
 
   run-style-tests:
@@ -262,6 +263,7 @@ jobs:
     resource_class: small
     steps:
       - *checkout-code
+      - setup_remote_docker
       - run: |
           dev/run-spark-docker-gradle-plugin-tests.py | tee /tmp/run-spark-docker-gradle-plugin-tests.log
 
