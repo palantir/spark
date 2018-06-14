@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -14,11 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-org.apache.commons:commons-compress = 1.8.1
-commons-io:commons-io = 2.4
-com.fasterxml.jackson:* = 2.8.0
-com.spotify:docker-client = 8.11.2
-org.assertj:assertj-core = 3.5.2
-org.mockito:mockito-core = 2.2.11
-junit:junit = 4.12
+set -euo pipefail
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT/resource-managers/kubernetes/docker"
+./gradlew --info test
+cd -

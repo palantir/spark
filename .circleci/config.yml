@@ -264,7 +264,7 @@ jobs:
       - *checkout-code
       - setup_remote_docker
       - run: |
-          dev/run-spark-docker-gradle-plugin-tests.py | tee /tmp/run-spark-docker-gradle-plugin-tests.log
+          dev/run-spark-docker-gradle-plugin-tests.sh | tee /tmp/run-spark-docker-gradle-plugin-tests.log
 
   run-backcompat-tests:
     # depends on build-sbt
