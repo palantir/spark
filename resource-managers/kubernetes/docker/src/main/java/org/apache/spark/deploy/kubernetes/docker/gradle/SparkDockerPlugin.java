@@ -35,8 +35,6 @@ import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.Exec;
 import org.gradle.api.tasks.Sync;
-import org.gradle.model.Mutate;
-import org.gradle.model.RuleSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
