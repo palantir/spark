@@ -61,6 +61,7 @@ public final class SparkDockerPluginSuite {
     GradleRunner runner = GradleRunner.create()
         .withPluginClasspath()
         .withArguments(
+            "clean",
             "sparkDockerTag",
             String.format("-Ddocker-tag=%s", dockerTag),
             "--stacktrace",

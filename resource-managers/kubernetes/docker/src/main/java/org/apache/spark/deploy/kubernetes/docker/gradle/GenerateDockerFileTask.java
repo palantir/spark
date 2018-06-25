@@ -32,6 +32,7 @@ import java.util.zip.GZIPInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
@@ -39,13 +40,13 @@ import org.gradle.api.tasks.TaskAction;
 public class GenerateDockerFileTask extends DefaultTask {
 
   private File destDockerFile;
-  private String baseImage;
+  private Property<String> baseImage;
 
   public void setDestDockerFile(File destDockerFile) {
     this.destDockerFile = destDockerFile;
   }
 
-  public void setBaseImage(String baseImage) {
+  public void setBaseImage(Property<String> baseImage) {
     this.baseImage = baseImage;
   }
 
@@ -55,19 +56,13 @@ public class GenerateDockerFileTask extends DefaultTask {
   }
 
   @Input
-  public String getBaseImage() {
+  public Property<String> getBaseImage() {
     return baseImage;
   }
 
   @TaskAction
   public void generateDockerFile() {
     File currentDestDockerFile = getDestDockerFile();
-    if (currentDestDockerFile.isFile() && !currentDestDockerFile.delete()) {
-      throw new RuntimeException(
-          String.format(
-              "Failed to delete old Dockerfile at %s.",
-              currentDestDockerFile.getAbsolutePath()));
-    }
     try (InputStream dockerResourcesInputStream =
              getClass().getResourceAsStream("/docker-resources.tgz");
          GZIPInputStream dockerResourcesGZipped = new GZIPInputStream(dockerResourcesInputStream);
@@ -88,17 +83,14 @@ public class GenerateDockerFileTask extends DefaultTask {
                             && !line.equals("COPY data /opt/spark/data"))
                     .map(line -> {
                       if (line.equals("FROM openjdk:8-alpine")) {
-                        return String.format("FROM %s", getBaseImage());
-                      } else if (line.equals(
-                          "    apk add --no-cache bash tini libc6-compat && \\")) {
-                        return line.replace("libc6-compat ", "");
+                        return String.format("FROM %s", getBaseImage().get());
                       } else {
                         return line;
                       }
                     }).collect(Collectors.toList()));
             Files.write(currentDestDockerFile.toPath(), fileLines, StandardCharsets.UTF_8);
-            break;
           }
+          break;
         }
         nextEntry = dockerResourcesTar.getNextTarEntry();
       }

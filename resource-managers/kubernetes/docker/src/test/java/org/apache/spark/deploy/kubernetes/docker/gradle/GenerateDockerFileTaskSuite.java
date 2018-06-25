@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.assertj.core.api.Assertions;
+import org.gradle.api.provider.Property;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -50,7 +51,9 @@ public final class GenerateDockerFileTaskSuite {
   public void testGenerateDockerFile() throws IOException {
     GenerateDockerFileTask task = Mockito.mock(GenerateDockerFileTask.class);
     Mockito.when(task.getDestDockerFile()).thenReturn(destDockerFile);
-    Mockito.when(task.getBaseImage()).thenReturn("fabric8/java-centos-openjdk8-jdk:latest");
+    Property<String> baseImageProperty = Mockito.mock(Property.class);
+    Mockito.when(baseImageProperty.get()).thenReturn("fabric8/java-centos-openjdk8-jdk:latest");
+    Mockito.when(task.getBaseImage()).thenReturn(baseImageProperty);
     Mockito.doCallRealMethod().when(task).generateDockerFile();
     task.generateDockerFile();
     Assertions.assertThat(destDockerFile).isFile();

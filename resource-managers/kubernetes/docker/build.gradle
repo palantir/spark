@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import java.nio.charset.StandardCharsets
+
 buildscript {
   repositories {
     jcenter()
@@ -69,13 +71,49 @@ dependencies {
   testCompile gradleTestKit()
 }
 
-task prepareResources(type:Exec) {
-  workingDir "$rootDir"
-  commandLine 'scripts/copy-docker-items-to-resources.sh'
+def getGitRepoRoot = { ->
+  def bashStdOut = new ByteArrayOutputStream()
+  exec {
+    commandLine 'git', 'rev-parse', '--show-toplevel'
+    standardOutput = bashStdOut
+  }
+  return new String(bashStdOut.toByteArray(), StandardCharsets.UTF_8).trim()
 }
 
-tasks.compileJava.dependsOn tasks.prepareResources
-tasks.idea.dependsOn tasks.prepareResources
+
+task prepareDockerBundleDir(type: Sync) {
+  from('src/main/dockerfiles/spark/Dockerfile') {
+    into 'dockerfile'
+  }
+
+  from('src/main/dockerfiles/spark/entrypoint.sh') {
+    into 'entrypoint'
+  }
+
+  from(fileTree("$getGitRepoRoot/bin")) {
+    into 'bin'
+  }
+
+  from(fileTree("$getGitRepoRoot/sbin")) {
+    into 'sbin'
+  }
+
+  into file("$project.buildDir/docker-resources")
+}
+
+task createDockerBundleArchive(type: Tar, dependsOn: prepareDockerBundleDir) {
+  from fileTree("$project.buildDir/docker-resources")
+  compression Compression.GZIP
+  archiveName "docker-resources.tgz"
+  destinationDir file('src/main/resources')
+  includeEmptyDirs = false
+  eachFile { details ->
+    def targetPath = "docker-resources/$details.path"
+    details.path = targetPath
+  }
+}
+
+tasks.compileJava.dependsOn tasks.createDockerBundleArchive
+tasks.idea.dependsOn tasks.createDockerBundleArchive
 
 apply from: "${rootDir}/gradle/publish.gradle"
-

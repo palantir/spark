@@ -17,6 +17,8 @@
 package org.apache.spark.deploy.kubernetes.docker.gradle;
 
 import java.io.File;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -26,8 +28,15 @@ import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.file.RelativePath;
+import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.Exec;
+import org.gradle.api.tasks.Sync;
+import org.gradle.model.Mutate;
+import org.gradle.model.RuleSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,17 +49,17 @@ public final class SparkDockerPlugin implements Plugin<Project> {
 
   @Override
   public void apply(Project project) {
-    project.getPluginManager().apply(getClass());
-    project.getExtensions().create(DOCKER_IMAGE_EXTENSION, SparkDockerExtension.class);
     File dockerBuildDirectory = new File(project.getBuildDir(), "spark-docker-build");
-    Configuration sparkDockerRuntimeConfiguration =
-        project.getConfigurations().maybeCreate(SPARK_DOCKER_RUNTIME_CONFIGURATION_NAME);
+    SparkDockerExtension extension = project.getExtensions().create(
+        DOCKER_IMAGE_EXTENSION, SparkDockerExtension.class);
     if (!dockerBuildDirectory.isDirectory() && !dockerBuildDirectory.mkdirs()) {
       throw new RuntimeException("Failed to create Docker build directory at "
           + dockerBuildDirectory.getAbsolutePath());
     }
-
-    project.afterEvaluate(evaluatedProject -> {
+    Configuration sparkDockerRuntimeConfiguration =
+        project.getConfigurations().maybeCreate(SPARK_DOCKER_RUNTIME_CONFIGURATION_NAME);
+    File dockerFile = new File(dockerBuildDirectory, "Dockerfile");
+    project.getPluginManager().withPlugin("java", plugin -> {
       Configuration runtimeConfiguration = project.getConfigurations().findByName("runtime");
       if (runtimeConfiguration == null) {
         log.warn("No runtime configuration was found for a reference configuration for building"
@@ -58,87 +67,147 @@ public final class SparkDockerPlugin implements Plugin<Project> {
       } else {
         sparkDockerRuntimeConfiguration.extendsFrom(runtimeConfiguration);
       }
-
       Task jarTask = project.getTasks().getByName("jar");
-      File sparkAppJar = jarTask.getOutputs().getFiles().getSingleFile();
-      Task copySparkAppLibTask = project.getTasks().create("copySparkAppLibIntoDocker", Copy.class,
+      Provider<File> sparkAppJar = project.getProviders().provider(() ->
+        jarTask.getOutputs().getFiles().getSingleFile());
+      Provider<File> jarsDirProvider = project.getProviders().provider(() ->
+          new File(dockerBuildDirectory, SPARK_JARS_DIR));
+      Task copySparkAppLibTask = project.getTasks().create(
+          "copySparkAppLibIntoDocker",
+          Copy.class,
           copyTask -> copyTask.from(
-              project.files(
-                  project.getConfigurations().getByName(SPARK_DOCKER_RUNTIME_CONFIGURATION_NAME)),
+              project.files(project.getConfigurations().getByName(SPARK_DOCKER_RUNTIME_CONFIGURATION_NAME)),
               sparkAppJar)
-              .into(new File(dockerBuildDirectory, SPARK_JARS_DIR)));
-      copySparkAppLibTask.setDependsOn(Collections.singletonList(jarTask));
-
-      DeployScriptsTask deployScriptsTask = project.getTasks().create(
-          "sparkDockerDeployScripts", DeployScriptsTask.class);
-      deployScriptsTask.setDockerBuildDir(dockerBuildDirectory);
+              .into(jarsDirProvider));
+      copySparkAppLibTask.dependsOn(jarTask);
+      URL dockerResourcesTgzUrl = getClass().getResource("/docker-resources.tgz");
+      Sync deployScriptsTask = project.getTasks().create(
+          "sparkDockerDeployScripts", Sync.class, task -> {
+            task.from(project.tarTree(dockerResourcesTgzUrl), copySpec -> {
+              copySpec.eachFile(copyDetails -> {
+                String[] sourcePathSegments = copyDetails
+                    .getRelativeSourcePath()
+                    .getSegments();
+                if (!sourcePathSegments[0].equals("docker-resources")) {
+                  throw new IllegalStateException(
+                      String.format(
+                          "Expected top-level directory to be docker-resources, but" +
+                              " this path is: %s.",
+                          copyDetails.getRelativeSourcePath().toString()));
+                }
+                if (!copyDetails.isDirectory()) {
+                  String withoutTopLevel = Arrays.asList(sourcePathSegments)
+                      .subList(2, sourcePathSegments.length)
+                      .stream()
+                      .collect(Collectors.joining(File.separator));
+                  if (sourcePathSegments[1].equals("bin") && !copyDetails.isDirectory()) {
+                    copyDetails.setRelativePath(
+                        RelativePath.parse(
+                            true,
+                            "bin/" + withoutTopLevel));
+                  } else if (sourcePathSegments[1].equals("sbin") && !copyDetails.isDirectory()) {
+                    copyDetails.setRelativePath(
+                        RelativePath.parse(
+                            true,
+                            "sbin/" + withoutTopLevel));
+                  } else if (sourcePathSegments[1].equals("entrypoint")) {
+                    copyDetails.setRelativePath(
+                        RelativePath.parse(
+                            true,
+                            "kubernetes/dockerfiles/spark/" + withoutTopLevel));
+                  } else if (sourcePathSegments[1].equals("dockerfile")) {
+                    copyDetails.setRelativePath(
+                        RelativePath.parse(
+                            true,
+                            "original-dockerfile/" + withoutTopLevel));
+                  }
+                }
+              });
+            });
+            task.setIncludeEmptyDirs(false);
+            task.into(dockerBuildDirectory);
+          });
+      copySparkAppLibTask.dependsOn(deployScriptsTask);
       GenerateDockerFileTask generateDockerFileTask = project.getTasks().create(
           "sparkDockerGenerateDockerFile", GenerateDockerFileTask.class);
-      Task prepareTask = project.getTasks().create("sparkDockerPrepare");
-      prepareTask.setDependsOn(Arrays.asList(
-          deployScriptsTask, generateDockerFileTask, copySparkAppLibTask));
-      File dockerFile = new File(dockerBuildDirectory, "Dockerfile");
       generateDockerFileTask.setDestDockerFile(dockerFile);
-      SparkDockerExtension extension = evaluatedProject
-          .getExtensions().getByType(SparkDockerExtension.class);
-      generateDockerFileTask.setBaseImage(extension.getBaseImage());
-      setupDockerTasks(dockerBuildDirectory, dockerFile, evaluatedProject, extension);
+      Property<String> baseImageProperty = project.getObjects().property(String.class);
+      baseImageProperty.set(project.getProviders().provider(extension::getBaseImage));
+      generateDockerFileTask.setBaseImage(baseImageProperty);
+      Task prepareTask = project.getTasks().create("sparkDockerPrepare");
+      prepareTask.dependsOn(
+          deployScriptsTask, generateDockerFileTask, "copySparkAppLibIntoDocker");
     });
+    setupDockerTasks(dockerBuildDirectory, dockerFile, project, extension);
   }
 
   private void setupDockerTasks(
       File buildDirectory,
       File dockerFile,
-      Project evaluatedProject,
+      Project project,
       SparkDockerExtension extension) {
-    Exec dockerBuild = evaluatedProject.getTasks().create(
-        "sparkDockerBuild", Exec.class);
-    dockerBuild.setCommandLine(
-        "docker",
-        "build",
-        "-f",
-        dockerFile.getAbsolutePath(),
-        "-t",
-        extension.getImageName(),
-        buildDirectory.getAbsolutePath());
-    dockerBuild.setDependsOn(
-        Arrays.asList(evaluatedProject.getTasks().getByName("sparkDockerPrepare")));
-    List<Exec> tagTasks = extension.getTags().stream()
-        .map(tag -> {
-          Exec tagTask = evaluatedProject
-              .getTasks()
-              .create(String.format("sparkDockerTag%s", tag), Exec.class);
-          tagTask.setCommandLine(
-              "docker",
-              "tag",
-              extension.getImageName(),
-              String.format("%s:%s", extension.getImageName(), tag));
-          tagTask.setDependsOn(Arrays.asList(dockerBuild));
-          return tagTask;
-        }).collect(Collectors.toList());
-    Task tagAllTask = evaluatedProject.getTasks().create("sparkDockerTag");
-    if (!tagTasks.isEmpty()) {
-      tagAllTask.setDependsOn(tagTasks);
-    } else {
-      tagAllTask.setDependsOn(Arrays.asList(dockerBuild));
-    }
-    Exec pushAllTask = evaluatedProject.getTasks().create("sparkDockerPush", Exec.class);
-    pushAllTask.setCommandLine("docker", "push", extension.getImageName());
-    List<Exec> pushTasks = extension.getTags().stream()
-        .map(tag -> {
-          Exec pushForTagTask = evaluatedProject.getTasks().create(
-              String.format("sparkDockerPush%s", tag), Exec.class);
-          pushForTagTask.setCommandLine("" +
-              "docker", "push", String.format("%s:%s", extension.getImageName(), tag));
-          pushForTagTask.setDependsOn(
-              Arrays.asList(evaluatedProject.getTasks().getByName(
-                  String.format("sparkDockerTag%s", tag))));
-          return pushForTagTask;
-        }).collect(Collectors.toList());
-    if (!pushTasks.isEmpty()) {
-      pushAllTask.setDependsOn(pushTasks);
-    } else {
-      pushAllTask.setDependsOn(Arrays.asList(tagAllTask));
-    }
+    Property<String> imageNameProperty = project.getObjects().property(String.class);
+    imageNameProperty.set(project.provider(extension::getImageName));
+    DockerBuildTask dockerBuild = project.getTasks().create(
+        "sparkDockerBuild",
+        DockerBuildTask.class,
+        dockerBuildTask -> {
+          dockerBuildTask.setDockerBuildDirectory(buildDirectory);
+          dockerBuildTask.setDockerFile(dockerFile);
+          dockerBuildTask.setImageName(imageNameProperty);
+          dockerBuildTask.dependsOn("sparkDockerPrepare");
+        });
+    Task tagAllTask = project.getTasks().create("sparkDockerTag");
+    LazyExecTask pushAllTask = project.getTasks().create(
+        "sparkDockerPush",
+        LazyExecTask.class,
+        task -> {
+          ListProperty<String> pushCommandLine = project.getObjects().listProperty(String.class);
+          pushCommandLine.set(project.provider(() -> {
+            List<String> commandLine = new ArrayList<>();
+            commandLine.add("docker");
+            commandLine.add("push");
+            commandLine.add(extension.getImageName());
+            return commandLine;
+          }));
+          task.setCommandLine(pushCommandLine);
+        });
+    project.afterEvaluate(evaluatedProject -> {
+      List<Exec> tagTasks = extension.getTags().stream()
+          .map(tag ->
+              evaluatedProject
+                  .getTasks()
+                  .create(
+                      String.format("sparkDockerTag%s", tag),
+                      Exec.class,
+                      task ->
+                          task.commandLine(
+                              "docker",
+                              "tag",
+                              extension.getImageName(),
+                              String.format("%s:%s", extension.getImageName(), tag))
+                              .dependsOn(dockerBuild)))
+          .collect(Collectors.toList());
+      if (!tagTasks.isEmpty()) {
+        tagAllTask.dependsOn(tagTasks);
+      } else {
+        tagAllTask.dependsOn(dockerBuild);
+      }
+      List<Exec> pushTasks = extension.getTags().stream()
+          .map(tag ->
+              evaluatedProject.getTasks().create(
+                  String.format("sparkDockerPush%s", tag),
+                  Exec.class,
+                  task ->
+                      task.commandLine(
+                          "docker", "push", String.format("%s:%s", extension.getImageName(), tag))
+                          .dependsOn("sparkDockerTag%s")))
+          .collect(Collectors.toList());
+      if (!pushTasks.isEmpty()) {
+        pushAllTask.dependsOn(pushTasks);
+      } else {
+        pushAllTask.dependsOn(tagAllTask);
+      }
+    });
   }
 }
