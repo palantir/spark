@@ -66,7 +66,7 @@ public class DockerBuildTask extends DefaultTask  {
         "-f",
         getDockerFile().getAbsolutePath(),
         "-t",
-        imageName.get(),
+        getImageName().get(),
         getDockerBuildDirectory().getAbsolutePath()));
   }
 

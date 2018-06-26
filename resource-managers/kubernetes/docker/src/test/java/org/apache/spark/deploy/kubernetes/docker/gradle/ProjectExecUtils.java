@@ -1,3 +1,10 @@
+package org.apache.spark.deploy.kubernetes.docker.gradle;
+
+import org.gradle.api.Action;
+import org.gradle.api.Project;
+import org.gradle.process.ExecSpec;
+import org.mockito.Mockito;
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -14,30 +21,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.deploy.kubernetes.docker.gradle;
+public final class ProjectExecUtils {
 
-import org.gradle.api.DefaultTask;
-import org.gradle.api.provider.ListProperty;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.TaskAction;
-
-public class LazyExecTask extends DefaultTask {
-
-  private ListProperty<String> commandLine;
-
-  @Input
-  public ListProperty<String> getCommandLine() {
-    return commandLine;
-  }
-
-  public void setCommandLine(ListProperty<String> commandLine) {
-    this.commandLine = commandLine;
-  }
-
-  @TaskAction
-  public void runCommand() {
-    getProject().exec(exec -> {
-      exec.commandLine(getCommandLine().get());
+  public static void invokeExecSpecAction(Project project, ExecSpec execSpec) {
+    Mockito.when(project.exec(Mockito.any(Action.class))).thenAnswer(invocation -> {
+      ((Action<ExecSpec>) invocation.getArgument(0)).execute(execSpec);
+      return null;
     });
   }
+
+  private ProjectExecUtils() {}
 }
