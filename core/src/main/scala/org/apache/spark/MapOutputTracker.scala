@@ -37,6 +37,7 @@ import org.apache.spark.shuffle.MetadataFetchFailedException
 import org.apache.spark.storage.{BlockId, BlockManagerId, ShuffleBlockId}
 import org.apache.spark.util._
 
+
 /**
  * Helper class used by the [[MapOutputTrackerMaster]] to perform bookkeeping for a single
  * ShuffleMapStage.
@@ -138,6 +139,10 @@ private class ShuffleStatus(numPartitions: Int) {
         invalidateSerializedMapOutputStatusCache()
       }
     }
+  }
+
+  def hasOutputsOnExecutor(execId: String): Boolean = synchronized {
+    mapStatuses.exists { _.location.executorId == execId }
   }
 
   /**
@@ -470,6 +475,10 @@ private[spark] class MapOutputTrackerMaster(
   def removeOutputsOnExecutor(execId: String): Unit = {
     shuffleStatuses.valuesIterator.foreach { _.removeOutputsOnExecutor(execId) }
     incrementEpoch()
+  }
+
+  def hasOutputsOnExecutor(execId: String): Boolean = {
+    shuffleStatuses.valuesIterator.exists { x => x.hasOutputsOnExecutor(execId) }
   }
 
   /** Check if the given shuffle is being tracked */

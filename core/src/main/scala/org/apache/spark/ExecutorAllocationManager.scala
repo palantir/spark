@@ -94,6 +94,8 @@ private[spark] class ExecutorAllocationManager(
 
   import ExecutorAllocationManager._
 
+  private val mapOutputTracker = SparkEnv.get.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]
+
   // Lower and upper bounds on the number of executors.
   private val minNumExecutors = conf.get(DYN_ALLOCATION_MIN_EXECUTORS)
   private val maxNumExecutors = conf.get(DYN_ALLOCATION_MAX_EXECUTORS)
@@ -462,6 +464,9 @@ private[spark] class ExecutorAllocationManager(
       } else if (newExecutorTotal - 1 < numExecutorsTarget) {
         logDebug(s"Not removing idle executor $executorIdToBeRemoved because there are only " +
           s"$newExecutorTotal executor(s) left (number of executor target $numExecutorsTarget)")
+      } else if (mapOutputTracker.hasOutputsOnExecutor(executorIdToBeRemoved)) {
+        // TODO(wmanning) make the predicate more efficient
+        logDebug(s"Not removing executor $executorIdToBeRemoved because it has shuffle outputs")
       } else if (canBeKilled(executorIdToBeRemoved)) {
         executorIdsToBeRemoved += executorIdToBeRemoved
         newExecutorTotal -= 1
