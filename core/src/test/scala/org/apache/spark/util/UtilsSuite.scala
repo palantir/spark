@@ -814,10 +814,20 @@ class UtilsSuite extends SparkFunSuite with ResetSystemProperties with Logging {
     shouldMatchDefaultOrder(0d, 0d)
     shouldMatchDefaultOrder(0d, 1d)
     shouldMatchDefaultOrder(Double.MinValue, Double.MaxValue)
+
+    shouldMatchDefaultOrder(Double.NaN, Double.NaN)
     assert(Utils.nanSafeCompareDoubles(Double.NaN, Double.NaN) === 0)
+
+    shouldMatchDefaultOrder(Double.NaN, Double.PositiveInfinity)
     assert(Utils.nanSafeCompareDoubles(Double.NaN, Double.PositiveInfinity) === 1)
+
+    shouldMatchDefaultOrder(Double.NaN, Double.NegativeInfinity)
     assert(Utils.nanSafeCompareDoubles(Double.NaN, Double.NegativeInfinity) === 1)
+
+    shouldMatchDefaultOrder(Double.PositiveInfinity, Double.NaN)
     assert(Utils.nanSafeCompareDoubles(Double.PositiveInfinity, Double.NaN) === -1)
+
+    shouldMatchDefaultOrder(Double.NegativeInfinity, Double.NaN)
     assert(Utils.nanSafeCompareDoubles(Double.NegativeInfinity, Double.NaN) === -1)
   }
 
