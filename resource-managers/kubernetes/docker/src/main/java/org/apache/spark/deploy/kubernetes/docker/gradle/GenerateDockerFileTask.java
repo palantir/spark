@@ -16,31 +16,29 @@
  */
 package org.apache.spark.deploy.kubernetes.docker.gradle;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.zip.GZIPInputStream;
-
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class GenerateDockerFileTask extends DefaultTask {
 
+  private File srcDockerFile;
   private File destDockerFile;
   private Property<String> baseImage;
+
+  public void setSrcDockerFile(File srcDockerFile) {
+    this.srcDockerFile = srcDockerFile;
+  }
 
   public void setDestDockerFile(File destDockerFile) {
     this.destDockerFile = destDockerFile;
@@ -48,6 +46,11 @@ public class GenerateDockerFileTask extends DefaultTask {
 
   public void setBaseImage(Property<String> baseImage) {
     this.baseImage = baseImage;
+  }
+
+  @Input
+  public File getSrcDockerFile() {
+    return srcDockerFile;
   }
 
   @OutputFile
@@ -61,41 +64,18 @@ public class GenerateDockerFileTask extends DefaultTask {
   }
 
   @TaskAction
-  public void generateDockerFile() {
+  public void generateDockerFile() throws IOException {
     File currentDestDockerFile = getDestDockerFile();
-    try (InputStream dockerResourcesInputStream =
-             getClass().getResourceAsStream("/docker-resources.tgz");
-         GZIPInputStream dockerResourcesGZipped = new GZIPInputStream(dockerResourcesInputStream);
-         TarArchiveInputStream dockerResourcesTar =
-             new TarArchiveInputStream(dockerResourcesGZipped)) {
-      TarArchiveEntry nextEntry = dockerResourcesTar.getNextTarEntry();
-      while (nextEntry != null) {
-        String fileName = Paths.get(nextEntry.getName()).toFile().getName();
-        if (fileName.equals("Dockerfile")) {
-          try (InputStreamReader sourceDockerFileReader =
-                   new InputStreamReader(dockerResourcesTar, StandardCharsets.UTF_8);
-               BufferedReader sourceDockerFileBuffered =
-                   new BufferedReader(sourceDockerFileReader)) {
-            List<String> fileLines = Collections.unmodifiableList(
-                sourceDockerFileBuffered.lines()
-                    .filter(line ->
-                        !line.equals("COPY examples /opt/spark/examples")
-                            && !line.equals("COPY data /opt/spark/data"))
-                    .map(line -> {
-                      if (line.equals("FROM openjdk:8-alpine")) {
-                        return String.format("FROM %s", getBaseImage().get());
-                      } else {
-                        return line;
-                      }
-                    }).collect(Collectors.toList()));
-            Files.write(currentDestDockerFile.toPath(), fileLines, StandardCharsets.UTF_8);
-          }
-          break;
-        }
-        nextEntry = dockerResourcesTar.getNextTarEntry();
-      }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    File currentSrcDockerFile = getSrcDockerFile();
+    List<String> fileLines = Collections.unmodifiableList(
+        Files.lines(currentSrcDockerFile.toPath())
+            .map(line -> {
+              if (line.equals("FROM openjdk:8-alpine")) {
+                return String.format("FROM %s", getBaseImage().get());
+              } else {
+                return line;
+              }
+            }).collect(Collectors.toList()));
+    Files.write(currentDestDockerFile.toPath(), fileLines, StandardCharsets.UTF_8);
   }
 }

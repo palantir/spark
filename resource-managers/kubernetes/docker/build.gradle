@@ -83,11 +83,12 @@ def getGitRepoRoot = { ->
 
 task prepareDockerBundleDir(type: Sync) {
   from('src/main/dockerfiles/spark/Dockerfile') {
-    into 'dockerfile'
+    into 'kubernetes/dockerfiles/spark'
+    rename 'Dockerfile', 'Dockerfile.original'
   }
 
   from('src/main/dockerfiles/spark/entrypoint.sh') {
-    into 'entrypoint'
+    into 'kubernetes/dockerfiles/spark'
   }
 
   from(fileTree("$getGitRepoRoot/bin")) {
@@ -98,22 +99,11 @@ task prepareDockerBundleDir(type: Sync) {
     into 'sbin'
   }
 
-  into file("$project.buildDir/docker-resources")
-}
-
-task createDockerBundleArchive(type: Tar, dependsOn: prepareDockerBundleDir) {
-  from fileTree("$project.buildDir/docker-resources")
-  compression Compression.GZIP
-  archiveName "docker-resources.tgz"
-  destinationDir file('src/main/resources')
+  into file("src/main/resources/docker-resources")
   includeEmptyDirs = false
-  eachFile { details ->
-    def targetPath = "docker-resources/$details.path"
-    details.path = targetPath
-  }
 }
 
-tasks.compileJava.dependsOn tasks.createDockerBundleArchive
-tasks.idea.dependsOn tasks.createDockerBundleArchive
+tasks.compileJava.dependsOn tasks.prepareDockerBundleDir
+tasks.idea.dependsOn tasks.prepareDockerBundleDir
 
 apply from: "${rootDir}/gradle/publish.gradle"

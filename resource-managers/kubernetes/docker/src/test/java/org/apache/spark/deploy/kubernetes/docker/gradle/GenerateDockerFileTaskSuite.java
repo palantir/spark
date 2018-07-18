@@ -18,6 +18,7 @@ package org.apache.spark.deploy.kubernetes.docker.gradle;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
@@ -26,6 +27,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.IOUtils;
 import org.assertj.core.api.Assertions;
 import org.gradle.api.provider.Property;
 import org.junit.Before;
@@ -39,18 +41,26 @@ public final class GenerateDockerFileTaskSuite {
   @Rule
   public TemporaryFolder tempFolder = new TemporaryFolder();
 
+  private File srcDockerFile;
   private File destDockerFile;
 
   @Before
   public void before() throws IOException {
     File dockerFileDir = tempFolder.newFolder("docker");
     destDockerFile = new File(dockerFileDir, "Dockerfile");
+    srcDockerFile = tempFolder.newFile("Dockerfile.original");
+    try (InputStream originalDockerFileResource = getClass().getResourceAsStream(
+        "/docker-resources/kubernetes/dockerfiles/spark/Dockerfile.original");
+         FileOutputStream srcDockerFileStream = new FileOutputStream(srcDockerFile)) {
+      IOUtils.copy(originalDockerFileResource, srcDockerFileStream);
+    }
   }
 
   @Test
   public void testGenerateDockerFile() throws IOException {
     GenerateDockerFileTask task = Mockito.mock(GenerateDockerFileTask.class);
     Mockito.when(task.getDestDockerFile()).thenReturn(destDockerFile);
+    Mockito.when(task.getSrcDockerFile()).thenReturn(srcDockerFile);
     Property<String> baseImageProperty = Mockito.mock(Property.class);
     Mockito.when(baseImageProperty.get()).thenReturn("fabric8/java-centos-openjdk8-jdk:latest");
     Mockito.when(task.getBaseImage()).thenReturn(baseImageProperty);

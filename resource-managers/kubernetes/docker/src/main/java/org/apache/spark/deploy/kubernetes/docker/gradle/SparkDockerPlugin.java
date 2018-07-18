@@ -18,6 +18,7 @@ package org.apache.spark.deploy.kubernetes.docker.gradle;
 
 import java.io.File;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -78,57 +79,25 @@ public final class SparkDockerPlugin implements Plugin<Project> {
               sparkAppJar)
               .into(jarsDirProvider));
       copySparkAppLibTask.dependsOn(jarTask);
-      URL dockerResourcesTgzUrl = getClass().getResource("/docker-resources.tgz");
+      URL dockerResourcesUrl = getClass().getResource("/docker-resources");
       Sync deployScriptsTask = project.getTasks().create(
           "sparkDockerDeployScripts", Sync.class, task -> {
-            task.from(project.tarTree(dockerResourcesTgzUrl), copySpec -> {
-              copySpec.eachFile(copyDetails -> {
-                String[] sourcePathSegments = copyDetails
-                    .getRelativeSourcePath()
-                    .getSegments();
-                if (!sourcePathSegments[0].equals("docker-resources")) {
-                  throw new IllegalStateException(
-                      String.format(
-                          "Expected top-level directory to be docker-resources, but" +
-                              " this path is: %s.",
-                          copyDetails.getRelativeSourcePath().toString()));
-                }
-                if (!copyDetails.isDirectory()) {
-                  String withoutTopLevel = Arrays.asList(sourcePathSegments)
-                      .subList(2, sourcePathSegments.length)
-                      .stream()
-                      .collect(Collectors.joining(File.separator));
-                  if (sourcePathSegments[1].equals("bin") && !copyDetails.isDirectory()) {
-                    copyDetails.setRelativePath(
-                        RelativePath.parse(
-                            true,
-                            "bin/" + withoutTopLevel));
-                  } else if (sourcePathSegments[1].equals("sbin") && !copyDetails.isDirectory()) {
-                    copyDetails.setRelativePath(
-                        RelativePath.parse(
-                            true,
-                            "sbin/" + withoutTopLevel));
-                  } else if (sourcePathSegments[1].equals("entrypoint")) {
-                    copyDetails.setRelativePath(
-                        RelativePath.parse(
-                            true,
-                            "kubernetes/dockerfiles/spark/" + withoutTopLevel));
-                  } else if (sourcePathSegments[1].equals("dockerfile")) {
-                    copyDetails.setRelativePath(
-                        RelativePath.parse(
-                            true,
-                            "original-dockerfile/" + withoutTopLevel));
-                  }
-                }
-              });
-            });
+            task.from(project.fileTree(dockerResourcesUrl));
             task.setIncludeEmptyDirs(false);
             task.into(dockerBuildDirectory);
           });
       copySparkAppLibTask.dependsOn(deployScriptsTask);
       GenerateDockerFileTask generateDockerFileTask = project.getTasks().create(
           "sparkDockerGenerateDockerFile", GenerateDockerFileTask.class);
+      generateDockerFileTask.setSrcDockerFile(
+          Paths.get(
+              dockerBuildDirectory.getAbsolutePath(),
+              "kubernetes",
+              "dockerfiles",
+              "spark",
+              "Dockerfile.original").toFile());
       generateDockerFileTask.setDestDockerFile(dockerFile);
+      generateDockerFileTask.dependsOn(deployScriptsTask);
       Property<String> baseImageProperty = project.getObjects().property(String.class);
       baseImageProperty.set(project.getProviders().provider(extension::getBaseImage));
       generateDockerFileTask.setBaseImage(baseImageProperty);
