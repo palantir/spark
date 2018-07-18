@@ -1,10 +1,3 @@
-package org.apache.spark.deploy.kubernetes.docker.gradle;
-
-import org.gradle.api.Action;
-import org.gradle.api.Project;
-import org.gradle.process.ExecSpec;
-import org.mockito.Mockito;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -21,6 +14,13 @@ import org.mockito.Mockito;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.spark.deploy.kubernetes.docker.gradle;
+
+import org.gradle.api.Action;
+import org.gradle.api.Project;
+import org.gradle.process.ExecSpec;
+import org.mockito.Mockito;
+
 public final class ProjectExecUtils {
 
   public static void invokeExecSpecAction(Project project, ExecSpec execSpec) {
