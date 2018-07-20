@@ -557,4 +557,12 @@ class AnalysisSuite extends AnalysisTest with Matchers {
       SubqueryAlias("tbl", testRelation)))
     assertAnalysisError(barrier, Seq("cannot resolve '`tbl.b`'"))
   }
+
+  test("SPARK-24488 Generator with multiple aliases") {
+    assertAnalysisSuccess(
+      listRelation.select(Explode('list).as("first_alias").as("second_alias")))
+    assertAnalysisSuccess(
+      listRelation.select(MultiAlias(MultiAlias(
+        PosExplode('list), Seq("first_pos", "first_val")), Seq("second_pos", "second_val"))))
+  }
 }
