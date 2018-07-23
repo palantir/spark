@@ -24,13 +24,12 @@ import org.apache.spark.serializer.{JavaSerializer, KryoSerializer}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{UnsafeProjection, UnsafeRow}
 import org.apache.spark.sql.catalyst.util.GenericArrayData
-import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.unsafe.memory.MemoryAllocator
 import org.apache.spark.unsafe.types.UTF8String
 
-class UnsafeRowSuite extends SparkFunSuite with SharedSQLContext {
+class UnsafeRowSuite extends SparkFunSuite {
 
   test("UnsafeRow Java serialization") {
     // serializing an UnsafeRow pointing to a large buffer should only serialize the relevant data
