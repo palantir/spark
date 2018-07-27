@@ -81,9 +81,16 @@ private class ShuffleStatus(numPartitions: Int) {
   /**
    * Counter tracking the number of partitions that have output. This is a performance optimization
    * to avoid having to count the number of non-null entries in the `mapStatuses` array and should
-   * be equivalent to`mapStatuses.count(_ ne null)`.
+   * be equivalent to `mapStatuses.count(_ ne null)`.
    */
   private[this] var _numAvailableOutputs: Int = 0
+
+  /**
+    * Cached set of executorIds on which outputs exist. This is a performance optimization to avoid
+    * having to repeatedly iterate over ever element in the `mapStatuses` array and should be
+    * equivalent to `mapStatuses.map { _.location.executorId }`.
+    */
+  private[this] val _numOutputsPerExecutorId = HashMap[String, Int]().withDefaultValue(0)
 
   /**
    * Register a map output. If there is already a registered location for the map output then it
@@ -91,7 +98,7 @@ private class ShuffleStatus(numPartitions: Int) {
    */
   def addMapOutput(mapId: Int, status: MapStatus): Unit = synchronized {
     if (mapStatuses(mapId) == null) {
-      _numAvailableOutputs += 1
+      incrementNumAvailableOutputs(status.location)
       invalidateSerializedMapOutputStatusCache()
     }
     mapStatuses(mapId) = status
@@ -104,7 +111,7 @@ private class ShuffleStatus(numPartitions: Int) {
    */
   def removeMapOutput(mapId: Int, bmAddress: BlockManagerId): Unit = synchronized {
     if (mapStatuses(mapId) != null && mapStatuses(mapId).location == bmAddress) {
-      _numAvailableOutputs -= 1
+      decrementNumAvailableOutputs(bmAddress)
       mapStatuses(mapId) = null
       invalidateSerializedMapOutputStatusCache()
     }
@@ -134,7 +141,7 @@ private class ShuffleStatus(numPartitions: Int) {
   def removeOutputsByFilter(f: (BlockManagerId) => Boolean): Unit = synchronized {
     for (mapId <- 0 until mapStatuses.length) {
       if (mapStatuses(mapId) != null && f(mapStatuses(mapId).location)) {
-        _numAvailableOutputs -= 1
+        decrementNumAvailableOutputs(mapStatuses(mapId).location)
         mapStatuses(mapId) = null
         invalidateSerializedMapOutputStatusCache()
       }
@@ -142,7 +149,7 @@ private class ShuffleStatus(numPartitions: Int) {
   }
 
   def hasOutputsOnExecutor(execId: String): Boolean = synchronized {
-    mapStatuses.exists { _.location.executorId == execId }
+    _numOutputsPerExecutorId(execId) > 0
   }
 
   /**
@@ -195,6 +202,18 @@ private class ShuffleStatus(numPartitions: Int) {
    */
   def withMapStatuses[T](f: Array[MapStatus] => T): T = synchronized {
     f(mapStatuses)
+  }
+
+  def incrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
+    _numOutputsPerExecutorId(bmAddress.executorId) += 1
+    _numAvailableOutputs += 1
+  }
+
+  def decrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
+    assert(_numOutputsPerExecutorId(bmAddress.executorId) >= 1,
+      s"Tried to remove non-existent output from ${bmAddress.executorId}")
+    _numOutputsPerExecutorId(bmAddress.executorId) -= 1
+    _numAvailableOutputs -= 1
   }
 
   /**
