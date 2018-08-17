@@ -18,6 +18,4 @@
 #
 
 set -euo pipefail
-ROOT=$(git rev-parse --show-toplevel)
-DOCKER_PLUGIN_PROJECT_DIR=$ROOT/resource-managers/kubernetes/docker
-$DOCKER_PLUGIN_PROJECT_DIR/gradlew -p $DOCKER_PLUGIN_PROJECT_DIR --info compileJava compileTestJava
+./gradlew --info --stacktrace compileJava compileTestJava
