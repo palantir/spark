@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM openjdk:8-alpine
+FROM fabric8/java-centos-openjdk8-jdk:latest
 
 ARG spark_jars=jars
 ARG img_path=kubernetes/dockerfiles

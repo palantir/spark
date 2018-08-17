@@ -48,6 +48,7 @@ dev/pr-deps/
 dist/
 docs/_site
 docs/api
+gradle-build
 sql/docs
 sql/site
 lib_managed/
