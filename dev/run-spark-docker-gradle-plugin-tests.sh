@@ -17,4 +17,4 @@
 # limitations under the License.
 #
 set -euo pipefail
-./gradlew -p $DOCKER_PLUGIN_PROJECT_DIR --info test
+./gradlew --info --stacktrace test

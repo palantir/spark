@@ -18,4 +18,4 @@
 #
 
 set -euo pipefail
-./gradlew --info --stacktrace compileJava compileTestJava
+./gradlew --info --stacktrace check -x test
