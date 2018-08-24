@@ -40,7 +40,7 @@ except ImportError:
     JIRA_IMPORTED = False
 
 if sys.version < '3':
-    input = raw_input
+    input = raw_input  # noqa
 
 # Location of your Spark git development area
 SPARK_HOME = os.environ.get("SPARK_HOME", os.getcwd())
@@ -374,8 +374,8 @@ def standardize_jira_ref(text):
     >>> standardize_jira_ref("[SPARK-979] a LRU scheduler for load balancing in TaskSchedulerImpl")
     '[SPARK-979] a LRU scheduler for load balancing in TaskSchedulerImpl'
     >>> standardize_jira_ref(
-    ...     "SPARK-1094 Support MiMa for reporting binary compatibility accross versions.")
-    '[SPARK-1094] Support MiMa for reporting binary compatibility accross versions.'
+    ...     "SPARK-1094 Support MiMa for reporting binary compatibility across versions.")
+    '[SPARK-1094] Support MiMa for reporting binary compatibility across versions.'
     >>> standardize_jira_ref("[WIP]  [SPARK-1146] Vagrant support for Spark")
     '[SPARK-1146][WIP] Vagrant support for Spark'
     >>> standardize_jira_ref(

@@ -79,6 +79,7 @@ work/
 .credentials
 dev/pr-deps
 docs/.jekyll-metadata
+*.crc
 
 # For Hive
 TempStatsStore/

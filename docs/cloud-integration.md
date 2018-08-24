@@ -103,9 +103,9 @@ Spark jobs must authenticate with the object stores to access data within them.
 1. `spark-submit` reads the `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`
 and `AWS_SESSION_TOKEN` environment variables and sets the associated authentication options
 for the `s3n` and `s3a` connectors to Amazon S3.
-1. In a Hadoop cluster, settings may be set in the `core-site.xml` file.
-1. Authentication details may be manually added to the Spark configuration in `spark-default.conf`
-1. Alternatively, they can be programmatically set in the `SparkConf` instance used to configure
+1. In a Hadoop cluster, settings may be set in the `core-site.xml` file
+1. Authentication details may be manually added to the Spark configuration in `spark-defaults.conf`
+1. Alternatively, they can be programmatically set in the `SparkConf` instance used to configure 
 the application's `SparkContext`.
 
 *Important: never check authentication secrets into source code repositories,
