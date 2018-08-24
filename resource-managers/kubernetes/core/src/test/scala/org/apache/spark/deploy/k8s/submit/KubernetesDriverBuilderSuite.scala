@@ -279,6 +279,7 @@ class KubernetesDriverBuilderSuite extends SparkFunSuite {
         Seq.empty),
       "prefix",
       "appId",
+      Some("secret"),
       Map.empty,
       Map.empty,
       Map.empty,

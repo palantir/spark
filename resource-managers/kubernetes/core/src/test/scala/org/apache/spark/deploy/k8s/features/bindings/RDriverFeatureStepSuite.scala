@@ -41,6 +41,7 @@ class RDriverFeatureStepSuite extends SparkFunSuite {
         Seq("5 7")),
       appResourceNamePrefix = "",
       appId = "",
+      Some("secret"),
       roleLabels = Map.empty,
       roleAnnotations = Map.empty,
       roleSecretNamesToMountPaths = Map.empty,
