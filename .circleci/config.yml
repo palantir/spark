@@ -167,7 +167,7 @@ jobs:
     <<: *defaults
     steps:
       - *checkout-code
-      - run: dev/build-spark-docker-gradle-plugin.sh
+      - run: ./gradlew --info --stacktrace check -x test
 
   run-style-tests:
     # depends only on build-maven
@@ -264,7 +264,7 @@ jobs:
       - *checkout-code
       - setup_remote_docker
       - run: |
-          dev/run-spark-docker-gradle-plugin-tests.sh | tee /tmp/run-spark-docker-gradle-plugin-tests.log
+          ./gradlew --info --stacktrace test | tee /tmp/run-spark-docker-gradle-plugin-tests.log
 
   run-backcompat-tests:
     # depends on build-sbt
