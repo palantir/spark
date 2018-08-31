@@ -23,7 +23,6 @@ import java.util.concurrent.{Callable, TimeUnit}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Try}
 
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
@@ -378,6 +377,9 @@ class ParquetFileFormat
     hadoopConf.set(
       SQLConf.SESSION_LOCAL_TIMEZONE.key,
       sparkSession.sessionState.conf.sessionLocalTimeZone)
+    hadoopConf.setBoolean(
+      SQLConf.CASE_SENSITIVE.key,
+      sparkSession.sessionState.conf.caseSensitiveAnalysis)
 
     ParquetWriteSupport.setSchema(requiredSchema, hadoopConf)
 
@@ -619,32 +621,25 @@ object ParquetFileFormat extends Logging {
       conf: Configuration,
       partFiles: Seq[FileStatus],
       ignoreCorruptFiles: Boolean): Seq[Footer] = {
-    val parFiles = partFiles.par
-    val pool = ThreadUtils.newForkJoinPool("readingParquetFooters", 8)
-    parFiles.tasksupport = new ForkJoinTaskSupport(pool)
     val tc = TaskContext.get()
-    try {
-      parFiles.flatMap { currentFile =>
-        TaskContext.setTaskContext(tc)
-        try {
-          // Skips row group information since we only need the schema.
-          // ParquetFileReader.readFooter throws RuntimeException, instead of IOException,
-          // when it can't read the footer.
-          Some(new Footer(currentFile.getPath(),
-            ParquetFileReader.readFooter(
-              conf, currentFile, SKIP_ROW_GROUPS)))
-        } catch { case e: RuntimeException =>
-          if (ignoreCorruptFiles) {
-            logWarning(s"Skipped the footer in the corrupted file: $currentFile", e)
-            None
-          } else {
-            throw new IOException(s"Could not read footer for file: $currentFile", e)
-          }
+    ThreadUtils.parmap(partFiles, "readingParquetFooters", 8) { currentFile =>
+      TaskContext.setTaskContext(tc)
+      try {
+        // Skips row group information since we only need the schema.
+        // ParquetFileReader.readFooter throws RuntimeException, instead of IOException,
+        // when it can't read the footer.
+        Some(new Footer(currentFile.getPath(),
+          ParquetFileReader.readFooter(
+            conf, currentFile, SKIP_ROW_GROUPS)))
+      } catch { case e: RuntimeException =>
+        if (ignoreCorruptFiles) {
+          logWarning(s"Skipped the footer in the corrupted file: $currentFile", e)
+          None
+        } else {
+          throw new IOException(s"Could not read footer for file: $currentFile", e)
         }
-      }.seq
-    } finally {
-      pool.shutdown()
-    }
+      }
+    }.flatten
   }
 
   /**
