@@ -17,8 +17,7 @@
 package org.apache.spark.deploy.k8s.submit
 
 import java.io.StringWriter
-import java.util.{Collections, UUID}
-import java.util.Properties
+import java.util.{Collections, Properties, UUID}
 
 import io.fabric8.kubernetes.api.model._
 import io.fabric8.kubernetes.client.KubernetesClient
@@ -60,6 +59,8 @@ private[spark] object ClientArguments {
         mainAppResource = Some(JavaMainAppResource(primaryJavaResource))
       case Array("--primary-py-file", primaryPythonResource: String) =>
         mainAppResource = Some(PythonMainAppResource(primaryPythonResource))
+      case Array("--primary-r-file", primaryRFile: String) =>
+        mainAppResource = Some(RMainAppResource(primaryRFile))
       case Array("--other-py-files", pyFiles: String) =>
         maybePyFiles = Some(pyFiles)
       case Array("--main-class", clazz: String) =>
@@ -224,7 +225,6 @@ private[spark] class KubernetesClientApplication extends SparkApplication {
       clientArguments.mainClass,
       clientArguments.driverArgs,
       clientArguments.maybePyFiles)
-    val builder = new KubernetesDriverBuilder
     val namespace = kubernetesConf.namespace()
     // The master URL has been checked for validity already in SparkSubmit.
     // We just need to get rid of the "k8s://" prefix here.
@@ -241,7 +241,7 @@ private[spark] class KubernetesClientApplication extends SparkApplication {
       None,
       None)) { kubernetesClient =>
         val client = new Client(
-          builder,
+          KubernetesDriverBuilder(kubernetesClient, kubernetesConf.sparkConf),
           kubernetesConf,
           kubernetesClient,
           waitForAppCompletion,

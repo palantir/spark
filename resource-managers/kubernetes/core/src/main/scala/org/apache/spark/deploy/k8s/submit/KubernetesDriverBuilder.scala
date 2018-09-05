@@ -18,9 +18,12 @@ package org.apache.spark.deploy.k8s.submit
 
 import java.io.File
 
+import io.fabric8.kubernetes.client.KubernetesClient
+
+import org.apache.spark.SparkConf
 import org.apache.spark.deploy.k8s._
 import org.apache.spark.deploy.k8s.features._
-import org.apache.spark.deploy.k8s.features.bindings.{JavaDriverFeatureStep, PythonDriverFeatureStep}
+import org.apache.spark.deploy.k8s.features.bindings._
 import org.apache.spark.util.Utils
 
 private[spark] class KubernetesDriverBuilder(
@@ -46,12 +49,19 @@ private[spark] class KubernetesDriverBuilder(
     provideVolumesStep: (KubernetesConf[_ <: KubernetesRoleSpecificConf]
       => MountVolumesFeatureStep) =
       new MountVolumesFeatureStep(_),
-    provideJavaStep: (
-      KubernetesConf[KubernetesDriverSpecificConf]
+    providePythonStep: (KubernetesConf[KubernetesDriverSpecificConf]
+        => PythonDriverFeatureStep) =
+    new PythonDriverFeatureStep(_),
+    provideRStep: (KubernetesConf[KubernetesDriverSpecificConf]
+        => RDriverFeatureStep) =
+    new RDriverFeatureStep(_),
+    provideJavaStep: (KubernetesConf[KubernetesDriverSpecificConf]
         => JavaDriverFeatureStep) =
-      new JavaDriverFeatureStep(_),
-    providePythonStep: (KubernetesConf[KubernetesDriverSpecificConf] => PythonDriverFeatureStep) =
-      new PythonDriverFeatureStep(_)) {
+    new JavaDriverFeatureStep(_),
+    providePodTemplateConfigMapStep: (KubernetesConf[_ <: KubernetesRoleSpecificConf]
+      => PodTemplateConfigMapStep) =
+    new PodTemplateConfigMapStep(_),
+    provideInitialPod: () => SparkPod = SparkPod.initialPod) {
 
   import KubernetesDriverBuilder._
 
@@ -72,12 +82,18 @@ private[spark] class KubernetesDriverBuilder(
     val volumesFeature = if (kubernetesConf.roleVolumes.nonEmpty) {
       Seq(provideVolumesStep(kubernetesConf))
     } else Nil
+    val podTemplateFeature = if (
+      kubernetesConf.get(Config.KUBERNETES_EXECUTOR_PODTEMPLATE_FILE).isDefined) {
+      Seq(providePodTemplateConfigMapStep(kubernetesConf))
+    } else Nil
 
     val bindingsStep = kubernetesConf.roleSpecificConf.mainAppResource.map {
         case JavaMainAppResource(_) =>
           provideJavaStep(kubernetesConf)
         case PythonMainAppResource(_) =>
-          providePythonStep(kubernetesConf)}
+          providePythonStep(kubernetesConf)
+        case RMainAppResource(_) =>
+          provideRStep(kubernetesConf)}
       .getOrElse(provideJavaStep(kubernetesConf))
 
     val localFiles = KubernetesUtils.submitterLocalFiles(kubernetesConf.sparkFiles)
@@ -94,10 +110,13 @@ private[spark] class KubernetesDriverBuilder(
       Seq(provideMountLocalFilesStep(kubernetesConf))
     } else Nil
 
-    val allFeatures = (baseFeatures :+ bindingsStep) ++
-      secretFeature ++ envSecretFeature ++ volumesFeature ++ providedLocalFilesFeature
+    val allFeatures = (baseFeatures :+ bindingsStep) ++ secretFeature ++
+      envSecretFeature ++ volumesFeature ++ providedLocalFilesFeature ++ podTemplateFeature
 
-    var spec = KubernetesDriverSpec.initialSpec(kubernetesConf.sparkConf.getAll.toMap)
+    var spec = KubernetesDriverSpec(
+      provideInitialPod(),
+      Seq.empty,
+      kubernetesConf.sparkConf.getAll.toMap)
     for (feature <- allFeatures) {
       val configuredPod = feature.configurePod(spec.pod)
       val addedSystemProperties = feature.getAdditionalPodSystemProperties()
@@ -111,8 +130,17 @@ private[spark] class KubernetesDriverBuilder(
   }
 }
 
-private object KubernetesDriverBuilder {
+private[spark] object KubernetesDriverBuilder {
   val MAX_SECRET_BUNDLE_SIZE_BYTES = 20480
   val MAX_SECRET_BUNDLE_SIZE_BYTES_STRING =
     Utils.bytesToString(MAX_SECRET_BUNDLE_SIZE_BYTES)
+
+  def apply(kubernetesClient: KubernetesClient, conf: SparkConf): KubernetesDriverBuilder = {
+    conf.get(Config.KUBERNETES_DRIVER_PODTEMPLATE_FILE)
+      .map(new File(_))
+      .map(file => new KubernetesDriverBuilder(provideInitialPod = () =>
+        KubernetesUtils.loadPodFromTemplate(kubernetesClient, file)
+      ))
+      .getOrElse(new KubernetesDriverBuilder())
+  }
 }

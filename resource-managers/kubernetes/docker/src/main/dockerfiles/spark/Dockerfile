@@ -29,7 +29,7 @@ ARG img_path=kubernetes/dockerfiles
 
 RUN set -ex && \
     apk upgrade --no-cache && \
-    apk add --no-cache bash tini libc6-compat && \
+    apk add --no-cache bash tini && \
     mkdir -p /opt/spark && \
     mkdir -p /opt/spark/work-dir && \
     touch /opt/spark/RELEASE && \
@@ -41,8 +41,6 @@ COPY ${spark_jars} /opt/spark/jars
 COPY bin /opt/spark/bin
 COPY sbin /opt/spark/sbin
 COPY ${img_path}/spark/entrypoint.sh /opt/
-COPY examples /opt/spark/examples
-COPY data /opt/spark/data
 
 ENV SPARK_HOME /opt/spark
 
