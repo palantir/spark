@@ -1,3 +1,0 @@
-2.4.0-palantir.24:
-  - org.apache.spark.scheduler.cluster.k8s.ExecutorPodsAllocator: resource-managers/kubernetes/core/src/main/scala/org/apache/spark/scheduler/cluster/k8s/ExecutorPodsAllocator.scala
-  - org.apache.spark.scheduler.cluster.k8s.ExecutorPodsLifecycleManager: resource-managers/kubernetes/core/src/main/scala/org/apache/spark/scheduler/cluster/k8s/ExecutorPodsLifecycleManager.scala 
