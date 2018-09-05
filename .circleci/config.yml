@@ -183,7 +183,7 @@ jobs:
       - run:
           name: Run style tests
           command: dev/run-style-tests.py
-          command: dev/log-regression-checker.py -v
+          command: python dev/log-regression-checker/log-regression-checker.py -v
           no_output_timeout: 15m
 
   run-build-tests:
