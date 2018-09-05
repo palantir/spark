@@ -73,7 +73,6 @@ def update_release(configs, verbose=False, dry_run=True):
   
 
 parser = argparse.ArgumentParser(description='Process arguments')
-parser.add_argument("operation", choices=["check", "update-master", "update-release"], help="The type of operation. Can be 'check' or 'update'")
 parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("-d", "--dry-run", action="store_true")
 args = parser.parse_args()
@@ -84,13 +83,17 @@ with open(log_config_file, "r") as f:
 assert configs["unmerged"] != None, "File files-to-inspect.json is malformatted. Expecting a 'unmerged' entry"
 assert configs["master"] != None, "File files-to-inspect.json is malformatted. Expecting a 'master' entry"
 
-if args.operation == "check":
-    success = check(configs, args.verbose)
-    if not success:
-      sys.exit(1)
-elif args.operation == "update-master":
+tag = subprocess.check_output(['git', 'describe', '--tag']).strip()
+is_release_tag = re.match("(\d+).(\d+).(\d+)-palantir.(\d+)$", tag)
+branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).strip()
+
+if is_release_tag:
+    update_release(configs, args.verbose, args.dry_run)
+elif branch == 'master':
     update_master(configs, args.verbose, args.dry_run)
 else:
-    update_release(configs, args.verbose, args.dry_run)
-
+    success = check(configs, args.verbose)
+    if not success:
+        sys.exit(1)
+    
   

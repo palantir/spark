@@ -183,6 +183,7 @@ jobs:
       - run:
           name: Run style tests
           command: dev/run-style-tests.py
+          command: dev/log-regression-checker.py -v
           no_output_timeout: 15m
 
   run-build-tests:
@@ -468,6 +469,7 @@ jobs:
       - store_artifacts:
           path: /tmp/publish_artifacts.log
           destination: publish_artifacts.log
+
 
 workflows:
   version: 2
