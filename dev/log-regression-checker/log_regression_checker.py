@@ -34,9 +34,9 @@ def check(configs, verbose=False):
         for log_line in current_log_lines:
             if log_line not in expected_log_lines:
                 success = False
-                print "ERROR: Log file " + log_file + " is different from what's on master"
+                print "ERROR: File " + log_file + " contents different log lines than those on origin/master"
                 if verbose:
-                    print output
+                    print "  - Offending new log line:", log_line
     if not success:
         print "Some files in 'files-to-inspect.json' are different on master."
         print "Please check these files and add them to the 'unmerged' section of the file."
