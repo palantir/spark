@@ -3,6 +3,7 @@ import os
 import json
 import subprocess
 import re
+import sys
 from log_regression_checker import check, update_master, update_release
 
 def _update_file(contents, write_file, dry_run=True):
@@ -49,7 +50,7 @@ else:
     def _get_master_contents(filepath): return subprocess.check_output(['git', 'show', 'origin/master:' + filepath])
     def _get_current_contents(filepath): return subprocess.check_output(['cat', filepath])
     failures = check(configs, _get_master_contents, _get_current_contents, args.verbose)
-    if len(failures.keys()) == 0:
+    if len(failures.keys()) > 0:
         sys.exit(1)
     
 
