@@ -29,16 +29,20 @@ def check(configs, verbose=False):
 
     success = True
     for log_file in files_to_check:
+        good_file = True
         expected_log_lines = parse_out_log_lines(subprocess.check_output(['git', 'show', 'origin/master:' + log_file]))
         current_log_lines = parse_out_log_lines(subprocess.check_output(['cat', log_file]))
         for log_line in current_log_lines:
             if log_line not in expected_log_lines:
-                success = False
-                print "ERROR: File " + log_file + " contents different log lines than those on origin/master"
+                if good_file:
+                    good_file = False
+                    print "ERROR: File " + log_file + " contents different log lines than those on origin/master"
                 if verbose:
                     print "  - Offending new log line:", log_line
+        if not good_file:
+            success = False
     if not success:
-        print "Some files in 'files-to-inspect.json' are different on master."
+        print "Some files in 'files-to-inspect.json' are different on origin/master."
         print "Please check these files and add them to the 'unmerged' section of the file."
     else:
         print "Log regression checker passed."
