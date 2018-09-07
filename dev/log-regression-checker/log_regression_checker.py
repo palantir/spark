@@ -6,10 +6,14 @@ import subprocess
 import json
 import shutil
 
+from log_line_extractor import parse_out_log_lines
+
 current_file_dir = os.path.dirname(os.path.realpath(__file__))
 log_config_file = os.path.join(current_file_dir, "files-to-inspect.json")
 archive_file = os.path.join(current_file_dir, "files-to-inspect-archive.json")
 os.chdir(current_file_dir + "/../../")
+
+master_branch = "origin/master"
 
 def check(configs, verbose=False):
     # "unmerged" contains log files to exclude from inspection since they've already been checked and added to the list
@@ -25,12 +29,14 @@ def check(configs, verbose=False):
 
     success = True
     for log_file in files_to_check:
-        output = subprocess.check_output(['git', 'diff', 'master', log_file])
-        if output != "":
-            success = False
-            print "ERROR: Log file " + log_file + " is different from what's on master"
-            if verbose:
-                print output
+        expected_log_lines = parse_out_log_lines(subprocess.check_output(['git', 'show', 'origin/master:' + log_file]))
+        current_log_lines = parse_out_log_lines(subprocess.check_output(['cat', log_file]))
+        for log_line in current_log_lines:
+            if log_line not in expected_log_lines:
+                success = False
+                print "ERROR: Log file " + log_file + " is different from what's on master"
+                if verbose:
+                    print output
     if not success:
         print "Some files in 'files-to-inspect.json' are different on master."
         print "Please check these files and add them to the 'unmerged' section of the file."
