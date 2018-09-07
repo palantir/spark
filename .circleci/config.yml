@@ -470,7 +470,6 @@ jobs:
           path: /tmp/publish_artifacts.log
           destination: publish_artifacts.log
 
-
 workflows:
   version: 2
   build-test-deploy:
