@@ -11,7 +11,7 @@ SPARK-18079 - CollectLimitExec.executeToIterator should perform per-partition li
 
 Partial change for SPARK-15777
 - make ExternalCatalog configurable beyond in memory and hive
-- external catalog provides file listing factory vs filesystem optimized default impl 
+- FileIndex for catalog tables is provided by external catalog instead of using default impl
 
  R/check-cran.sh                                    |   4 -
  R/pkg/DESCRIPTION                                  |   2 +-
