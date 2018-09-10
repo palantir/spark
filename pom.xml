@@ -135,7 +135,6 @@
     <okhttp3.version>3.11.0</okhttp3.version>
     <okhttp.version>2.7.5</okhttp.version>
     <okio.version>1.15.0</okio.version>
-    <bouncycastle.version>1.60</bouncycastle.version>
     <jetty.version>9.4.12.v20180830</jetty.version>
     <orc.version>1.5.2</orc.version>
     <orc.classifier>nohive</orc.classifier>
@@ -366,17 +365,6 @@
         <groupId>com.squareup.okhttp</groupId>
         <artifactId>okhttp</artifactId>
         <version>${okhttp.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcpkix-jdk15on</artifactId>
-        <version>${bouncycastle.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcprov-jdk15on</artifactId>
-        <!-- brought in by jets3t; see SPARK-22634 -->
-        <version>${bouncycastle.version}</version>
       </dependency>
       <!-- This artifact is a shaded version of ASM 6.x. The POM that was used to produce this
            is at https://github.com/apache/geronimo-xbean/tree/trunk/xbean-asm6-shaded
