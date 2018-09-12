@@ -183,7 +183,8 @@ jobs:
       - run:
           name: Run style tests
           command: dev/run-style-tests.py
-          command: python dev/log-regression-checker/test.py
+          command: python dev/log-regression-checker/test_parser.py
+          command: python dev/log-regression-checker/test_checker.py
           command: python dev/log-regression-checker/main.py -c dev/log-regression-checker/files-to-inspect.json -a dev/log-regression-checker-archive.json -v
           no_output_timeout: 15m
 
