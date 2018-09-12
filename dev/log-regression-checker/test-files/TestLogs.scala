@@ -1,1 +1,1 @@
-logError("blah${variable}blah")
+logInfo("blah ${{variable}}")

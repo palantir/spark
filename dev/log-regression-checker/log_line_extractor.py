@@ -82,74 +82,59 @@ def _extract_variables(file_parser, log_type):
         if char == "(":
             active_stack.append(")")
             break
+    variables = _parse_variable_outside_quotes(file_parser, [")"])
+    return variables
     
+def _parse_variable_inside_quotes(file_parser):
     variables = []
     is_literal = False
-    is_in_quotes = False
-    while len(active_stack) != 0 and file_parser.get_next_char():
+    while file_parser.get_next_char():
         char = file_parser.get_current_char()
         if is_literal:
-            is_literal = False
+            is_literal = not is_literal
             continue
         if char == "\\":
-            is_literal = not is_literal
-        elif char == "\"":
-            is_in_quotes = not is_in_quotes
-        elif not is_in_quotes:
-            if char == "(":
-                active_stack.append(close_char[char])
-            elif char == ")":
-                popped = active_stack.pop()
-                assert char == popped
-            elif char == "s" and file_parser.peek_next_char() == "\"":
-                continue
-            elif char == ",":
-                continue
-            else:
-                variables.extend(_parse_variable_outside_quotes(file_parser, [")", " "]))
-                close_char = file_parser.get_current_char()
-                if (close_char == ")"):
-                    popped = active_stack.pop()
-                    assert close_char == popped
-        elif is_in_quotes:
-            if char == "$": 
-                if file_parser.peek_next_char() == "{":
-                    file_parser.get_next_char()
-                    close_chars = ["}"]
-                else:
-                    close_chars = ["\"", " "]
+            is_literal = True
+            continue
+        elif char == "$": 
+            if file_parser.peek_next_char() == "$": # skip string literals $$
                 file_parser.get_next_char()
-                variables.extend(_parse_variable_outside_quotes(file_parser, close_chars))
-                close_char = file_parser.get_current_char()
-                if (close_char == "\""):
-                    is_in_quotes = not is_in_quotes
-    return variables
-
-    
+                continue
+            if file_parser.peek_next_char() == "{":
+                file_parser.get_next_char()
+                close_chars = ["}"]
+            else:
+                close_chars = ["\"", " "]
+            variables.extend(_parse_variable_outside_quotes(file_parser, close_chars))
+            close_char = file_parser.get_current_char()
+            if (close_char == "\""):
+                return variables
+        elif char == "\"":
+            return variables
                 
 def _parse_variable_outside_quotes(file_parser, close_chars):
-    print "entering", close_chars, file_parser.get_current_char()
     variable_str = ""
     all_vars = []
-    while True:
+    while file_parser.get_next_char():
         char = file_parser.get_current_char()
         if char in close_chars:
             if len(variable_str) != 0:
                 all_vars.append(variable_str.strip())
             return all_vars
-        
-        if char in close_char.keys():
-            file_parser.get_next_char()
+        elif char == "\"":
+            all_vars.extend(_parse_variable_inside_quotes(file_parser))
+            assert file_parser.get_current_char() == "\""
+        elif char in close_char.keys():
             nested_variables = _parse_variable_outside_quotes(file_parser, [close_char[char]])
             assert file_parser.get_current_char() == close_char[char]
             all_vars.extend(nested_variables)
-        if char == "\"":
-            _parse_variable_outside_quotes(file_parser, ["\""])
-
+        elif char == "s" and file_parser.peek_next_char() == "\"":
+            continue
+        elif char == ",":
+            continue
         else:
             if char not in ["+", "-", "/", "*", " "]:
                 variable_str += char
             if char == " " and len(variable_str) != 0:
                 all_vars.append(variable_str.strip())
                 variable_str = ""
-        file_parser.get_next_char()
