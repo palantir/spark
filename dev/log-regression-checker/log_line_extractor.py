@@ -13,100 +13,143 @@ close_char = {
     "{": "}"
     }
 
-class FileContents:
+class FileParser:
     def __init__(self, contents):
         self.contents = contents.split("\n")
-        self.line_index = 0
-        self.char_index = 0
+        self.line_index = -1
+        self.char_index = -1
+
+    def _get_next_non_empty_line_index(self):
+        index = self.line_index + 1
+        while index < len(self.contents) and len(self.contents[index]) == 0:
+            index += 1
+        return index
 
     def get_current_line(self):
         return self.contents[self.line_index]
 
     def get_next_line(self):
-        self.line_index += 1
         self.char_index = 0
-        if len(self.contents) == self.line_index:
+        self.line_index = self._get_next_non_empty_line_index()
+        if len(self.contents) <= self.line_index:
             return None
         return self.contents[self.line_index]
 
+    def peek_next_line(self):
+        next_index = self._get_next_non_empty_line_index()
+        if len(self.contents) <= next_index:
+            return None
+        return self.contents[next_index]
+    
     def get_current_char(self):
         return self.contents[self.line_index][self.char_index]
+
+    def peek_next_char(self):
+        next_index = self.char_index + 1
+        if len(self.contents[self.line_index]) == self.char_index:
+            next_line = self.peek_next_line()
+            if next_line == None:
+                return None
+            return next_line[0]
+        return self.contents[self.line_index][next_index]
 
     def get_next_char(self):
         self.char_index += 1
         if len(self.contents[self.line_index]) == self.char_index:
             next_line = self.get_next_line()
-            if next_line == None
+            if next_line == None:
                 return None
             return next_line[self.char_index]
         return self.contents[self.line_index][self.char_index]
 
 def parse_out_log_lines(contents):
-    file_contents = FileContents(contents)
     log_lines = []
-    file_lines = contents.split("\n")
-    for i, line in enumerate(file_lines):
+    file_parser = FileParser(contents)
+    while True:
+        line = file_parser.get_next_line()
+        if line == None:
+            break
         match = re.search(log_function_regex, line)
         if match:
-            print "sdfajsdf matching"
-            log_lines.append(_extract_variables(file_lines, match.group(0), i))
-    print log_lines
+            log_lines.append(_extract_variables(file_parser, match.group(0)))
     return log_lines
 
-def _extract_variables(file_lines, log_type, start_index):
-    print "entered _extract_variables", start_index
+def _extract_variables(file_parser, log_type):
+    # Find the start of the log line
     active_stack = []
-    extracted_variables = []
-    line_index = start_index
-    i = file_lines[start_index].find("(") - 1
+    while True:
+        char = file_parser.get_next_char()
+        if char == "(":
+            active_stack.append(")")
+            break
+    
+    variables = []
     is_literal = False
     is_in_quotes = False
-    while len(active_stack) != 0 or i+1 < len(file_lines[line_index]):
-        i += 1
-        if len(file_lines[line_index]) == i:
-            i = 0
-            line_index += 1
-        char = file_lines[line_index][i]
+    while len(active_stack) != 0 and file_parser.get_next_char():
+        char = file_parser.get_current_char()
         if is_literal:
             is_literal = False
             continue
-        elif char == "\\":
+        if char == "\\":
             is_literal = not is_literal
-
         elif char == "\"":
             is_in_quotes = not is_in_quotes
-        
         elif not is_in_quotes:
             if char == "(":
                 active_stack.append(close_char[char])
             elif char == ")":
                 popped = active_stack.pop()
                 assert char == popped
-            elif char == "s" and line[i+1] == "\"":
+            elif char == "s" and file_parser.peek_next_char() == "\"":
+                continue
+            elif char == ",":
                 continue
             else:
-                variables, index = _parse_variable_outside_quotes(file_lines[line_index], i+1)
-                extracted_variables.extend(variables)
-
+                variables.extend(_parse_variable_outside_quotes(file_parser, [")", " "]))
+                close_char = file_parser.get_current_char()
+                if (close_char == ")"):
+                    popped = active_stack.pop()
+                    assert close_char == popped
         elif is_in_quotes:
-            if char == "$":
-                variable_names, var_last_index = _parse_variable_outside_quotes(file_lines[line_index], i+1)
-                extracted_variables.extend(variable_names)
-    return extracted_variables
+            if char == "$": 
+                if file_parser.peek_next_char() == "{":
+                    file_parser.get_next_char()
+                    close_chars = ["}"]
+                else:
+                    close_chars = ["\"", " "]
+                file_parser.get_next_char()
+                variables.extend(_parse_variable_outside_quotes(file_parser, close_chars))
+                close_char = file_parser.get_current_char()
+                if (close_char == "\""):
+                    is_in_quotes = not is_in_quotes
+    return variables
+
+    
                 
-def _parse_variable_outside_quotes(line, start_index, close_chars=[")", "\"", " "]):
-    rest_of_line = line[start_index:len(line)]
-    index = start_index
-    extracted_vars = []
+def _parse_variable_outside_quotes(file_parser, close_chars):
+    print "entering", close_chars, file_parser.get_current_char()
+    variable_str = ""
+    all_vars = []
     while True:
-        char = line[index]
+        char = file_parser.get_current_char()
+        if char in close_chars:
+            if len(variable_str) != 0:
+                all_vars.append(variable_str.strip())
+            return all_vars
+        
         if char in close_char.keys():
-            nested_variables, index = _parse_variable_outside_quotes(line, index+1, [close_char[char]])
-            assert line[index] == close_char[char] or line[index] == "\""
-            return nested_variables, index
-        if line[index] in close_chars or line[index] == "\"" or len(line) == (index):
-            extracted_vars.append(line[start_index:index].strip())
-            return extracted_vars, index
+            file_parser.get_next_char()
+            nested_variables = _parse_variable_outside_quotes(file_parser, [close_char[char]])
+            assert file_parser.get_current_char() == close_char[char]
+            all_vars.extend(nested_variables)
+        if char == "\"":
+            _parse_variable_outside_quotes(file_parser, ["\""])
 
-        index += 1
-
+        else:
+            if char not in ["+", "-", "/", "*", " "]:
+                variable_str += char
+            if char == " " and len(variable_str) != 0:
+                all_vars.append(variable_str.strip())
+                variable_str = ""
+        file_parser.get_next_char()
