@@ -1,4 +1,4 @@
-from log_line_extractor import parse_out_log_lines
+from log_line_extractor import parse_log_lines
 
 master_branch = "origin/master"
 
@@ -16,17 +16,19 @@ def check(configs, _get_master_contents, _get_current_contents, verbose=False):
 
     failures = {}
     for log_file in files_to_check:
-        expected_log_lines = parse_out_log_lines(_get_master_contents(log_file))
-        current_log_lines = parse_out_log_lines(_get_current_contents(log_file))
-        for log_line in current_log_lines:
-            if log_line not in expected_log_lines:
-                if log_file not in failures:
-                    failures[log_file] = set()
-                    print "ERROR: File " + log_file + " contents different log lines than those on origin/master"
-                if verbose:
-                    print "  - Offending new log line:"
-                    print log_line
-                failures[log_file].add(log_line)
+        expected_log_vars = parse_log_lines(_get_master_contents(log_file))
+        current_log_vars = parse_log_lines(_get_current_contents(log_file))
+        if expected_log_vars != current_log_vars:
+            print "ERROR: File " + log_file + " contains different logs from before. This file needs to be audited again"
+            if verbose:
+                print " - Expected log variables:"
+                print expected_log_vars
+                print "   Actual log variables:"
+                print current_log_vars
+            failures[log_file] = {
+                "expected": expected_log_vars,
+                "actual": current_log_vars
+                }
     if len(failures.keys()) != 0:
         print "Some files in 'files-to-inspect.json' are different on origin/master."
         print "Please check these files and add them to the 'unmerged' section of the file."

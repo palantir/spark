@@ -7,24 +7,19 @@ current_file_dir = os.path.dirname(os.path.realpath(__file__))
 
 class TestStringMethods(unittest.TestCase):
     def test_parse_ExecutorPodsLifecycleManager(self):
-        expected_lines = [
-            "    logInfo(s\"Snapshot reported deleted executor with id $execId,\" +\n" +
-            "        s\" pod name ${state.pod.getMetadata.getName}\")",
-            "    logDebug(s\"Snapshot reported failed executor with id $execId,\" +\n" +
-            "        s\" pod name ${state.pod.getMetadata.getName}\")",
-            "    logDebug(s\"Snapshot reported succeeded executor with id $execId,\" +\n" +
-            "        s\" pod name ${state.pod.getMetadata.getName}. Note that succeeded executors are\" +\n" +
-            "        s\" unusual unless Spark specifically informed the executor to exit.\")",
-            "    logDebug(exitReasonMessage)", # test no strings
-            "    logDebug(s\"Removed executors with ids ${execIdsRemovedInThisRound.mkString(\",\")}\" +\n" +
-            "        s\" from Spark that were either found to be deleted or non-existent in the cluster.\")"
+        expected_variables = [
+            ["execId", "state.pod.getMetadata.getName"],
+            ["execId", "state.pod.getMetadata.getName"],
+            ["execId", "state.pod.getMetadata.getName"],
+            ["exitReasonMessage"],
+            ["execIdsRemovedInThisRound.mkString"]
         ]
         with open(os.path.join(current_file_dir, "test-files/ExecutorPodsLifecycleManager.scala")) as f:
             content = f.read()
-        log_lines = parse_out_log_lines(content)
-        assert len(log_lines) == 5
-        for line in log_lines:
-            assert line in expected_lines
+        actual_variables = parse_log_lines(content)
+        assert len(actual_variables) == 5
+        for i in range(0, len(actual_variables)):
+            assert actual_variables[i] == expected_variables[i]
 
     def test_update_master(self):
         config = {
@@ -69,18 +64,24 @@ class TestStringMethods(unittest.TestCase):
             }
         failures = check(config, _get_master_content, _get_current_content, True)
 
-        expected_errors = [
-            "    logDebug(s\"Snapshot reported deleted executor with id $execId,\" +\n" +
-            "        s\" pod name ${state.pod.getMetadata.getName}\")",
-            "    logDebug(s\"Snapshot reported failed executor with id $execId,\" +\n" +
-            "        s\" pod name ${state.pod.getMetadata.getName} blah blah\")",
-            "    logError(\"Unexpected log here\")"
-            ]
+        expected_unmodified_variables = [
+            ["execId", "state.pod.getMetadata.getName"],
+            ["execId", "state.pod.getMetadata.getName"],
+            ["execId", "state.pod.getMetadata.getName"],
+            ["exitReasonMessage"],
+            ["execIdsRemovedInThisRound.mkString"]
+        ]
+        expected_modified_variables = [
+            ["execId", "state.pod.getMetadata.getName"],
+            ["execId", "state.pod.getMetadata.getName"],
+            ["execId", "state.pod.getMetadata.getName"],
+            ["exitReasonMessage"],
+            []
+        ]
         assert (filename in failures)
         assert len(failures.keys()) == 1
-        assert len(failures[filename]) == 3
-        for error in failures[filename]:
-            assert error in expected_errors
+        assert failures[filename]["expected"] == expected_unmodified_variables
+        assert failures[filename]["actual"] == expected_modified_variables
 
     def test_check_no_diff(self):
         filename = "test-files/ExecutorPodsLifecycleManager.scala"

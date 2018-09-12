@@ -19,7 +19,7 @@ class TestStringMethods(unittest.TestCase):
         ]
         with open(os.path.join(current_file_dir, "test-files/BasicTests.scala")) as f:
             content = f.read()
-        log_lines = parse_out_log_lines(content)
+        log_lines = parse_log_lines(content)
         assert len(log_lines) == len(expected_lines)
         for i in range(0, len(log_lines)):
             assert log_lines[i] == expected_lines[i]
@@ -41,7 +41,7 @@ class TestStringMethods(unittest.TestCase):
         ]
         with open(os.path.join(current_file_dir, "test-files/VariableInQuotes.scala")) as f:
             content = f.read()
-        log_lines = parse_out_log_lines(content)
+        log_lines = parse_log_lines(content)
         assert len(log_lines) == len(expected_lines)
         for i in range(0, len(log_lines)):
             assert log_lines[i] == expected_lines[i]
@@ -51,24 +51,24 @@ class TestStringMethods(unittest.TestCase):
             ["variable.field"],
             ["var1", "var2", "var3", "var4"],
             ["variable", "e"],
-            ["e"]
-            ["method", "param"]
+            ["e"],
+            ["param", "method"]
         ]
         with open(os.path.join(current_file_dir, "test-files/VariableOutsideQuotes.scala")) as f:
             content = f.read()
-        log_lines = parse_out_log_lines(content)
+        log_lines = parse_log_lines(content)
         assert len(log_lines) == len(expected_lines)
         for i in range(0, len(log_lines)):
             assert log_lines[i] == expected_lines[i]
 
-    def test_variable_outside_quotes(self):
+    def test_multi_line(self):
         expected_lines = [
             ["var", "var2", "var3"],
             ["var", "var2"]
         ]
         with open(os.path.join(current_file_dir, "test-files/MultilineLogs.scala")) as f:
             content = f.read()
-        log_lines = parse_out_log_lines(content)
+        log_lines = parse_log_lines(content)
         assert len(log_lines) == len(expected_lines)
         for i in range(0, len(log_lines)):
             assert log_lines[i] == expected_lines[i]

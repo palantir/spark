@@ -62,7 +62,7 @@ class FileParser:
             return next_line[self.char_index]
         return self.contents[self.line_index][self.char_index]
 
-def parse_out_log_lines(contents):
+def parse_log_lines(contents):
     log_lines = []
     file_parser = FileParser(contents)
     while True:
