@@ -19,6 +19,9 @@ class FileParser:
             index += 1
         return index
 
+    def get_line_number(self):
+        return self.line_index
+
     def get_current_line(self):
         return self.contents[self.line_index]
 
@@ -67,7 +70,8 @@ def parse_log_lines(contents):
         if line == None:
             break
         if re.search(log_function_regex, line):
-            log_lines.append(_extract_variables(file_parser))
+            line_number = file_parser.get_line_number() + 1
+            log_lines.append((_extract_variables(file_parser), line_number))
     return log_lines
 
 def _extract_variables(file_parser):

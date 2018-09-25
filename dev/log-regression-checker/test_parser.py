@@ -8,14 +8,14 @@ current_file_dir = os.path.dirname(os.path.realpath(__file__))
 class TestStringMethods(unittest.TestCase):
     def test_basic(self):
         expected_lines = [
-            "(s\"Blah $variable blah\")",
-            "(s\"Blah $variable blah\")",
-            "(s\"Blah $variable blah\")",
-            "(s\"Blah $variable blah\")",
-            "(s\"blah no variable\")",
-            "(s\"blah $variable blah\")",
-            "(s\"blah $variable blah\")",
-            "(s\"log line $var\", e)"
+            ("(s\"Blah $variable blah\")", 2),
+            ("(s\"Blah $variable blah\")", 3),
+            ("(s\"Blah $variable blah\")", 4),
+            ("(s\"Blah $variable blah\")", 5),
+            ("(s\"blah no variable\")", 8),
+            ("(s\"blah $variable blah\")", 14),
+            ("(s\"blah $variable blah\")", 15),
+            ("(s\"log line $var\", e)", 18)
         ]
         with open(os.path.join(current_file_dir, "test-files/BasicTests.scala")) as f:
             content = f.read()
@@ -26,18 +26,18 @@ class TestStringMethods(unittest.TestCase):
     
     def test_variable_in_quotes(self):
         expected_lines = [
-            "(s\"blah $variable blah\")",
-            "(s\"blah $variable\")",
-            "(s\"$variable blah\")",
-            "(s\"$variable\")",
-            "(s\"${variable}\")",
-            "(s\"${{variable}}\")",
-            "(s\"${(variable)}\")",
-            "(s\"blah${variable}blah\")",
-            "(s\"${var1 - var2 + (var3 / var4)}\")",
-            "(s\"${var1 + \"abc\" + var2}\")",
-            "(s\"${var1 + s\"abc$var2\"} not_a_var\")",
-            "(\"$$ \) ${var} \{\")"
+            ("(s\"blah $variable blah\")", 2),
+            ("(s\"blah $variable\")", 4),
+            ("(s\"$variable blah\")", 5),
+            ("(s\"$variable\")", 6),
+            ("(s\"${variable}\")", 9),
+            ("(s\"${{variable}}\")", 10),
+            ("(s\"${(variable)}\")", 11),
+            ("(s\"blah${variable}blah\")", 12),
+            ("(s\"${var1 - var2 + (var3 / var4)}\")", 15),
+            ("(s\"${var1 + \"abc\" + var2}\")", 18), 
+            ("(s\"${var1 + s\"abc$var2\"} not_a_var\")", 19),
+            ("(\"$$ \) ${var} \{\")", 22)
         ]
         with open(os.path.join(current_file_dir, "test-files/VariableInQuotes.scala")) as f:
             content = f.read()
@@ -48,11 +48,11 @@ class TestStringMethods(unittest.TestCase):
    
     def test_variable_outside_quotes(self):
         expected_lines = [
-            "(variable.field)",
-            "(var1 + var2 + \"blah $var3\" + var4)",
-            "(variable, e)",
-            "(\"blah\", e)",
-            "(method(param))"
+            ("(variable.field)", 1),
+            ("(var1 + var2 + \"blah $var3\" + var4)", 2),
+            ("(variable, e)", 5),
+            ("(\"blah\", e)", 6),
+            ("(method(param))", 9)
         ]
         with open(os.path.join(current_file_dir, "test-files/VariableOutsideQuotes.scala")) as f:
             content = f.read()
@@ -63,13 +63,13 @@ class TestStringMethods(unittest.TestCase):
 
     def test_multi_line(self):
         expected_lines = [
-            "(s\"String string $var string\" +" +
+            ("(s\"String string $var string\" +" +
                 "s\"String string $var2 string\" +" + 
                 "s\"String string\" +" +
-                "s\"String string $var3\")",
-            "(s\"\"\"Block quote ${var}" +
+                "s\"String string $var3\")", 1),
+            ("(s\"\"\"Block quote ${var}" +
                 "|${var2} string string" +
-                "\"\"\")"
+                "\"\"\")", 6)
         ]
         with open(os.path.join(current_file_dir, "test-files/MultilineLogs.scala")) as f:
             content = f.read()
