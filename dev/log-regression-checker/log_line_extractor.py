@@ -1,12 +1,6 @@
 import re
 
 log_function_regex = "(logDebug|logWarning|logInfo|logError)\("
-is_quote = "[^\\\]\""
-is_open_paren = "[^\\\]\("
-is_close_paren = "[^\\\]\)"
-is_open_bracket = "[^\\\]\{"
-is_close_bracket = "[^\\\]\}"
-is_var_beginning = "$"
 
 close_char = {
     "(": ")",
@@ -33,6 +27,9 @@ class FileParser:
         self.line_index = self._get_next_non_empty_line_index()
         if len(self.contents) <= self.line_index:
             return None
+        # iterate to the first non-space character in the line
+        while (self.contents[self.line_index][self.char_index] == " "):
+            self.char_index += 1
         return self.contents[self.line_index]
 
     def peek_next_line(self):
@@ -65,8 +62,8 @@ class FileParser:
 def parse_log_lines(contents):
     log_lines = []
     file_parser = FileParser(contents)
-    while True:
-        line = file_parser.get_next_line()
+    while file_parser.get_next_line() != None:
+        line = file_parser.get_current_line()
         if line == None:
             break
         match = re.search(log_function_regex, line)
@@ -76,20 +73,15 @@ def parse_log_lines(contents):
 
 def _extract_variables(file_parser, log_type):
     # Find the start of the log line
-    active_stack = []
-    while True:
-        char = file_parser.get_next_char()
-        if char == "(":
-            active_stack.append(")")
-            break
-    variables = _parse_variable_outside_quotes(file_parser, [")"])
-    return variables
+    while (file_parser.get_next_char() != "("):
+        continue
+    return _parse_variable_outside_quotes(file_parser, [")"], "(")
     
-def _parse_variable_inside_quotes(file_parser):
-    variables = []
+def _parse_variable_inside_quotes(file_parser, log_string):
     is_literal = False
     while file_parser.get_next_char():
         char = file_parser.get_current_char()
+        log_string += char
         if is_literal:
             is_literal = not is_literal
             continue
@@ -98,43 +90,29 @@ def _parse_variable_inside_quotes(file_parser):
             continue
         elif char == "$": 
             if file_parser.peek_next_char() == "$": # skip string literals $$
-                file_parser.get_next_char()
+                log_string += file_parser.get_next_char()
                 continue
             if file_parser.peek_next_char() == "{":
-                file_parser.get_next_char()
+                log_string += file_parser.get_next_char()
                 close_chars = ["}"]
             else:
                 close_chars = ["\"", " "]
-            variables.extend(_parse_variable_outside_quotes(file_parser, close_chars))
+            log_string = _parse_variable_outside_quotes(file_parser, close_chars, log_string)
             close_char = file_parser.get_current_char()
             if (close_char == "\""):
-                return variables
+                return log_string
         elif char == "\"":
-            return variables
+            return log_string
                 
-def _parse_variable_outside_quotes(file_parser, close_chars):
-    variable_str = ""
-    all_vars = []
+def _parse_variable_outside_quotes(file_parser, close_chars, log_string):
     while file_parser.get_next_char():
         char = file_parser.get_current_char()
+        log_string += char
         if char in close_chars:
-            if len(variable_str) != 0:
-                all_vars.append(variable_str.strip())
-            return all_vars
+            return log_string
         elif char == "\"":
-            all_vars.extend(_parse_variable_inside_quotes(file_parser))
+            log_string = _parse_variable_inside_quotes(file_parser, log_string)
             assert file_parser.get_current_char() == "\""
         elif char in close_char.keys():
-            nested_variables = _parse_variable_outside_quotes(file_parser, [close_char[char]])
+            log_string = _parse_variable_outside_quotes(file_parser, [close_char[char]], log_string)
             assert file_parser.get_current_char() == close_char[char]
-            all_vars.extend(nested_variables)
-        elif char == "s" and file_parser.peek_next_char() == "\"":
-            continue
-        elif char == ",":
-            continue
-        else:
-            if char not in ["+", "-", "/", "*", " "]:
-                variable_str += char
-            if char == " " and len(variable_str) != 0:
-                all_vars.append(variable_str.strip())
-                variable_str = ""
