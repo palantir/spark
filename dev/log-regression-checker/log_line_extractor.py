@@ -66,12 +66,11 @@ def parse_log_lines(contents):
         line = file_parser.get_current_line()
         if line == None:
             break
-        match = re.search(log_function_regex, line)
-        if match:
-            log_lines.append(_extract_variables(file_parser, match.group(0)))
+        if re.search(log_function_regex, line):
+            log_lines.append(_extract_variables(file_parser))
     return log_lines
 
-def _extract_variables(file_parser, log_type):
+def _extract_variables(file_parser):
     # Find the start of the log line
     while (file_parser.get_next_char() != "("):
         continue
