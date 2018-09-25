@@ -71,16 +71,16 @@ def parse_log_lines(contents):
             break
         if re.search(log_function_regex, line):
             line_number = file_parser.get_line_number() + 1
-            log_lines.append((_extract_variables(file_parser), line_number))
+            log_lines.append((_extract_log_line(file_parser), line_number))
     return log_lines
 
-def _extract_variables(file_parser):
+def _extract_log_line(file_parser):
     # Find the start of the log line
     while (file_parser.get_next_char() != "("):
         continue
-    return _parse_variable_outside_quotes(file_parser, [")"], "(")
+    return _parse_log_line_outside_quotes(file_parser, [")"], "(")
     
-def _parse_variable_inside_quotes(file_parser, log_string):
+def _parse_log_line_inside_quotes(file_parser, log_string):
     is_literal = False
     while file_parser.get_next_char():
         char = file_parser.get_current_char()
@@ -100,22 +100,22 @@ def _parse_variable_inside_quotes(file_parser, log_string):
                 close_chars = ["}"]
             else:
                 close_chars = ["\"", " "]
-            log_string = _parse_variable_outside_quotes(file_parser, close_chars, log_string)
+            log_string = _parse_log_line_outside_quotes(file_parser, close_chars, log_string)
             close_char = file_parser.get_current_char()
             if (close_char == "\""):
                 return log_string
         elif char == "\"":
             return log_string
                 
-def _parse_variable_outside_quotes(file_parser, close_chars, log_string):
+def _parse_log_line_outside_quotes(file_parser, close_chars, log_string):
     while file_parser.get_next_char():
         char = file_parser.get_current_char()
         log_string += char
         if char in close_chars:
             return log_string
         elif char == "\"":
-            log_string = _parse_variable_inside_quotes(file_parser, log_string)
+            log_string = _parse_log_line_inside_quotes(file_parser, log_string)
             assert file_parser.get_current_char() == "\""
         elif char in close_char.keys():
-            log_string = _parse_variable_outside_quotes(file_parser, [close_char[char]], log_string)
+            log_string = _parse_log_line_outside_quotes(file_parser, [close_char[char]], log_string)
             assert file_parser.get_current_char() == close_char[char]
