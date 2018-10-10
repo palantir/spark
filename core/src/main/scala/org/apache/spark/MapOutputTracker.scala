@@ -86,10 +86,10 @@ private class ShuffleStatus(numPartitions: Int) {
   private[this] var _numAvailableOutputs: Int = 0
 
   /**
-    * Cached set of executorIds on which outputs exist. This is a performance optimization to avoid
-    * having to repeatedly iterate over ever element in the `mapStatuses` array and should be
-    * equivalent to `mapStatuses.map(_.location.executorId).groupBy(x => x).mapValues(_.length)`.
-    */
+   * Cached set of executorIds on which outputs exist. This is a performance optimization to avoid
+   * having to repeatedly iterate over ever element in the `mapStatuses` array and should be
+   * equivalent to `mapStatuses.map(_.location.executorId).groupBy(x => x).mapValues(_.length)`.
+   */
   private[this] val _numOutputsPerExecutorId = HashMap[String, Int]().withDefaultValue(0)
 
   /**

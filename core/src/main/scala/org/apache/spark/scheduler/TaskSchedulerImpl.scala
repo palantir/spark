@@ -468,9 +468,7 @@ private[spark] class TaskSchedulerImpl(
         }
       val execHasOutputs: WorkerOffer => Boolean = o => execIdsWithOutputs.contains(o.executorId)
 
-      /**
-        * bias towards executors that have shuffle outputs
-        */
+      // bias towards executors that have shuffle outputs
       Random.shuffle(offers.filter(execHasOutputs)) ++
         Random.shuffle(offers.filterNot(execHasOutputs))
     } else {
