@@ -63,6 +63,13 @@ private class ShuffleStatus(numPartitions: Int) {
   val mapStatuses = new Array[MapStatus](numPartitions)
 
   /**
+    * Whether an active job in the [[org.apache.spark.scheduler.DAGScheduler]] depends on this.
+    * If dynamic allocation is enabled, then executors that do not contain active shuffles may
+    * eventually be surrendered by the [[ExecutorAllocationManager]].
+    */
+  var isActive = true
+
+  /**
    * The cached result of serializing the map statuses array. This cache is lazily populated when
    * [[serializedMapStatus]] is called. The cache is invalidated when map outputs are removed.
    */
@@ -477,6 +484,26 @@ private[spark] class MapOutputTrackerMaster(
     }
   }
 
+  def markShuffleInactive(shuffleId: Int): Unit = {
+    shuffleStatuses.get(shuffleId) match {
+      case Some(shuffleStatus) =>
+        shuffleStatus.isActive = false
+      case None =>
+        throw new SparkException(
+          s"markShuffleInactive called for nonexistent shuffle ID $shuffleId.")
+    }
+  }
+
+  def markShuffleActive(shuffleId: Int): Unit = {
+    shuffleStatuses.get(shuffleId) match {
+      case Some(shuffleStatus) =>
+        shuffleStatus.isActive = true
+      case None =>
+        throw new SparkException(
+          s"markShuffleActive called for nonexistent shuffle ID $shuffleId.")
+    }
+  }
+
   /**
    * Removes all shuffle outputs associated with this host. Note that this will also remove
    * outputs which are served by an external shuffle server (if one exists).
@@ -496,8 +523,8 @@ private[spark] class MapOutputTrackerMaster(
     incrementEpoch()
   }
 
-  def hasOutputsOnExecutor(execId: String): Boolean = {
-    shuffleStatuses.valuesIterator.exists { x => x.hasOutputsOnExecutor(execId) }
+  def hasActiveOutputsOnExecutor(execId: String): Boolean = {
+    shuffleStatuses.valuesIterator.exists { _.hasOutputsOnExecutor(execId) }
   }
 
   /** Check if the given shuffle is being tracked */

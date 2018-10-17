@@ -327,4 +327,19 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     rpcEnv.shutdown()
   }
 
+  test("hasActiveOutputsOnExecutor tracks additions and removals correctly") {
+    val tracker = newTrackerMaster()
+    val bmId = BlockManagerId("exec1", "hostA", 1000)
+    tracker.registerShuffle(11, 3)
+    tracker.registerMapOutput(11, 0, MapStatus(bmId, Array(10)))
+    tracker.registerMapOutput(11, 1, MapStatus(bmId, Array(100)))
+
+    assert(tracker.hasActiveOutputsOnExecutor("exec1"))
+    assert(!tracker.hasActiveOutputsOnExecutor("exec2"))
+    tracker.unregisterMapOutput(11, 0, bmId)
+    assert(tracker.hasActiveOutputsOnExecutor("exec1"))
+    tracker.unregisterMapOutput(11, 1, bmId)
+    assert(!tracker.hasActiveOutputsOnExecutor("exec1"))
+  }
+
 }

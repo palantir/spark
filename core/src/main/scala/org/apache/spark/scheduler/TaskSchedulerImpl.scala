@@ -459,13 +459,9 @@ private[spark] class TaskSchedulerImpl(
    */
   protected def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
     if (Utils.isShuffleBiasedTaskSchedulingEnabled(conf)) {
-      val execIdsWithOutputs = offers.map {
-        _.executorId
-      }
+      val execIdsWithOutputs = offers.map { _.executorId }
         .toSet
-        .filter {
-          mapOutputTracker.hasOutputsOnExecutor(_)
-        }
+        .filter { mapOutputTracker.hasActiveOutputsOnExecutor(_) }
       val execHasOutputs: WorkerOffer => Boolean = o => execIdsWithOutputs.contains(o.executorId)
 
       // bias towards executors that have shuffle outputs
