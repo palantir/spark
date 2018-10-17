@@ -159,6 +159,10 @@ private class ShuffleStatus(numPartitions: Int) {
     _numOutputsPerExecutorId(execId) > 0
   }
 
+  def executorsWithOutputs(): Set[String] = synchronized {
+    _numOutputsPerExecutorId.keySet.toSet
+  }
+
   /**
    * Number of partitions that have shuffle outputs.
    */
@@ -219,7 +223,11 @@ private class ShuffleStatus(numPartitions: Int) {
   def decrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
     assert(_numOutputsPerExecutorId(bmAddress.executorId) >= 1,
       s"Tried to remove non-existent output from ${bmAddress.executorId}")
-    _numOutputsPerExecutorId(bmAddress.executorId) -= 1
+    if (_numOutputsPerExecutorId(bmAddress.executorId) == 1) {
+      _numOutputsPerExecutorId.remove(bmAddress.executorId)
+    } else {
+      _numOutputsPerExecutorId(bmAddress.executorId) -= 1
+    }
     _numAvailableOutputs -= 1
   }
 
@@ -523,8 +531,13 @@ private[spark] class MapOutputTrackerMaster(
     incrementEpoch()
   }
 
-  def hasActiveOutputsOnExecutor(execId: String): Boolean = {
-    shuffleStatuses.valuesIterator.exists { _.hasOutputsOnExecutor(execId) }
+  def getExecutorActivityMap(): scala.collection.Map[String, Boolean] = {
+    shuffleStatuses.valuesIterator.flatMap { shuffleStatus =>
+      shuffleStatus.executorsWithOutputs().map(_ -> shuffleStatus.isActive)
+    }.foldLeft(Map[String, Boolean]().withDefaultValue(false)) { (execMap, entry) =>
+      execMap(entry._1) |= entry._2
+      execMap
+    }
   }
 
   /** Check if the given shuffle is being tracked */
