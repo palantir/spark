@@ -531,13 +531,11 @@ private[spark] class MapOutputTrackerMaster(
     incrementEpoch()
   }
 
-  def getExecutorActivityMap(): scala.collection.Map[String, Boolean] = {
-    shuffleStatuses.valuesIterator.flatMap { shuffleStatus =>
-      shuffleStatus.executorsWithOutputs().map(_ -> shuffleStatus.isActive)
-    }.toStream
-      .groupBy(_._1)
-      .mapValues(_.exists(_._2))
-
+  def getExecutorsWithShuffles(activeOnly: Boolean = false): scala.collection.Set[String] = {
+    shuffleStatuses.valuesIterator
+      .filter(!activeOnly || _.isActive)
+      .flatMap(_.executorsWithOutputs())
+      .toSet
   }
 
   def hasOutputsOnExecutor(execId: String, activeOnly: Boolean = false): Boolean = {

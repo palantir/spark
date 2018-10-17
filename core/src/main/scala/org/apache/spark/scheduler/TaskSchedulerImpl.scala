@@ -81,6 +81,8 @@ private[spark] class TaskSchedulerImpl(
   private val speculationScheduler =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("task-scheduler-speculation")
 
+  private val BIAS_TO_ACTIVE_SHUFFLES_ONLY = Utils.shouldShuffleBiasingIgnoreInactive(conf);
+
   // Threshold above which we warn user initial TaskSet may be starved
   val STARVATION_TIMEOUT_MS = conf.getTimeAsMs("spark.starvation.timeout", "15s")
 
@@ -458,16 +460,13 @@ private[spark] class TaskSchedulerImpl(
    * overriding in tests, so it can be deterministic.
    */
   protected def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
-    if (Utils.isShuffleBiasedTaskSchedulingEnabled(conf) && offers.length > 1) {
-      val execActivity = mapOutputTracker.getExecutorActivityMap()
-
-      val isActive = (offer: WorkerOffer) => execActivity.getOrElse(offer.executorId, false)
-      val isInactive = (offer: WorkerOffer) => !execActivity.getOrElse(offer.executorId, true)
+    if (offers.length > 1 && Utils.isShuffleBiasedTaskSchedulingEnabled(conf)) {
+      val executorsWithShuffles = mapOutputTracker.getExecutorsWithShuffles(BIAS_TO_ACTIVE_SHUFFLES_ONLY)
+      val hasShuffle = (offer: WorkerOffer) => executorsWithShuffles.contains(offer.executorId)
 
       // bias towards executors that have shuffle outputs
-      Random.shuffle(offers.filter(execHasActiveShuffles)) ++
-        Random.shuffle(offers.filter(execHasInactiveShuffles)) ++
-          Random.shuffle(offers.filterNot(execHasOutputs))
+      Random.shuffle(offers.filter(hasShuffle)) ++
+        Random.shuffle(offers.filterNot(hasShuffle))
     } else {
       Random.shuffle(offers)
     }

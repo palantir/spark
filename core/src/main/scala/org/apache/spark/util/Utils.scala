@@ -2516,6 +2516,11 @@ private[spark] object Utils extends Logging {
       conf.getBoolean("spark.scheduler.shuffleBiasedTaskScheduling.enabled", false)
   }
 
+  def shouldShuffleBiasingIgnoreInactive(conf: SparkConf): Boolean = {
+    isShuffleBiasedTaskSchedulingEnabled(conf) &&
+      conf.getBoolean("spark.scheduler.shuffleBiasedTasksScheduling.ignoreInactiveShuffles", false)
+  }
+
   /**
    * Return the initial number of executors for dynamic allocation.
    */
