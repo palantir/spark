@@ -160,7 +160,7 @@ private class ShuffleStatus(numPartitions: Int) {
   }
 
   def executorsWithOutputs(): Set[String] = synchronized {
-    _numOutputsPerExecutorId.keySet.toSet
+    _numOutputsPerExecutorId.keySet
   }
 
   /**
@@ -534,9 +534,15 @@ private[spark] class MapOutputTrackerMaster(
   def getExecutorActivityMap(): scala.collection.Map[String, Boolean] = {
     shuffleStatuses.valuesIterator.flatMap { shuffleStatus =>
       shuffleStatus.executorsWithOutputs().map(_ -> shuffleStatus.isActive)
-    }.foldLeft(Map[String, Boolean]().withDefaultValue(false)) { (execMap, entry) =>
-      execMap(entry._1) |= entry._2
-      execMap
+    }.toStream
+      .groupBy(_._1)
+      .mapValues(_.exists(_._2))
+
+  }
+
+  def hasOutputsOnExecutor(execId: String, activeOnly: Boolean = false): Boolean = {
+    shuffleStatuses.valuesIterator.exists { status =>
+      status.hasOutputsOnExecutor(execId) && (!activeOnly || status.isActive)
     }
   }
 

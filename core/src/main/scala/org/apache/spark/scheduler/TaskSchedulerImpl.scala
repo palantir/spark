@@ -458,14 +458,16 @@ private[spark] class TaskSchedulerImpl(
    * overriding in tests, so it can be deterministic.
    */
   protected def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
-    if (Utils.isShuffleBiasedTaskSchedulingEnabled(conf)) {
-      val execIdsWithOutputs = mapOutputTracker.getExecutorActivityMapping()
-        .intersect(offers.map(_.executorId).toSet)
-      val execHasOutputs: WorkerOffer => Boolean = o => execIdsWithOutputs.contains(o.executorId)
+    if (Utils.isShuffleBiasedTaskSchedulingEnabled(conf) && offers.length > 1) {
+      val execActivity = mapOutputTracker.getExecutorActivityMap()
+
+      val isActive = (offer: WorkerOffer) => execActivity.getOrElse(offer.executorId, false)
+      val isInactive = (offer: WorkerOffer) => !execActivity.getOrElse(offer.executorId, true)
 
       // bias towards executors that have shuffle outputs
-      Random.shuffle(offers.filter(execHasOutputs)) ++
-        Random.shuffle(offers.filterNot(execHasOutputs))
+      Random.shuffle(offers.filter(execHasActiveShuffles)) ++
+        Random.shuffle(offers.filter(execHasInactiveShuffles)) ++
+          Random.shuffle(offers.filterNot(execHasOutputs))
     } else {
       Random.shuffle(offers)
     }
