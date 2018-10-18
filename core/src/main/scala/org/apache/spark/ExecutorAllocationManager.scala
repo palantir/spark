@@ -87,14 +87,13 @@ private[spark] class ExecutorAllocationManager(
     client: ExecutorAllocationClient,
     listenerBus: LiveListenerBus,
     conf: SparkConf,
+    mapOutputTracker: MapOutputTrackerMaster,
     blockManagerMaster: BlockManagerMaster)
   extends Logging {
 
   allocationManager =>
 
   import ExecutorAllocationManager._
-
-  private val mapOutputTracker = SparkEnv.get.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]
 
   // Lower and upper bounds on the number of executors.
   private val minNumExecutors = conf.get(DYN_ALLOCATION_MIN_EXECUTORS)
