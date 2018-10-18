@@ -466,9 +466,6 @@ private[spark] class ExecutorAllocationManager(
       } else if (newExecutorTotal - 1 < numExecutorsTarget) {
         logDebug(s"Not removing idle executor $executorIdToBeRemoved because there are only " +
           s"$newExecutorTotal executor(s) left (number of executor target $numExecutorsTarget)")
-      } else if (shuffleBiasEnabled &&
-        mapOutputTracker.hasOutputsOnExecutor(executorIdToBeRemoved, shuffleBiasActiveOnly)) {
-        logDebug(s"Not removing executor $executorIdToBeRemoved because it has shuffle outputs")
       } else if (canBeKilled(executorIdToBeRemoved)) {
         executorIdsToBeRemoved += executorIdToBeRemoved
         newExecutorTotal -= 1
