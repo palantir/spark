@@ -345,6 +345,11 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
   def stop() {}
 }
 
+private[spark] object ExecutorShuffleStatus extends Enumeration {
+  type ExecutorShuffleStatus = Value
+  val Active, Inactive, Unknown = Value
+}
+
 /**
  * Driver-side class that keeps track of the location of the map output of a stage.
  *
@@ -643,17 +648,20 @@ private[spark] class MapOutputTrackerMaster(
   }
 
   /**
-    * Return the executors that contain tracked shuffle files, optionally filtered to only
-    * shuffle files that are a dependency of an active job.
+    * Return the set of executors that contain tracked shuffle files, with a status of
+   * [[ExecutorShuffleStatus.Inactive]] iff all shuffle files on that executor are marked inactive.
     *
-    * @param activeOnly true if we want to ignore shuffles that are not part of an active job
-    * @return a set of executor IDs
+    * @return a map of executor IDs to their corresponding [[ExecutorShuffleStatus]]
     */
-  def getExecutorsWithShuffles(activeOnly: Boolean = false): scala.collection.Set[String] = {
+  import ExecutorShuffleStatus.ExecutorShuffleStatus
+  def getExecutorShuffleStatus: scala.collection.Map[String, ExecutorShuffleStatus] = {
+    import ExecutorShuffleStatus._
     shuffleStatuses.valuesIterator
-      .filter(!activeOnly || _.isActive)
-      .flatMap(_.executorsWithOutputs())
-      .toSet
+      .flatMap(status => status.executorsWithOutputs().map(_ -> status.isActive))
+      .toStream
+      .groupBy(_._1)
+      .mapValues(_.exists(_._2))
+      .mapValues(if (_) Active else Inactive)
   }
 
   /**

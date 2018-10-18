@@ -461,16 +461,20 @@ private[spark] class TaskSchedulerImpl(
 
   /**
    * Shuffle offers around to avoid always placing tasks on the same workers.
+   * If shuffle-biased task scheduling is enabled, this function will bias tasks
+   * towards executors with active shuffles.
    */
   private def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
     if (SHUFFLE_BIASED_SCHEDULING_ENABLED && offers.length > 1) {
-      val execsWithShuffles = mapOutputTracker.getExecutorsWithShuffles(SHUFFLE_BIAS_ACTIVE_ONLY)
-      val hasShuffle = (offer: WorkerOffer) => execsWithShuffles.contains(offer.executorId)
-
-      // bias towards executors that have shuffle outputs
-      // for "shuffle-empty" executors, pack the tasks in densely
-      doShuffleOffers(offers.filter(hasShuffle)) ++
-        doShuffleOffers(offers.filterNot(hasShuffle)).sortBy(_.cores)
+      // bias towards executors that have active shuffle outputs
+      val execShuffles = mapOutputTracker.getExecutorShuffleStatus
+      offers
+        .groupBy(offer => execShuffles.getOrElse(offer.executorId, ExecutorShuffleStatus.Unknown))
+        .toStream
+        .sortBy(_._1) // order: Active, Inactive, Unknown
+        .map(_._2)
+        .flatMap(doShuffleOffers)
+        .toIndexedSeq
     } else {
       doShuffleOffers(offers)
     }
