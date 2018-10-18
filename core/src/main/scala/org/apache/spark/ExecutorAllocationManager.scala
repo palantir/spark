@@ -613,10 +613,12 @@ private[spark] class ExecutorAllocationManager(
         // blocks we are concerned with are reported to the driver. Note that this
         // does not include broadcast blocks.
         val hasCachedBlocks = blockManagerMaster.hasCachedBlocks(executorId)
+        val hasShuffleBlocks = shuffleBiasEnabled &&
+          mapOutputTracker.hasOutputsOnExecutor(executorId, shuffleBiasActiveOnly)
         val now = clock.getTimeMillis()
         val timeout = {
-          if (hasCachedBlocks) {
-            // Use a different timeout if the executor has cached blocks.
+          if (hasCachedBlocks || hasShuffleBlocks) {
+            // Use a different timeout if the executor has cached/shuffle blocks.
             now + cachedExecutorIdleTimeoutS * 1000
           } else {
             now + executorIdleTimeoutS * 1000
