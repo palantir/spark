@@ -160,7 +160,7 @@ private class ShuffleStatus(numPartitions: Int) {
   }
 
   def executorsWithOutputs(): Set[String] = synchronized {
-    _numOutputsPerExecutorId.keySet
+    _numOutputsPerExecutorId.keySet.toSet
   }
 
   /**
@@ -215,12 +215,12 @@ private class ShuffleStatus(numPartitions: Int) {
     f(mapStatuses)
   }
 
-  def incrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
+  private[this] def incrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
     _numOutputsPerExecutorId(bmAddress.executorId) += 1
     _numAvailableOutputs += 1
   }
 
-  def decrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
+  private[this] def decrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
     assert(_numOutputsPerExecutorId(bmAddress.executorId) >= 1,
       s"Tried to remove non-existent output from ${bmAddress.executorId}")
     if (_numOutputsPerExecutorId(bmAddress.executorId) == 1) {
@@ -531,13 +531,6 @@ private[spark] class MapOutputTrackerMaster(
     incrementEpoch()
   }
 
-  def getExecutorsWithShuffles(activeOnly: Boolean = false): scala.collection.Set[String] = {
-    shuffleStatuses.valuesIterator
-      .filter(!activeOnly || _.isActive)
-      .flatMap(_.executorsWithOutputs())
-      .toSet
-  }
-
   def hasOutputsOnExecutor(execId: String, activeOnly: Boolean = false): Boolean = {
     shuffleStatuses.valuesIterator.exists { status =>
       status.hasOutputsOnExecutor(execId) && (!activeOnly || status.isActive)
@@ -647,6 +640,20 @@ private[spark] class MapOutputTrackerMaster(
     } else {
       Nil
     }
+  }
+
+  /**
+    * Return the executors that contain tracked shuffle files, optionally filtered to only
+    * shuffle files that are a dependency of an active job.
+    *
+    * @param activeOnly true if we want to ignore shuffles that are not part of an active job
+    * @return a set of executor IDs
+    */
+  def getExecutorsWithShuffles(activeOnly: Boolean = false): scala.collection.Set[String] = {
+    shuffleStatuses.valuesIterator
+      .filter(!activeOnly || _.isActive)
+      .flatMap(_.executorsWithOutputs())
+      .toSet
   }
 
   /**
