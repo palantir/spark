@@ -327,19 +327,32 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     rpcEnv.shutdown()
   }
 
-  test("hasActiveOutputsOnExecutor tracks additions and removals correctly") {
+  test("correctly track executors and ExecutorShuffleStatus") {
     val tracker = newTrackerMaster()
-    val bmId = BlockManagerId("exec1", "hostA", 1000)
+    val bmId1 = BlockManagerId("exec1", "host1", 1000)
+    val bmId2 = BlockManagerId("exec2", "host2", 1000)
     tracker.registerShuffle(11, 3)
-    tracker.registerMapOutput(11, 0, MapStatus(bmId, Array(10)))
-    tracker.registerMapOutput(11, 1, MapStatus(bmId, Array(100)))
+    tracker.registerMapOutput(11, 0, MapStatus(bmId1, Array(10)))
+    tracker.registerMapOutput(11, 1, MapStatus(bmId1, Array(100)))
+    tracker.registerMapOutput(11, 2, MapStatus(bmId2, Array(1000)))
 
-    assert(tracker.hasActiveOutputsOnExecutor("exec1"))
-    assert(!tracker.hasActiveOutputsOnExecutor("exec2"))
-    tracker.unregisterMapOutput(11, 0, bmId)
-    assert(tracker.hasActiveOutputsOnExecutor("exec1"))
-    tracker.unregisterMapOutput(11, 1, bmId)
-    assert(!tracker.hasActiveOutputsOnExecutor("exec1"))
+    assert(tracker.hasOutputsOnExecutor("exec1"))
+    assert(tracker.getExecutorShuffleStatus.keySet.equals(Set("exec1", "exec2")))
+    assert(!tracker.hasOutputsOnExecutor("exec3"))
+
+    tracker.unregisterMapOutput(11, 0, bmId1)
+    assert(tracker.hasOutputsOnExecutor("exec1"))
+    tracker.unregisterMapOutput(11, 1, bmId1)
+    assert(!tracker.hasOutputsOnExecutor("exec1"))
+
+    tracker.markShuffleInactive(11)
+    assert(tracker.hasOutputsOnExecutor("exec2"))
+    assert(!tracker.hasOutputsOnExecutor("exec2", activeOnly = true))
+
+    import ExecutorShuffleStatus._
+    assert(tracker.getExecutorShuffleStatus.equals(Map("exec2" -> Inactive)))
+    tracker.markShuffleActive(11)
+    assert(tracker.getExecutorShuffleStatus.sameElements(Map("exec2" -> Active)))
   }
 
 }
