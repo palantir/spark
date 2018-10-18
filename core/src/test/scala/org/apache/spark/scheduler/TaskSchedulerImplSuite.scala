@@ -900,9 +900,9 @@ class TaskSchedulerImplSuite extends SparkFunSuite with LocalSparkContext with B
 
     // Make offers in different executors, so they can be a mix of active, inactive, unknown
     val offers = IndexedSeq(
-      WorkerOffer("exec1", "host1", 1), // inactive
-      WorkerOffer("exec2", "host2", 1), // active
-      WorkerOffer("exec3", "host3", 1) // unknown
+      WorkerOffer("exec1", "host1", 2), // inactive
+      WorkerOffer("exec2", "host2", 2), // active
+      WorkerOffer("exec3", "host3", 2) // unknown
     )
     val makeMapStatus = (offer: WorkerOffer) =>
       MapStatus(BlockManagerId(offer.executorId, offer.host, 1), Array(10))
@@ -919,15 +919,11 @@ class TaskSchedulerImplSuite extends SparkFunSuite with LocalSparkContext with B
     assert(execStatus.equals(Map("exec1" -> Inactive, "exec2" -> Active)))
     assert(taskScheduler.shuffleOffers(offers).map(offers.indexOf(_)).equals(IndexedSeq(1, 0, 2)))
 
-    // Submit a taskset with locality preferences.
-    val taskSet = FakeTask.createTaskSet(
-      1, stageId = 1, stageAttemptId = 0)
-    taskScheduler.submitTasks(taskSet)
-    // Regardless of the order of the offers (after the task scheduler shuffles them), we should
-    // always take advantage of the local offer.
+    taskScheduler.submitTasks(FakeTask.createTaskSet(3, stageId = 1, stageAttemptId = 0))
+    // should go to active first, then inactive
     val taskDescs = taskScheduler.resourceOffers(offers).flatten
-    assert(taskDescs.size === 1)
-    assert(taskDescs.head.executorId === "exec2")
+    assert(taskDescs.size === 3)
+    assert(taskDescs.map(_.executorId).equals(Seq("exec2", "exec2", "exec1")))
   }
 
   test("With delay scheduling off, tasks can be run at any locality level immediately") {
