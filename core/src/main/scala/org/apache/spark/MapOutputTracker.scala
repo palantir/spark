@@ -63,10 +63,10 @@ private class ShuffleStatus(numPartitions: Int) {
   val mapStatuses = new Array[MapStatus](numPartitions)
 
   /**
-    * Whether an active job in the [[org.apache.spark.scheduler.DAGScheduler]] depends on this.
-    * If dynamic allocation is enabled, then executors that do not contain active shuffles may
-    * eventually be surrendered by the [[ExecutorAllocationManager]].
-    */
+   * Whether an active job in the [[org.apache.spark.scheduler.DAGScheduler]] depends on this.
+   * If dynamic allocation is enabled, then executors that do not contain active shuffles may
+   * eventually be surrendered by the [[ExecutorAllocationManager]].
+   */
   var isActive = true
 
   /**
@@ -648,11 +648,11 @@ private[spark] class MapOutputTrackerMaster(
   }
 
   /**
-    * Return the set of executors that contain tracked shuffle files, with a status of
+   * Return the set of executors that contain tracked shuffle files, with a status of
    * [[ExecutorShuffleStatus.Inactive]] iff all shuffle files on that executor are marked inactive.
-    *
-    * @return a map of executor IDs to their corresponding [[ExecutorShuffleStatus]]
-    */
+   *
+   * @return a map of executor IDs to their corresponding [[ExecutorShuffleStatus]]
+   */
   import ExecutorShuffleStatus.ExecutorShuffleStatus
   def getExecutorShuffleStatus: scala.collection.Map[String, ExecutorShuffleStatus] = {
     import ExecutorShuffleStatus._
