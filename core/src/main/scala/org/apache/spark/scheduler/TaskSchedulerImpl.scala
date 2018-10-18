@@ -460,20 +460,28 @@ private[spark] class TaskSchedulerImpl(
   }
 
   /**
-   * Shuffle offers around to avoid always placing tasks on the same workers.  Exposed to allow
-   * overriding in tests, so it can be deterministic.
+   * Shuffle offers around to avoid always placing tasks on the same workers.
    */
-  protected def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
+  private def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
     if (SHUFFLE_BIASED_SCHEDULING_ENABLED && offers.length > 1) {
       val execsWithShuffles = mapOutputTracker.getExecutorsWithShuffles(SHUFFLE_BIAS_ACTIVE_ONLY)
       val hasShuffle = (offer: WorkerOffer) => execsWithShuffles.contains(offer.executorId)
 
       // bias towards executors that have shuffle outputs
-      Random.shuffle(offers.filter(hasShuffle)) ++
-        offers.filterNot(hasShuffle).sortBy(_.cores)
+      // for "shuffle-empty" executors, pack the tasks in densely
+      doShuffleOffers(offers.filter(hasShuffle)) ++
+        doShuffleOffers(offers.filterNot(hasShuffle)).sortBy(_.cores)
     } else {
-      Random.shuffle(offers)
+      doShuffleOffers(offers)
     }
+  }
+
+  /**
+   * Does the shuffling for [[shuffleOffers()]]. Exposed to allow overriding in tests, so that
+   * it can be deterministic.
+   */
+  protected def doShuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
+    Random.shuffle(offers)
   }
 
   def statusUpdate(tid: Long, state: TaskState, serializedData: ByteBuffer) {

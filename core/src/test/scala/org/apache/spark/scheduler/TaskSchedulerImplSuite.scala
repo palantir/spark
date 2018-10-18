@@ -836,7 +836,7 @@ class TaskSchedulerImplSuite extends SparkFunSuite with LocalSparkContext with B
     // We customize the task scheduler just to let us control the way offers are shuffled, so we
     // can be sure we try both permutations, and to control the clock on the tasksetmanager.
     val taskScheduler = new TaskSchedulerImpl(sc) {
-      override def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
+      override def doShuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
         // Don't shuffle the offers around for this test.  Instead, we'll just pass in all
         // the permutations we care about directly.
         offers
