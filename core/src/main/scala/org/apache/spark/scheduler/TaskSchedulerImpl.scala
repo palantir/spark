@@ -464,7 +464,7 @@ private[spark] class TaskSchedulerImpl(
    * If shuffle-biased task scheduling is enabled, this function will bias tasks
    * towards executors with active shuffles.
    */
-  private def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
+  def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
     if (SHUFFLE_BIASED_SCHEDULING_ENABLED && offers.length > 1) {
       // bias towards executors that have active shuffle outputs
       val execShuffles = mapOutputTracker.getExecutorShuffleStatus
