@@ -115,6 +115,9 @@ private[spark] class ExecutorAllocationManager(
   private val cachedExecutorIdleTimeoutS = conf.getTimeAsSeconds(
     "spark.dynamicAllocation.cachedExecutorIdleTimeout", s"${Integer.MAX_VALUE}s")
 
+  private val shuffleBiasEnabled = Utils.isShuffleBiasedTaskSchedulingEnabled(conf);
+  private val shuffleBiasActiveOnly = Utils.isShuffleBiasedTaskSchedulingActiveOnly(conf);
+
   // During testing, the methods to actually kill and add executors are mocked out
   private val testing = conf.getBoolean("spark.dynamicAllocation.testing", false)
 
@@ -463,7 +466,8 @@ private[spark] class ExecutorAllocationManager(
       } else if (newExecutorTotal - 1 < numExecutorsTarget) {
         logDebug(s"Not removing idle executor $executorIdToBeRemoved because there are only " +
           s"$newExecutorTotal executor(s) left (number of executor target $numExecutorsTarget)")
-      } else if (mapOutputTracker.hasOutputsOnExecutor(executorIdToBeRemoved, activeOnly = true)) {
+      } else if (shuffleBiasEnabled &&
+        mapOutputTracker.hasOutputsOnExecutor(executorIdToBeRemoved, shuffleBiasActiveOnly)) {
         logDebug(s"Not removing executor $executorIdToBeRemoved because it has shuffle outputs")
       } else if (canBeKilled(executorIdToBeRemoved)) {
         executorIdsToBeRemoved += executorIdToBeRemoved
