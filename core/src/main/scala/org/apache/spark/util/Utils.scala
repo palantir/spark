@@ -2512,13 +2512,12 @@ private[spark] object Utils extends Logging {
   }
 
   def isShuffleBiasedTaskSchedulingEnabled(conf: SparkConf): Boolean = {
-    isDynamicAllocationEnabled(conf) &&
       conf.getBoolean("spark.scheduler.shuffleBiasedTaskScheduling.enabled", false)
   }
 
-  def shouldShuffleBiasingIgnoreInactive(conf: SparkConf): Boolean = {
+  def isShuffleBiasedTaskSchedulingActiveOnly(conf: SparkConf): Boolean = {
     isShuffleBiasedTaskSchedulingEnabled(conf) &&
-      conf.getBoolean("spark.scheduler.shuffleBiasedTasksScheduling.ignoreInactiveShuffles", false)
+      conf.getBoolean("spark.scheduler.shuffleBiasedTasksScheduling.activeOnly", false)
   }
 
   /**

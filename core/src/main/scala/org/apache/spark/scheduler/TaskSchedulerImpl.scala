@@ -81,7 +81,11 @@ private[spark] class TaskSchedulerImpl(
   private val speculationScheduler =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("task-scheduler-speculation")
 
-  private val BIAS_TO_ACTIVE_SHUFFLES_ONLY = Utils.shouldShuffleBiasingIgnoreInactive(conf);
+  // whether to prefer assigning tasks to executors that contain shuffle files
+  val SHUFFLE_BIASED_SCHEDULING_ENABLED = Utils.isShuffleBiasedTaskSchedulingEnabled(conf)
+
+  // whether to only count shuffle files that are part of active jobs for biased scheduling
+  val SHUFFLE_BIAS_ACTIVE_ONLY = Utils.isShuffleBiasedTaskSchedulingActiveOnly(conf);
 
   // Threshold above which we warn user initial TaskSet may be starved
   val STARVATION_TIMEOUT_MS = conf.getTimeAsMs("spark.starvation.timeout", "15s")
@@ -460,14 +464,13 @@ private[spark] class TaskSchedulerImpl(
    * overriding in tests, so it can be deterministic.
    */
   protected def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
-    if (offers.length > 1 && Utils.isShuffleBiasedTaskSchedulingEnabled(conf)) {
-      val executorsWithShuffles =
-        mapOutputTracker.getExecutorsWithShuffles(BIAS_TO_ACTIVE_SHUFFLES_ONLY)
-      val hasShuffle = (offer: WorkerOffer) => executorsWithShuffles.contains(offer.executorId)
+    if (SHUFFLE_BIASED_SCHEDULING_ENABLED && offers.length > 1) {
+      val execsWithShuffles = mapOutputTracker.getExecutorsWithShuffles(SHUFFLE_BIAS_ACTIVE_ONLY)
+      val hasShuffle = (offer: WorkerOffer) => execsWithShuffles.contains(offer.executorId)
 
       // bias towards executors that have shuffle outputs
       Random.shuffle(offers.filter(hasShuffle)) ++
-        Random.shuffle(offers.filterNot(hasShuffle))
+        offers.filterNot(hasShuffle).sortBy(_.cores)
     } else {
       Random.shuffle(offers)
     }
