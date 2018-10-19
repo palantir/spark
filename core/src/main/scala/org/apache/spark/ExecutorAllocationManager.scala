@@ -514,6 +514,15 @@ private[spark] class ExecutorAllocationManager(
   }
 
   /**
+   * Request the cluster manager to remove the given executor.
+   * Return whether the request is acknowledged.
+   */
+  private def removeExecutor(executorId: String): Boolean = synchronized {
+    val executorsRemoved = removeExecutors(Seq(executorId))
+    executorsRemoved.nonEmpty && executorsRemoved(0) == executorId
+  }
+
+  /**
    * Determine if the given executor can be killed.
    */
   private def canBeKilled(executorId: String): Boolean = synchronized {
