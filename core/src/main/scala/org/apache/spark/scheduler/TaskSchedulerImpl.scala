@@ -384,8 +384,15 @@ private[spark] class TaskSchedulerImpl(
     }.getOrElse(offers)
 
     val partitionedAndShuffledOffers = partitionShuffleOffers(filteredOffers)
-    var allTasks: Seq[Seq[TaskDescription]] = Seq(Seq())
+    var allTasks: Seq[Seq[TaskDescription]] = Nil
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
+    for (taskSet <- sortedTaskSets) {
+      logDebug("parentName: %s, name: %s, runningTasks: %s".format(
+        taskSet.parent.name, taskSet.name, taskSet.runningTasks))
+      if (newExecAvail) {
+        taskSet.executorAdded()
+      }
+    }
 
     for (shuffledOffers <- partitionedAndShuffledOffers.map(_._2)) {
       // Build a list of tasks to assign to each worker.

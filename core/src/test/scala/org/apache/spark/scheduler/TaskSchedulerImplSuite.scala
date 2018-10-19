@@ -875,30 +875,7 @@ class TaskSchedulerImplSuite extends SparkFunSuite with LocalSparkContext with B
   }
 
   test("Shuffle-biased task scheduling enabled should lead to non-random offer shuffling") {
-    val conf = new SparkConf()
-      .set("spark.scheduler.shuffleBiasedTaskScheduling.enabled", "true")
-    sc = new SparkContext("local", "TaskSchedulerImplSuite", conf)
-    // we create a manual clock just so we can be sure the clock doesn't advance at all in this test
-    val clock = new ManualClock()
-
-    // We customize the task scheduler just to let us control the way offers are shuffled, so we
-    // can be sure we try both permutations, and to control the clock on the tasksetmanager.
-    val taskScheduler = new TaskSchedulerImpl(sc) {
-      override def doShuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
-        // Don't shuffle the offers around for this test.  Instead, we'll just pass in all
-        // the permutations we care about directly.
-        offers
-      }
-      override def createTaskSetManager(taskSet: TaskSet, maxTaskFailures: Int): TaskSetManager = {
-        new TaskSetManager(this, taskSet, maxTaskFailures, blacklistTrackerOpt, clock)
-      }
-    }
-    // Need to initialize a DAGScheduler for the taskScheduler to use for callbacks.
-    new DAGScheduler(sc, taskScheduler) {
-      override def taskStarted(task: Task[_], taskInfo: TaskInfo) {}
-      override def executorAdded(execId: String, host: String) {}
-    }
-    taskScheduler.initialize(new FakeSchedulerBackend)
+    setupScheduler("spark.scheduler.shuffleBiasedTaskScheduling.enabled" -> "true")
 
     // Make offers in different executors, so they can be a mix of active, inactive, unknown
     val offers = IndexedSeq(
