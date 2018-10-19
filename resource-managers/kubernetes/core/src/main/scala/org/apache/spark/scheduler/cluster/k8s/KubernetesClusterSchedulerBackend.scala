@@ -19,8 +19,9 @@ package org.apache.spark.scheduler.cluster.k8s
 import java.util.concurrent.ExecutorService
 
 import io.fabric8.kubernetes.client.KubernetesClient
-import scala.concurrent.{ExecutionContext, Future}
+import org.apache.spark.SparkException
 
+import scala.concurrent.{ExecutionContext, Future}
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.rpc.{RpcAddress, RpcEnv}
 import org.apache.spark.scheduler.{ExecutorLossReason, TaskSchedulerImpl}
@@ -60,6 +61,9 @@ private[spark] class KubernetesClusterSchedulerBackend(
     super.start()
     if (!Utils.isDynamicAllocationEnabled(conf)) {
       podAllocator.setTotalExpectedExecutors(initialExecutors)
+    } else if (!Utils.isShuffleBiasedTaskSchedulingEnabled(conf)) {
+      throw new SparkException("Dynamic allocation of executors on kubernetes requires that " +
+        "spark.scheduler.shuffleBiasedTaskScheduling.enabled be set to 'true'.")
     }
     lifecycleEventHandler.start(this)
     podAllocator.start(applicationId())
