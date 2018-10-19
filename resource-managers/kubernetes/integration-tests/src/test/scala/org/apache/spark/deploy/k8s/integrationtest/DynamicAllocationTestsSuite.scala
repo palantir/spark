@@ -16,10 +16,10 @@
  */
 package org.apache.spark.deploy.k8s.integrationtest
 
-import org.apache.spark.deploy.k8s.integrationtest.KubernetesSuite.{INTERVAL, TIMEOUT, k8sTestTag}
 import org.scalatest.concurrent.Eventually
-
 import scala.collection.JavaConverters._
+
+import org.apache.spark.deploy.k8s.integrationtest.KubernetesSuite.{k8sTestTag, INTERVAL, TIMEOUT}
 
 private[spark] trait DynamicAllocationTestsSuite { k8sSuite: KubernetesSuite =>
 
