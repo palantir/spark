@@ -171,8 +171,8 @@ jobs:
     <<: *defaults
     steps:
       - *checkout-code
-      - *resotre-gradle-wrapper-cache
-      - *resotre-gradle-cache
+      - *restore-gradle-wrapper-cache
+      - *restore-gradle-cache
       - run: ./gradlew --info --stacktrace check -x test
       - save_cache:
           key: 'gradle-wrapper-v2-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}'
@@ -274,8 +274,8 @@ jobs:
     resource_class: medium
     steps:
       - *checkout-code
-      - *resotre-gradle-wrapper-cache
-      - *resotre-gradle-cache
+      - *restore-gradle-wrapper-cache
+      - *restore-gradle-cache
       - setup_remote_docker: { docker_layer_caching: true }
       - run: |
           ./gradlew --info --stacktrace test | tee /tmp/run-spark-docker-gradle-plugin-tests.log
@@ -462,8 +462,8 @@ jobs:
       - image: palantirtechnologies/circle-spark-r
     steps:
       - *checkout-code
-      - *resotre-gradle-wrapper-cache
-      - *resotre-gradle-cache
+      - *restore-gradle-wrapper-cache
+      - *restore-gradle-cache
       - deploy:
           command: ./gradlew --parallel --continue --stacktrace --no-daemon bintrayUpload
 
