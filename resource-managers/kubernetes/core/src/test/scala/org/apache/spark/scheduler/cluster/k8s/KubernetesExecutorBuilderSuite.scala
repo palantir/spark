@@ -221,45 +221,6 @@ class KubernetesExecutorBuilderSuite extends SparkFunSuite {
       assert(resolvedPod.pod.getMetadata.getLabels.get(stepType) === stepType)
     }
   }
-<<<<<<< HEAD
-
-  test("Starts with empty executor pod if template is not specified") {
-    val kubernetesClient = mock(classOf[KubernetesClient])
-    val executorBuilder = KubernetesExecutorBuilder.apply(kubernetesClient, new SparkConf())
-    verify(kubernetesClient, never()).pods()
-  }
-
-  test("Starts with executor template if specified") {
-    val kubernetesClient = PodBuilderSuiteUtils.loadingMockKubernetesClient()
-    val sparkConf = new SparkConf(false)
-      .set("spark.driver.host", "https://driver.host.com")
-      .set(Config.CONTAINER_IMAGE, "spark-executor:latest")
-      .set(Config.KUBERNETES_EXECUTOR_PODTEMPLATE_FILE, "template-file.yaml")
-    val kubernetesConf = KubernetesConf(
-      sparkConf,
-      KubernetesExecutorSpecificConf(
-        "executor-id", Some(new PodBuilder()
-          .withNewMetadata()
-          .withName("driver")
-          .endMetadata()
-          .build())),
-      "prefix",
-      "appId",
-      None,
-      Map.empty,
-      Map.empty,
-      Map.empty,
-      Map.empty,
-      Map.empty,
-      Nil,
-      Seq.empty[String])
-    val sparkPod = KubernetesExecutorBuilder
-      .apply(kubernetesClient, sparkConf)
-      .buildFromFeatures(kubernetesConf)
-    PodBuilderSuiteUtils.verifyPodWithSupportedFeatures(sparkPod)
-  }
-||||||| merged common ancestors
-=======
 
   test("Starts with empty executor pod if template is not specified") {
     val kubernetesClient = mock(classOf[KubernetesClient])
@@ -295,5 +256,4 @@ class KubernetesExecutorBuilderSuite extends SparkFunSuite {
       .buildFromFeatures(kubernetesConf)
     PodBuilderSuiteUtils.verifyPodWithSupportedFeatures(sparkPod)
   }
->>>>>>> upstream/master
 }

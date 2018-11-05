@@ -28,12 +28,8 @@ import org.apache.spark.deploy.k8s.security.KubernetesHadoopDelegationTokenManag
 import org.apache.spark.deploy.k8s.submit._
 import org.apache.spark.deploy.k8s.submit.KubernetesClientApplication._
 import org.apache.spark.internal.config.ConfigEntry
-<<<<<<< HEAD
 import org.apache.spark.launcher.SparkLauncher
-||||||| merged common ancestors
-=======
 import org.apache.spark.util.Utils
->>>>>>> upstream/master
 
 
 private[spark] sealed trait KubernetesRoleSpecificConf
@@ -127,34 +123,9 @@ private[spark] object KubernetesConf {
       mainAppResource: MainAppResource,
       mainClass: String,
       appArgs: Array[String],
-<<<<<<< HEAD
-      maybePyFiles: Option[String]): KubernetesConf[KubernetesDriverSpecificConf] = {
+      maybePyFiles: Option[String],
+      hadoopConfDir: Option[String]): KubernetesConf[KubernetesDriverSpecificConf] = {
     val sparkConfWithMainAppJar = sparkConf.clone()
-    val additionalFiles = mutable.ArrayBuffer.empty[String]
-    mainAppResource.foreach {
-        case JavaMainAppResource(res) =>
-          val previousJars = sparkConf
-            .getOption("spark.jars")
-            .map(_.split(","))
-            .getOrElse(Array.empty)
-          if (!previousJars.contains(res)) {
-            sparkConfWithMainAppJar.setJars(previousJars ++ Seq(res))
-          }
-        // The function of this outer match is to account for multiple nonJVM
-        // bindings that will all have increased default MEMORY_OVERHEAD_FACTOR to 0.4
-        case nonJVM: NonJVMResource =>
-          nonJVM match {
-            case PythonMainAppResource(res) =>
-              additionalFiles += res
-              maybePyFiles.foreach{maybePyFiles =>
-                additionalFiles.appendAll(maybePyFiles.split(","))}
-              sparkConfWithMainAppJar.set(KUBERNETES_PYSPARK_MAIN_APP_RESOURCE, res)
-            case RMainAppResource(res) =>
-              additionalFiles += res
-              sparkConfWithMainAppJar.set(KUBERNETES_R_MAIN_APP_RESOURCE, res)
-          }
-          sparkConfWithMainAppJar.setIfMissing(MEMORY_OVERHEAD_FACTOR, 0.4)
-    }
 
     val trimmedJars = sparkConfWithMainAppJar.getOption("spark.jars")
       .map(_.split(","))
@@ -176,39 +147,6 @@ private[spark] object KubernetesConf {
       sparkConfWithMainAppJar.set("spark.files", trimmedFiles.mkString(","))
     }
 
-||||||| merged common ancestors
-      maybePyFiles: Option[String]): KubernetesConf[KubernetesDriverSpecificConf] = {
-    val sparkConfWithMainAppJar = sparkConf.clone()
-    val additionalFiles = mutable.ArrayBuffer.empty[String]
-    mainAppResource.foreach {
-        case JavaMainAppResource(res) =>
-          val previousJars = sparkConf
-            .getOption("spark.jars")
-            .map(_.split(","))
-            .getOrElse(Array.empty)
-          if (!previousJars.contains(res)) {
-            sparkConfWithMainAppJar.setJars(previousJars ++ Seq(res))
-          }
-        // The function of this outer match is to account for multiple nonJVM
-        // bindings that will all have increased default MEMORY_OVERHEAD_FACTOR to 0.4
-        case nonJVM: NonJVMResource =>
-          nonJVM match {
-            case PythonMainAppResource(res) =>
-              additionalFiles += res
-              maybePyFiles.foreach{maybePyFiles =>
-                additionalFiles.appendAll(maybePyFiles.split(","))}
-              sparkConfWithMainAppJar.set(KUBERNETES_PYSPARK_MAIN_APP_RESOURCE, res)
-            case RMainAppResource(res) =>
-              additionalFiles += res
-              sparkConfWithMainAppJar.set(KUBERNETES_R_MAIN_APP_RESOURCE, res)
-          }
-          sparkConfWithMainAppJar.setIfMissing(MEMORY_OVERHEAD_FACTOR, 0.4)
-    }
-
-=======
-      maybePyFiles: Option[String],
-      hadoopConfDir: Option[String]): KubernetesConf[KubernetesDriverSpecificConf] = {
->>>>>>> upstream/master
     val driverCustomLabels = KubernetesUtils.parsePrefixedKeyValuePairs(
       sparkConf, KUBERNETES_DRIVER_LABEL_PREFIX)
     require(!driverCustomLabels.contains(SPARK_APP_ID_LABEL), "Label with key " +

@@ -29,25 +29,12 @@ export LC_ALL=C
 # TODO: This would be much nicer to do in SBT, once SBT supports Maven-style resolution.
 
 # NOTE: These should match those in the release publishing script
-<<<<<<< HEAD
 HADOOP2_MODULE_PROFILES="-Phadoop-cloud -Pkubernetes -Pkinesis-asl -Pyarn"
-||||||| merged common ancestors
-HADOOP2_MODULE_PROFILES="-Phive-thriftserver -Pmesos -Pkafka-0-8 -Pkubernetes -Pyarn -Pflume -Phive"
-=======
-HADOOP2_MODULE_PROFILES="-Phive-thriftserver -Pmesos -Pkubernetes -Pyarn -Phive"
->>>>>>> upstream/master
 MVN="build/mvn"
 HADOOP_PROFILES=(
-<<<<<<< HEAD
     hadoop-palantir
-||||||| merged common ancestors
-    hadoop-2.6
     hadoop-2.7
     hadoop-3.1
-=======
-    hadoop-2.7
-    hadoop-3.1
->>>>>>> upstream/master
 )
 
 # We'll switch the version to a temp. one, publish POMs using that new version, then switch back to
