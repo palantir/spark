@@ -33,7 +33,6 @@ RUN set -ex && \
     apk upgrade --no-cache && \
     apk add --no-cache bash tini krb5 krb5-libs && \
     mkdir -p /opt/spark && \
-    mkdir -p /opt/spark/examples && \
     mkdir -p /opt/spark/work-dir && \
     touch /opt/spark/RELEASE && \
     rm /bin/sh && \
