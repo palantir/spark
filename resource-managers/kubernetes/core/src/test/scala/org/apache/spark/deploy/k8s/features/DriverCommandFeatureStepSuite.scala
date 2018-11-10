@@ -128,6 +128,7 @@ class DriverCommandFeatureStepSuite extends SparkFunSuite {
       driverConf,
       "resource-prefix",
       "appId",
+      None,
       Map.empty,
       Map.empty,
       Map.empty,

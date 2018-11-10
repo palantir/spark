@@ -124,56 +124,6 @@ private[spark] object KubernetesConf {
       appArgs: Array[String],
       maybePyFiles: Option[String],
       hadoopConfDir: Option[String]): KubernetesConf[KubernetesDriverSpecificConf] = {
-<<<<<<< HEAD
-    val sparkConfWithMainAppJar = sparkConf.clone()
-    val additionalFiles = mutable.ArrayBuffer.empty[String]
-    mainAppResource.foreach {
-        case JavaMainAppResource(res) =>
-          val previousJars = sparkConf
-            .getOption("spark.jars")
-            .map(_.split(","))
-            .getOrElse(Array.empty)
-          if (!previousJars.contains(res)) {
-            sparkConfWithMainAppJar.setJars(previousJars ++ Seq(res))
-          }
-        // The function of this outer match is to account for multiple nonJVM
-        // bindings that will all have increased default MEMORY_OVERHEAD_FACTOR to 0.4
-        case nonJVM: NonJVMResource =>
-          nonJVM match {
-            case PythonMainAppResource(res) =>
-              additionalFiles += res
-              maybePyFiles.foreach{maybePyFiles =>
-                additionalFiles.appendAll(maybePyFiles.split(","))}
-              sparkConfWithMainAppJar.set(KUBERNETES_PYSPARK_MAIN_APP_RESOURCE, res)
-            case RMainAppResource(res) =>
-              additionalFiles += res
-              sparkConfWithMainAppJar.set(KUBERNETES_R_MAIN_APP_RESOURCE, res)
-          }
-          sparkConfWithMainAppJar.setIfMissing(MEMORY_OVERHEAD_FACTOR, 0.4)
-    }
-
-    val trimmedJars = sparkConfWithMainAppJar.getOption("spark.jars")
-      .map(_.split(","))
-      .getOrElse(Array.empty)
-      .map(_.trim)
-      .filterNot(_.isEmpty)
-
-    if (trimmedJars.nonEmpty) {
-      sparkConfWithMainAppJar.setJars(trimmedJars)
-    }
-
-    val trimmedFiles = sparkConfWithMainAppJar.getOption("spark.files")
-      .map(_.split(","))
-      .getOrElse(Array.empty)
-      .map(_.trim)
-      .filterNot(_.isEmpty)
-
-    if (trimmedFiles.nonEmpty) {
-      sparkConfWithMainAppJar.set("spark.files", trimmedFiles.mkString(","))
-    }
-
-=======
->>>>>>> master
     val driverCustomLabels = KubernetesUtils.parsePrefixedKeyValuePairs(
       sparkConf, KUBERNETES_DRIVER_LABEL_PREFIX)
     require(!driverCustomLabels.contains(SPARK_APP_ID_LABEL), "Label with key " +

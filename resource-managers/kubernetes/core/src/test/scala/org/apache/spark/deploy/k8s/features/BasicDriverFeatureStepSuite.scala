@@ -244,6 +244,7 @@ class BasicDriverFeatureStepSuite extends SparkFunSuite {
         driverConf,
         RESOURCE_NAME_PREFIX,
         APP_ID,
+        None,
         DRIVER_LABELS,
         DRIVER_ANNOTATIONS,
         Map.empty,

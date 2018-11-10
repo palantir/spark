@@ -21,13 +21,9 @@ import java.io.File
 import io.fabric8.kubernetes.client.KubernetesClient
 
 import org.apache.spark.SparkConf
-import org.apache.spark.deploy.k8s.{Config, KubernetesConf, KubernetesDriverSpec, KubernetesDriverSpecificConf, KubernetesRoleSpecificConf, KubernetesUtils, SparkPod}
+import org.apache.spark.deploy.k8s._
 import org.apache.spark.deploy.k8s.features._
-<<<<<<< HEAD
-import org.apache.spark.deploy.k8s.features.bindings.{JavaDriverFeatureStep, PythonDriverFeatureStep, RDriverFeatureStep}
 import org.apache.spark.util.Utils
-=======
->>>>>>> master
 
 private[spark] class KubernetesDriverBuilder(
     provideBasicStep: (KubernetesConf[KubernetesDriverSpecificConf]) => BasicDriverFeatureStep =
@@ -46,9 +42,9 @@ private[spark] class KubernetesDriverBuilder(
     provideLocalDirsStep: (KubernetesConf[_ <: KubernetesRoleSpecificConf])
       => LocalDirsFeatureStep =
       new LocalDirsFeatureStep(_),
-    provideMountLocalFilesStep: (KubernetesConf[_ <: KubernetesRoleSpecificConf]
-      => MountLocalFilesFeatureStep) =
-      new MountLocalFilesFeatureStep(_),
+    provideMountLocalFilesStep: (KubernetesConf[KubernetesDriverSpecificConf]
+      => MountLocalDriverFilesFeatureStep) =
+      new MountLocalDriverFilesFeatureStep(_),
     provideVolumesStep: (KubernetesConf[_ <: KubernetesRoleSpecificConf]
       => MountVolumesFeatureStep) =
       new MountVolumesFeatureStep(_),
@@ -95,7 +91,8 @@ private[spark] class KubernetesDriverBuilder(
       kubernetesConf.hadoopConfSpec.map { _ =>
         provideHadoopGlobalStep(kubernetesConf)}
 
-    val localFiles = KubernetesUtils.submitterLocalFiles(kubernetesConf.sparkFiles)
+    val localFilesFeature = provideMountLocalFilesStep(kubernetesConf)
+    val localFiles = KubernetesUtils.submitterLocalFiles(localFilesFeature.allFiles)
       .map(new File(_))
     require(localFiles.forall(_.isFile), s"All submitted local files must be present and not" +
       s" directories, Got got: ${localFiles.map(_.getAbsolutePath).mkString(",")}")
@@ -106,7 +103,7 @@ private[spark] class KubernetesDriverBuilder(
       s"Total size of all files submitted must be less than $MAX_SECRET_BUNDLE_SIZE_BYTES_STRING." +
         s" Total size for files ended up being $totalSizeBytesString")
     val providedLocalFilesFeature = if (localFiles.nonEmpty) {
-      Seq(provideMountLocalFilesStep(kubernetesConf))
+      Seq(localFilesFeature)
     } else Nil
 
     val allFeatures: Seq[KubernetesFeatureConfigStep] =

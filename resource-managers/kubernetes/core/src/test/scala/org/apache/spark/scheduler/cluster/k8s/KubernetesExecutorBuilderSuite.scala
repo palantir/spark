@@ -42,7 +42,7 @@ class KubernetesExecutorBuilderSuite extends SparkFunSuite {
   private val mountSecretsStep = KubernetesFeaturesTestUtils.getMockConfigStepForStepType(
     SECRETS_STEP_TYPE, classOf[MountSecretsFeatureStep])
   private val mountLocalFilesStep = KubernetesFeaturesTestUtils.getMockConfigStepForStepType(
-    MOUNT_LOCAL_FILES_STEP_TYPE, classOf[MountLocalFilesFeatureStep])
+    MOUNT_LOCAL_FILES_STEP_TYPE, classOf[MountLocalExecutorFilesFeatureStep])
   private val envSecretsStep = KubernetesFeaturesTestUtils.getMockConfigStepForStepType(
     ENV_SECRETS_STEP_TYPE, classOf[EnvSecretsFeatureStep])
   private val localDirsStep = KubernetesFeaturesTestUtils.getMockConfigStepForStepType(
@@ -123,7 +123,6 @@ class KubernetesExecutorBuilderSuite extends SparkFunSuite {
       Map.empty,
       Map.empty,
       Seq.empty,
-      Seq.empty[String],
       None)
     validateStepTypesApplied(
       builderUnderTest.buildFromFeatures(conf),
