@@ -23,8 +23,11 @@ import io.fabric8.kubernetes.client.KubernetesClient
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.k8s.{Config, KubernetesConf, KubernetesDriverSpec, KubernetesDriverSpecificConf, KubernetesRoleSpecificConf, KubernetesUtils, SparkPod}
 import org.apache.spark.deploy.k8s.features._
+<<<<<<< HEAD
 import org.apache.spark.deploy.k8s.features.bindings.{JavaDriverFeatureStep, PythonDriverFeatureStep, RDriverFeatureStep}
 import org.apache.spark.util.Utils
+=======
+>>>>>>> master
 
 private[spark] class KubernetesDriverBuilder(
     provideBasicStep: (KubernetesConf[KubernetesDriverSpecificConf]) => BasicDriverFeatureStep =
@@ -49,18 +52,10 @@ private[spark] class KubernetesDriverBuilder(
     provideVolumesStep: (KubernetesConf[_ <: KubernetesRoleSpecificConf]
       => MountVolumesFeatureStep) =
       new MountVolumesFeatureStep(_),
-    providePythonStep: (
+    provideDriverCommandStep: (
       KubernetesConf[KubernetesDriverSpecificConf]
-      => PythonDriverFeatureStep) =
-      new PythonDriverFeatureStep(_),
-    provideRStep: (
-      KubernetesConf[KubernetesDriverSpecificConf]
-        => RDriverFeatureStep) =
-    new RDriverFeatureStep(_),
-    provideJavaStep: (
-      KubernetesConf[KubernetesDriverSpecificConf]
-        => JavaDriverFeatureStep) =
-    new JavaDriverFeatureStep(_),
+      => DriverCommandFeatureStep) =
+      new DriverCommandFeatureStep(_),
     provideHadoopGlobalStep: (
       KubernetesConf[KubernetesDriverSpecificConf]
         => KerberosConfDriverFeatureStep) =
@@ -94,14 +89,7 @@ private[spark] class KubernetesDriverBuilder(
       Seq(providePodTemplateConfigMapStep(kubernetesConf))
     } else Nil
 
-    val bindingsStep = kubernetesConf.roleSpecificConf.mainAppResource.map {
-        case JavaMainAppResource(_) =>
-          provideJavaStep(kubernetesConf)
-        case PythonMainAppResource(_) =>
-          providePythonStep(kubernetesConf)
-        case RMainAppResource(_) =>
-          provideRStep(kubernetesConf)}
-      .getOrElse(provideJavaStep(kubernetesConf))
+    val driverCommandStep = provideDriverCommandStep(kubernetesConf)
 
     val maybeHadoopConfigStep =
       kubernetesConf.hadoopConfSpec.map { _ =>
@@ -122,7 +110,7 @@ private[spark] class KubernetesDriverBuilder(
     } else Nil
 
     val allFeatures: Seq[KubernetesFeatureConfigStep] =
-      (baseFeatures :+ bindingsStep) ++
+      baseFeatures ++ Seq(driverCommandStep) ++
         secretFeature ++ envSecretFeature ++ volumesFeature ++
         maybeHadoopConfigStep.toSeq ++ podTemplateFeature ++
         providedLocalFilesFeature

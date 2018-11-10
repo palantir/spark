@@ -131,9 +131,9 @@
     <hive.version.short>1.2.1</hive.version.short>
     <derby.version>10.12.1.1</derby.version>
     <parquet.version>1.10.1-palantir.3</parquet.version>
-      <okhttp3.version>3.11.0</okhttp3.version>
-      <okhttp.version>2.7.5</okhttp.version>
-      <okio.version>1.15.0</okio.version>
+    <okhttp3.version>3.11.0</okhttp3.version>
+    <okhttp.version>2.7.5</okhttp.version>
+    <okio.version>1.15.0</okio.version>
     <orc.version>1.5.3</orc.version>
     <orc.classifier>nohive</orc.classifier>
     <hive.parquet.version>1.6.0</hive.parquet.version>
@@ -343,7 +343,6 @@
         <artifactId>chill-java</artifactId>
         <version>${chill.version}</version>
       </dependency>
-
       <dependency>
         <groupId>com.squareup.okio</groupId>
         <artifactId>okio</artifactId>
@@ -364,13 +363,13 @@
         <artifactId>okhttp</artifactId>
         <version>${okhttp.version}</version>
       </dependency>
-      <!-- This artifact is a shaded version of ASM 6.x. The POM that was used to produce this
-           is at https://github.com/apache/geronimo-xbean/tree/trunk/xbean-asm6-shaded
+      <!-- This artifact is a shaded version of ASM 7.x. The POM that was used to produce this
+           is at https://github.com/apache/geronimo-xbean/tree/trunk/xbean-asm7-shaded
            For context on why we shade ASM, see SPARK-782 and SPARK-6152. -->
       <dependency>
         <groupId>org.apache.xbean</groupId>
-        <artifactId>xbean-asm6-shaded</artifactId>
-        <version>4.8</version>
+        <artifactId>xbean-asm7-shaded</artifactId>
+        <version>4.12</version>
       </dependency>
 
       <!-- Shaded deps marked as provided. These are promoted to compile scope
