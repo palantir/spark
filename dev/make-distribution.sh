@@ -161,7 +161,12 @@ fi
 # Build uber fat JAR
 cd "$SPARK_HOME"
 
-export MAVEN_OPTS="${MAVEN_OPTS} -Xmx2g -XX:ReservedCodeCacheSize=512m"
+ADDL_MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
+if [[ -z "$MAVEN_OPTS" ]]; then
+    export MAVEN_OPTS=${ADDL_MAVEN_OPTS}
+else
+    export MAVEN_OPTS="${MAVEN_OPTS} ${ADDL_MAVEN_OPTS}"
+fi
 
 if [[ $CLEAN == true ]]; then
   MAYBE_CLEAN="clean"
