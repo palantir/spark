@@ -48,8 +48,11 @@ public final class ExtractClasspathResourceTaskSuite {
   public void before() throws IOException {
     MockitoAnnotations.initMocks(this);
     ByteArrayOutputStream resolvedBytesOut;
-    try (InputStream expectedInput = getClass().getClassLoader().getResourceAsStream("ExpectedDockerFile");
+    try (InputStream expectedInput = getClass().getResourceAsStream("/ExpectedDockerFile");
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream()) {
+      if (expectedInput == null) {
+        throw new NullPointerException("Resource stream for test was not found.");
+      }
       IOUtils.copy(expectedInput, bytesOut);
       resolvedBytesOut = bytesOut;
     }
