@@ -19,10 +19,10 @@ package org.apache.spark.deploy.kubernetes.docker.gradle;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
 import org.apache.commons.io.IOUtils;
@@ -77,8 +77,8 @@ public class ExtractClasspathResourceTask extends DefaultTask {
                 String.format("Failed to delete existing file at %s.", getDestinationFile().getAbsolutePath()));
       }
     }
-    try (FileOutputStream output = new FileOutputStream(getDestinationFile())) {
-      output.write(resourceBytes);
+    try {
+      Files.write(getDestinationFile().toPath(), resourceBytes, StandardOpenOption.CREATE_NEW);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

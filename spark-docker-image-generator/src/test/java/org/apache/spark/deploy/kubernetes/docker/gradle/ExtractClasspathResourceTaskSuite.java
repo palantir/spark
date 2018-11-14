@@ -17,7 +17,6 @@
 
 package org.apache.spark.deploy.kubernetes.docker.gradle;
 
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -36,19 +35,22 @@ import org.mockito.MockitoAnnotations;
 
 public final class ExtractClasspathResourceTaskSuite {
 
+  private static final String TEST_RESOURCE_LOCATION =
+      "META-INF/gradle-plugins/org.apache.spark.deploy.kubernetes.docker.gradle.properties";
+
   @Rule
   public TemporaryFolder tempFolder = new TemporaryFolder();
 
   @Mock
   private ExtractClasspathResourceTask taskUnderTest;
 
-  private byte[] expectedDockerFileBytes;
+  private byte[] expectedResourceFileBytes;
 
   @Before
   public void before() throws IOException {
     MockitoAnnotations.initMocks(this);
     ByteArrayOutputStream resolvedBytesOut;
-    try (InputStream expectedInput = getClass().getResourceAsStream("/ExpectedDockerFile");
+    try (InputStream expectedInput = getClass().getClassLoader().getResourceAsStream(TEST_RESOURCE_LOCATION);
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream()) {
       if (expectedInput == null) {
         throw new NullPointerException("Resource stream for test was not found.");
@@ -56,30 +58,31 @@ public final class ExtractClasspathResourceTaskSuite {
       IOUtils.copy(expectedInput, bytesOut);
       resolvedBytesOut = bytesOut;
     }
-    expectedDockerFileBytes = resolvedBytesOut.toByteArray();
+    expectedResourceFileBytes = resolvedBytesOut.toByteArray();
   }
 
   @Test
   public void testExtractingToNewFile() throws IOException {
-    File dockerFileDir = tempFolder.newFolder();
-    File dockerFile = new File(dockerFileDir, "ExpectedDockerFile");
-    taskUnderTest.setDestinationFile(dockerFile);
-    taskUnderTest.setResourcePath("ExpectedDockerFile");
-    Assertions.assertThat(dockerFile).doesNotExist();
+    File resourceFileDir = tempFolder.newFolder();
+    File resourceFile = new File(resourceFileDir, "test-resource");
+    resourceFile.getParentFile().mkdirs();
+    taskUnderTest.setDestinationFile(resourceFile);
+    taskUnderTest.setResourcePath(TEST_RESOURCE_LOCATION);
+    Assertions.assertThat(resourceFile).doesNotExist();
     taskUnderTest.exec();
-    Assertions.assertThat(dockerFile).exists();
-    Assertions.assertThat(dockerFile).hasBinaryContent(expectedDockerFileBytes);
+    Assertions.assertThat(resourceFile).exists();
+    Assertions.assertThat(resourceFile).hasBinaryContent(expectedResourceFileBytes);
   }
 
   @Test
   public void testExtractingToExistingFile() throws IOException {
-    File dockerFile = tempFolder.newFile("ExpectedDockerFile");
-    Files.write("some-old-contents", dockerFile, StandardCharsets.UTF_8);
-    taskUnderTest.setDestinationFile(dockerFile);
-    taskUnderTest.setResourcePath("ExpectedDockerFile");
-    Assertions.assertThat(dockerFile).exists();
+    File resourceFile = tempFolder.newFile("test-resource");
+    Files.write("some-old-contents", resourceFile, StandardCharsets.UTF_8);
+    taskUnderTest.setDestinationFile(resourceFile);
+    taskUnderTest.setResourcePath(TEST_RESOURCE_LOCATION);
+    Assertions.assertThat(resourceFile).exists();
     taskUnderTest.exec();
-    Assertions.assertThat(dockerFile).exists();
-    Assertions.assertThat(dockerFile).hasBinaryContent(expectedDockerFileBytes);
+    Assertions.assertThat(resourceFile).exists();
+    Assertions.assertThat(resourceFile).hasBinaryContent(expectedResourceFileBytes);
   }
 }
