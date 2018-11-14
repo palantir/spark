@@ -41,7 +41,7 @@ test {
   maxHeapSize = "512m"
 }
 
-task prepareDockerBundleDir(type: Sync) {
+task prepareDockerBundleDir(type: Zip) {
   from("${rootDir}/resource-managers/kubernetes/docker/src/main/dockerfiles/spark/Dockerfile") {
     into 'kubernetes/dockerfiles/spark'
     rename 'Dockerfile', 'Dockerfile.original'
@@ -57,7 +57,8 @@ task prepareDockerBundleDir(type: Sync) {
   from(fileTree("${rootDir}/sbin")) {
     into 'sbin'
   }
-  into file("src/main/resources/docker-resources")
+  destinationDir file("src/main/resources/docker-resources")
+  archiveName "docker-resources.zip"
   includeEmptyDirs = false
 }
 
