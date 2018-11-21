@@ -607,17 +607,19 @@ private[spark] class ExecutorAllocationManager(
    */
   private def onExecutorIdle(executorId: String): Unit = synchronized {
     if (executorIds.contains(executorId)) {
-      if (!removeTimes.contains(executorId) && !executorsPendingToRemove.contains(executorId)) {
+      val hasShuffleBlocks = shuffleBiasEnabled &&
+        mapOutputTracker.hasOutputsOnExecutor(executorId, shuffleBiasActiveOnly)
+      if (!removeTimes.contains(executorId)
+        && !executorsPendingToRemove.contains(executorId)
+        && !hasShuffleBlocks) {
         // Note that it is not necessary to query the executors since all the cached
         // blocks we are concerned with are reported to the driver. Note that this
         // does not include broadcast blocks.
         val hasCachedBlocks = blockManagerMaster.hasCachedBlocks(executorId)
-        val hasShuffleBlocks = shuffleBiasEnabled &&
-          mapOutputTracker.hasOutputsOnExecutor(executorId, shuffleBiasActiveOnly)
         val now = clock.getTimeMillis()
         val timeout = {
           if (hasCachedBlocks || hasShuffleBlocks) {
-            // Use a different timeout if the executor has cached/shuffle blocks.
+            // Use a different timeout if the executor has cached blocks.
             now + cachedExecutorIdleTimeoutS * 1000
           } else {
             now + executorIdleTimeoutS * 1000
@@ -666,6 +668,16 @@ private[spark] class ExecutorAllocationManager(
     // maintain the executor placement hints for each stage Id used by resource framework to better
     // place the executors.
     private val stageIdToExecutorPlacementHints = new mutable.HashMap[Int, (Int, Map[String, Int])]
+
+    override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
+      // At the end of a job, trigger the callbacks for idle executors again to clean up executors
+      // which we were keeping around only because they held active shuffle blocks.
+      allocationManager.executorIds.foreach(executorId => {
+        if (!executorIdToTaskIds.contains(executorId)) {
+          allocationManager.onExecutorIdle(executorId)
+        }
+      })
+    }
 
     override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted): Unit = {
       initializing = false
