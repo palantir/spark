@@ -86,7 +86,15 @@ publishing {
       artifact tasks.prepareDockerBundleDir
     }
   }
+
+  repositories {
+    maven {
+      name = "mavenTest"
+      url = "${buildDir}/mavenTest"
+    }
+  }
 }
 
-tasks.test.dependsOn tasks.publishToMavenLocal
+tasks.test.dependsOn tasks.publishDockerBundlePublicationToMavenTestRepository
 tasks.compileJava.dependsOn tasks.writeVersion
+tasks.test.environment 'MAVEN_REPO', "${buildDir.getAbsolutePath()}/mavenTest"

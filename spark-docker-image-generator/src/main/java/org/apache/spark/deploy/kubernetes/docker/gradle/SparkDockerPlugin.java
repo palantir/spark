@@ -20,7 +20,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -84,18 +83,17 @@ public final class SparkDockerPlugin implements Plugin<Project> {
               .into(jarsDirProvider));
       copySparkAppLibTask.dependsOn(jarTask);
       String pluginVersion = Optional.ofNullable(getClass().getPackage().getImplementationVersion())
-        .orElseGet(() -> {
-          // For integration tests.
-          ByteArrayOutputStream versionBytes = new ByteArrayOutputStream();
-          try (InputStream versionFileInputStream = getClass().getResourceAsStream("/version/version.txt")) {
-            IOUtils.copy(versionFileInputStream, versionBytes);
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-          return new String(versionBytes.toByteArray(), StandardCharsets.UTF_8);
-        });
+          .orElseGet(() -> {
+            ByteArrayOutputStream versionBytes = new ByteArrayOutputStream();
+            try (InputStream versionFileInputStream = getClass().getResourceAsStream("/version/version.txt")) {
+              IOUtils.copy(versionFileInputStream, versionBytes);
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+            return new String(versionBytes.toByteArray(), StandardCharsets.UTF_8);
+          });
       if (pluginVersion == null) {
-          throw new RuntimeException("Version could not be determined for the Gradle plugin.");
+        throw new RuntimeException("Version could not be determined for the Gradle plugin.");
       }
       Configuration dockerResourcesConf = project.getConfigurations().detachedConfiguration(
             project.getDependencies().create("org.apache.spark:spark-docker-resources:" + pluginVersion));

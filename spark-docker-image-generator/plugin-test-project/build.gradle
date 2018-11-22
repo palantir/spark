@@ -29,7 +29,7 @@ plugins {
 repositories {
   jcenter()
   maven { url "http://palantir.bintray.com/releases" }
-  mavenLocal()
+  maven { url System.env.MAVEN_REPO }
 }
 
 apply plugin: 'java'
