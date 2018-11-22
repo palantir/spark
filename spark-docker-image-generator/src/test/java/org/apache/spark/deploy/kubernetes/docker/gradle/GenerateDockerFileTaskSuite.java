@@ -18,12 +18,15 @@ package org.apache.spark.deploy.kubernetes.docker.gradle;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -39,7 +42,6 @@ import org.junit.rules.TemporaryFolder;
 import org.mockito.Mockito;
 
 public final class GenerateDockerFileTaskSuite {
-
   @Rule
   public TemporaryFolder tempFolder = new TemporaryFolder();
 
@@ -52,8 +54,8 @@ public final class GenerateDockerFileTaskSuite {
     destDockerFile = new File(dockerFileDir, "Dockerfile");
     srcDockerFile = tempFolder.newFile("Dockerfile.original");
 
-    try (InputStream originalDockerBundleZipped = getClass().getResourceAsStream(
-        "/docker-resources/docker-resources.zip");
+    try (InputStream originalDockerBundleZipped = new FileInputStream(
+            new File(System.getProperty("docker-resources-zip-path")));
         ZipInputStream unzipped = new ZipInputStream(originalDockerBundleZipped);
         FileOutputStream srcDockerFileStream = new FileOutputStream(srcDockerFile)) {
       ZipEntry currentEntry = unzipped.getNextEntry();

@@ -82,21 +82,8 @@ public final class SparkDockerPlugin implements Plugin<Project> {
               sparkAppJar)
               .into(jarsDirProvider));
       copySparkAppLibTask.dependsOn(jarTask);
-      String pluginVersion = Optional.ofNullable(getClass().getPackage().getImplementationVersion())
-          .orElseGet(() -> {
-            ByteArrayOutputStream versionBytes = new ByteArrayOutputStream();
-            try (InputStream versionFileInputStream = getClass().getResourceAsStream("/version/version.txt")) {
-              IOUtils.copy(versionFileInputStream, versionBytes);
-            } catch (IOException e) {
-              throw new RuntimeException(e);
-            }
-            return new String(versionBytes.toByteArray(), StandardCharsets.UTF_8);
-          });
-      if (pluginVersion == null) {
-        throw new RuntimeException("Version could not be determined for the Gradle plugin.");
-      }
       Configuration dockerResourcesConf = project.getConfigurations().detachedConfiguration(
-            project.getDependencies().create("org.apache.spark:spark-docker-resources:" + pluginVersion));
+            project.getDependencies().create("org.apache.spark:spark-docker-resources:" + PluginVersion.get()));
       Sync deployScriptsTask = project.getTasks().create(
           "sparkDockerDeployScripts", Sync.class, task -> {
             task.from(project.zipTree(dockerResourcesConf.getSingleFile()));

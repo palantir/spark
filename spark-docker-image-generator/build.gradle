@@ -95,6 +95,10 @@ publishing {
   }
 }
 
+test {
+    systemProperty 'docker-resources-zip-path', "${buildDir}/docker-resources/docker-resources.zip"
+}
+
 tasks.test.dependsOn tasks.publishDockerBundlePublicationToMavenTestRepository
 tasks.compileJava.dependsOn tasks.writeVersion
 tasks.test.environment 'MAVEN_REPO', "${buildDir.getAbsolutePath()}/mavenTest"
