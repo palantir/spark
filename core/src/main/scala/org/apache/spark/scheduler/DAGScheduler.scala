@@ -1343,6 +1343,23 @@ private[spark] class DAGScheduler(
                 }
               case None => // Ignore update if task's job has finished.
             }
+          case smt: ShuffleMapTask =>
+            // Make sure shuffle outputs are registered before we post the event so that
+            // handlers can act on up-to-date shuffle information.
+            val shuffleStage = stage.asInstanceOf[ShuffleMapStage]
+            shuffleStage.pendingPartitions -= task.partitionId
+            val status = event.result.asInstanceOf[MapStatus]
+            val execId = status.location.executorId
+            logDebug("ShuffleMapTask finished on " + execId)
+            if (failedEpoch.contains(execId) && smt.epoch <= failedEpoch(execId)) {
+              logInfo(s"Ignoring possibly bogus $smt completion from executor $execId")
+            } else {
+              // The epoch of the task is acceptable (i.e., the task was launched after the most
+              // recent failure we're aware of for the executor), so mark the task's output as
+              // available.
+              mapOutputTracker.registerMapOutput(
+                shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
+            }
           case _ =>
             updateAccumulators(event)
         }
@@ -1385,21 +1402,12 @@ private[spark] class DAGScheduler(
                 logInfo("Ignoring result from " + rt + " because its job has finished")
             }
 
-          case smt: ShuffleMapTask =>
+          case _: ShuffleMapTask =>
             val shuffleStage = stage.asInstanceOf[ShuffleMapStage]
             shuffleStage.pendingPartitions -= task.partitionId
             val status = event.result.asInstanceOf[MapStatus]
             val execId = status.location.executorId
             logDebug("ShuffleMapTask finished on " + execId)
-            if (failedEpoch.contains(execId) && smt.epoch <= failedEpoch(execId)) {
-              logInfo(s"Ignoring possibly bogus $smt completion from executor $execId")
-            } else {
-              // The epoch of the task is acceptable (i.e., the task was launched after the most
-              // recent failure we're aware of for the executor), so mark the task's output as
-              // available.
-              mapOutputTracker.registerMapOutput(
-                shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
-            }
 
             if (runningStages.contains(shuffleStage) && shuffleStage.pendingPartitions.isEmpty) {
               markStageAsFinished(shuffleStage)
