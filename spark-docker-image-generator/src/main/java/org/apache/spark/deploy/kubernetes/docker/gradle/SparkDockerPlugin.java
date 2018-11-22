@@ -16,14 +16,21 @@
  */
 package org.apache.spark.deploy.kubernetes.docker.gradle;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.IOUtils;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
@@ -76,19 +83,27 @@ public final class SparkDockerPlugin implements Plugin<Project> {
               sparkAppJar)
               .into(jarsDirProvider));
       copySparkAppLibTask.dependsOn(jarTask);
-      File tempScriptsZipFile = new File(project.getBuildDir(), "docker-resources.zip");
-      ExtractClasspathResourceTask deployScriptsZipFileTask = project.getTasks().create(
-          "sparkDockerDeployScriptsZip", ExtractClasspathResourceTask.class, task -> {
-            task.setResourcePath("docker-resources/docker-resources.zip");
-            task.setDestinationFile(tempScriptsZipFile);
-          });
-
+      String pluginVersion = Optional.ofNullable(getClass().getPackage().getImplementationVersion())
+        .orElseGet(() -> {
+          // For integration tests.
+          ByteArrayOutputStream versionBytes = new ByteArrayOutputStream();
+          try (InputStream versionFileInputStream = getClass().getResourceAsStream("/version/version.txt")) {
+            IOUtils.copy(versionFileInputStream, versionBytes);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+          return new String(versionBytes.toByteArray(), StandardCharsets.UTF_8);
+        });
+      if (pluginVersion == null) {
+          throw new RuntimeException("Version could not be determined for the Gradle plugin.");
+      }
+      Configuration dockerResourcesConf = project.getConfigurations().detachedConfiguration(
+            project.getDependencies().create("org.apache.spark:spark-docker-resources:" + pluginVersion));
       Sync deployScriptsTask = project.getTasks().create(
           "sparkDockerDeployScripts", Sync.class, task -> {
-            task.from(project.zipTree(tempScriptsZipFile));
+            task.from(project.zipTree(dockerResourcesConf.getSingleFile()));
             task.setIncludeEmptyDirs(false);
             task.into(dockerBuildDirectory);
-            task.dependsOn(deployScriptsZipFileTask);
           });
       copySparkAppLibTask.dependsOn(deployScriptsTask);
       GenerateDockerFileTask generateDockerFileTask = project.getTasks().create(

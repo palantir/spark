@@ -57,10 +57,36 @@ task prepareDockerBundleDir(type: Zip) {
   from(fileTree("${rootDir}/sbin")) {
     into 'sbin'
   }
-  destinationDir file("src/main/resources/docker-resources")
+  destinationDir file("${buildDir}/docker-resources")
   archiveName "docker-resources.zip"
   includeEmptyDirs = false
 }
 
 tasks.compileJava.dependsOn tasks.prepareDockerBundleDir
 tasks.idea.dependsOn tasks.prepareDockerBundleDir
+
+def testVersionFile = new File("${projectDir}/src/main/resources/version/version.txt")
+task writeVersion {
+  doLast {
+    if (!testVersionFile.getParentFile().isDirectory() && !testVersionFile.getParentFile().mkdirs()) {
+      throw new IllegalStateException("Failed to create test version file's directories.")
+    }
+
+    if (!testVersionFile.isFile() && !testVersionFile.createNewFile()) {
+      throw new IllegalStateException("Failed to create test version file.")
+    }
+    testVersionFile.text = gitVersion()
+  }
+}
+
+publishing {
+  publications {
+    dockerBundle(MavenPublication) {
+      artifactId 'spark-docker-resources'
+      artifact tasks.prepareDockerBundleDir
+    }
+  }
+}
+
+tasks.test.dependsOn tasks.publishToMavenLocal
+tasks.compileJava.dependsOn tasks.writeVersion
