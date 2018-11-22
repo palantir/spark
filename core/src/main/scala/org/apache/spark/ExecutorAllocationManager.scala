@@ -115,6 +115,9 @@ private[spark] class ExecutorAllocationManager(
   private val cachedExecutorIdleTimeoutS = conf.getTimeAsSeconds(
     "spark.dynamicAllocation.cachedExecutorIdleTimeout", s"${Integer.MAX_VALUE}s")
 
+  private val inactiveShuffleExecutorIdleTimeoutS = conf.getTimeAsSeconds(
+    "spark.dynamicAllocation.inactiveShuffleExecutorIdleTimeout", s"${Integer.MAX_VALUE}s")
+
   // During testing, the methods to actually kill and add executors are mocked out
   private val testing = conf.getBoolean("spark.dynamicAllocation.testing", false)
 
@@ -607,18 +610,20 @@ private[spark] class ExecutorAllocationManager(
         // does not include broadcast blocks.
         val hasCachedBlocks = blockManagerMaster.hasCachedBlocks(executorId)
         val now = clock.getTimeMillis()
-        val timeout = {
-          if (hasCachedBlocks || hasAnyShuffleBlocks) {
-            // Use a different timeout if the executor has cached blocks.
-            now + cachedExecutorIdleTimeoutS * 1000
-          } else {
-            now + executorIdleTimeoutS * 1000
-          }
-        }
-        val realTimeout = if (timeout <= 0) Long.MaxValue else timeout // overflow
-        removeTimes(executorId) = realTimeout
+
+        // Use the maximum of all the timeouts that apply.
+        val timeoutS = List(
+          executorIdleTimeoutS,
+          if (hasCachedBlocks) cachedExecutorIdleTimeoutS else 0,
+          if (hasAnyShuffleBlocks) inactiveShuffleExecutorIdleTimeoutS else 0)
+          .max
+
+        val expiryTime = now + timeoutS * 1000;
+        val realExpiryTime = if (expiryTime <= 0) Long.MaxValue else expiryTime
+
+        removeTimes(executorId) = realExpiryTime
         logDebug(s"Starting idle timer for $executorId because there are no more tasks " +
-          s"scheduled to run on the executor (to expire in ${(realTimeout - now)/1000} seconds)")
+          s"scheduled to run on the executor (to expire in ${(realExpiryTime - now)/1000} seconds)")
       }
     } else {
       logWarning(s"Attempted to mark unknown executor $executorId idle")
