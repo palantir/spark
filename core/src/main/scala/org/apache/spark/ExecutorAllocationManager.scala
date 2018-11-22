@@ -25,7 +25,7 @@ import scala.util.control.{ControlThrowable, NonFatal}
 
 import com.codahale.metrics.{Gauge, MetricRegistry}
 
-import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
 import org.apache.spark.metrics.source.Source
 import org.apache.spark.scheduler._
@@ -114,9 +114,6 @@ private[spark] class ExecutorAllocationManager(
 
   private val cachedExecutorIdleTimeoutS = conf.getTimeAsSeconds(
     "spark.dynamicAllocation.cachedExecutorIdleTimeout", s"${Integer.MAX_VALUE}s")
-
-  private val shuffleBiasEnabled = Utils.isShuffleBiasedTaskSchedulingEnabled(conf);
-  private val shuffleBiasActiveOnly = Utils.isShuffleBiasedTaskSchedulingActiveOnly(conf);
 
   // During testing, the methods to actually kill and add executors are mocked out
   private val testing = conf.getBoolean("spark.dynamicAllocation.testing", false)
@@ -213,14 +210,6 @@ private[spark] class ExecutorAllocationManager(
     }
     if (cachedExecutorIdleTimeoutS < 0) {
       throw new SparkException("spark.dynamicAllocation.cachedExecutorIdleTimeout must be >= 0!")
-    }
-    // Require external shuffle service for dynamic allocation
-    // Otherwise, we may lose shuffle files when killing executors
-    if (!conf.get(config.SHUFFLE_SERVICE_ENABLED) && !testing && !shuffleBiasEnabled) {
-      throw new SparkException("Dynamic allocation of executors requires the external " +
-        "shuffle service or shuffle-biased task scheduling. You may enable these through " +
-        "spark.shuffle.service.enabled and spark.scheduler.shuffleBiasedTaskScheduling.enabled, " +
-        "respectively.")
     }
     if (tasksPerExecutorForFullParallelism == 0) {
       throw new SparkException("spark.executor.cores must not be < spark.task.cpus.")
@@ -607,18 +596,19 @@ private[spark] class ExecutorAllocationManager(
    */
   private def onExecutorIdle(executorId: String): Unit = synchronized {
     if (executorIds.contains(executorId)) {
-      val hasShuffleBlocks = shuffleBiasEnabled &&
-        mapOutputTracker.hasOutputsOnExecutor(executorId, shuffleBiasActiveOnly)
+      val hasActiveShuffleBlocks =
+        mapOutputTracker.hasOutputsOnExecutor(executorId, activeOnly = true)
+      val hasAnyShuffleBlocks = mapOutputTracker.hasOutputsOnExecutor(executorId)
       if (!removeTimes.contains(executorId)
         && !executorsPendingToRemove.contains(executorId)
-        && !hasShuffleBlocks) {
+        && !hasActiveShuffleBlocks) {
         // Note that it is not necessary to query the executors since all the cached
         // blocks we are concerned with are reported to the driver. Note that this
         // does not include broadcast blocks.
         val hasCachedBlocks = blockManagerMaster.hasCachedBlocks(executorId)
         val now = clock.getTimeMillis()
         val timeout = {
-          if (hasCachedBlocks || hasShuffleBlocks) {
+          if (hasCachedBlocks || hasAnyShuffleBlocks) {
             // Use a different timeout if the executor has cached blocks.
             now + cachedExecutorIdleTimeoutS * 1000
           } else {

@@ -83,7 +83,6 @@ private[spark] trait DynamicAllocationTestsSuite { k8sSuite: KubernetesSuite =>
             .addToArgs("--conf", "spark.dynamicAllocation.enabled=true")
             .addToArgs("--conf", "spark.dynamicAllocation.minExecutors=0")
             .addToArgs("--conf", "spark.dynamicAllocation.maxExecutors=1")
-            .addToArgs("--conf", "spark.scheduler.shuffleBiasedTaskScheduling.enabled=true")
             .addToArgs("--conf",
               s"spark.driver.host=" +
                 s"${driverService.getMetadata.getName}.${kubernetesTestComponents.namespace}.svc")

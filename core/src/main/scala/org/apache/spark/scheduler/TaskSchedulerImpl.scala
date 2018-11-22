@@ -81,12 +81,6 @@ private[spark] class TaskSchedulerImpl(
   private val speculationScheduler =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("task-scheduler-speculation")
 
-  // whether to prefer assigning tasks to executors that contain shuffle files
-  val SHUFFLE_BIASED_SCHEDULING_ENABLED = Utils.isShuffleBiasedTaskSchedulingEnabled(conf)
-
-  // whether to only count shuffle files that are part of active jobs for biased scheduling
-  val SHUFFLE_BIAS_ACTIVE_ONLY = Utils.isShuffleBiasedTaskSchedulingActiveOnly(conf);
-
   // Threshold above which we warn user initial TaskSet may be starved
   val STARVATION_TIMEOUT_MS = conf.getTimeAsMs("spark.starvation.timeout", "15s")
 
@@ -383,8 +377,11 @@ private[spark] class TaskSchedulerImpl(
       }
     }.getOrElse(offers)
 
-    val partitionedAndShuffledOffers = partitionShuffleOffers(filteredOffers)
-    var allTasks: Seq[Seq[TaskDescription]] = Nil
+    val shuffledOffers = shuffleOffers(filteredOffers)
+    // Build a list of tasks to assign to each worker.
+    val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores / CPUS_PER_TASK))
+    val availableCpus = shuffledOffers.map(o => o.cores).toArray
+    val availableSlots = shuffledOffers.map(o => o.cores / CPUS_PER_TASK).sum
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
     for (taskSet <- sortedTaskSets) {
       logDebug("parentName: %s, name: %s, runningTasks: %s".format(
@@ -394,102 +391,73 @@ private[spark] class TaskSchedulerImpl(
       }
     }
 
-    for (shuffledOffers <- partitionedAndShuffledOffers.map(_._2)) {
-      // Build a list of tasks to assign to each worker.
-      val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores / CPUS_PER_TASK))
-      val availableCpus = shuffledOffers.map(o => o.cores).toArray
-      val availableSlots = shuffledOffers.map(o => o.cores / CPUS_PER_TASK).sum
+    // Take each TaskSet in our scheduling order, and then offer it each node in increasing order
+    // of locality levels so that it gets a chance to launch local tasks on all of them.
+    // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
+    for (taskSet <- sortedTaskSets) {
+      // Skip the barrier taskSet if the available slots are less than the number of pending tasks.
+      if (taskSet.isBarrier && availableSlots < taskSet.numTasks) {
+        // Skip the launch process.
+        // TODO SPARK-24819 If the job requires more slots than available (both busy and free
+        // slots), fail the job on submit.
+        logInfo(s"Skip current round of resource offers for barrier stage ${taskSet.stageId} " +
+          s"because the barrier taskSet requires ${taskSet.numTasks} slots, while the total " +
+          s"number of available slots is $availableSlots.")
+      } else {
+        var launchedAnyTask = false
+        // Record all the executor IDs assigned barrier tasks on.
+        val addressesWithDescs = ArrayBuffer[(String, TaskDescription)]()
+        for (currentMaxLocality <- taskSet.myLocalityLevels) {
+          var launchedTaskAtCurrentMaxLocality = false
+          do {
+            launchedTaskAtCurrentMaxLocality = resourceOfferSingleTaskSet(taskSet,
+              currentMaxLocality, shuffledOffers, availableCpus, tasks, addressesWithDescs)
+            launchedAnyTask |= launchedTaskAtCurrentMaxLocality
+          } while (launchedTaskAtCurrentMaxLocality)
+        }
+        if (!launchedAnyTask) {
+          taskSet.abortIfCompletelyBlacklisted(hostToExecutors)
+        }
+        if (launchedAnyTask && taskSet.isBarrier) {
+          // Check whether the barrier tasks are partially launched.
+          // TODO SPARK-24818 handle the assert failure case (that can happen when some locality
+          // requirements are not fulfilled, and we should revert the launched tasks).
+          require(addressesWithDescs.size == taskSet.numTasks,
+            s"Skip current round of resource offers for barrier stage ${taskSet.stageId} " +
+              s"because only ${addressesWithDescs.size} out of a total number of " +
+              s"${taskSet.numTasks} tasks got resource offers. The resource offers may have " +
+              "been blacklisted or cannot fulfill task locality requirements.")
 
-      // Take each TaskSet in our scheduling order, and then offer it each node in increasing order
-      // of locality levels so that it gets a chance to launch local tasks on all of them.
-      // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
-      for (taskSet <- sortedTaskSets) {
-        // Skip the barrier taskSet if the available slots are less than the number of pending tasks
-        if (taskSet.isBarrier && availableSlots < taskSet.numTasks) {
-          // Skip the launch process.
-          // TODO SPARK-24819 If the job requires more slots than available (both busy and free
-          // slots), fail the job on submit.
-          logInfo(s"Skip current round of resource offers for barrier stage ${taskSet.stageId} " +
-            s"because the barrier taskSet requires ${taskSet.numTasks} slots, while the total " +
-            s"number of available slots is $availableSlots.")
-        } else {
-          var launchedAnyTask = false
-          // Record all the executor IDs assigned barrier tasks on.
-          val addressesWithDescs = ArrayBuffer[(String, TaskDescription)]()
-          for (currentMaxLocality <- taskSet.myLocalityLevels) {
-            var launchedTaskAtCurrentMaxLocality = false
-            do {
-              launchedTaskAtCurrentMaxLocality = resourceOfferSingleTaskSet(taskSet,
-                currentMaxLocality, shuffledOffers, availableCpus, tasks, addressesWithDescs)
-              launchedAnyTask |= launchedTaskAtCurrentMaxLocality
-            } while (launchedTaskAtCurrentMaxLocality)
-          }
-          if (!launchedAnyTask) {
-            taskSet.abortIfCompletelyBlacklisted(hostToExecutors)
-          }
-          if (launchedAnyTask && taskSet.isBarrier) {
-            // Check whether the barrier tasks are partially launched.
-            // TODO SPARK-24818 handle the assert failure case (that can happen when some locality
-            // requirements are not fulfilled, and we should revert the launched tasks).
-            require(addressesWithDescs.size == taskSet.numTasks,
-              s"Skip current round of resource offers for barrier stage ${taskSet.stageId} " +
-                s"because only ${addressesWithDescs.size} out of a total number of " +
-                s"${taskSet.numTasks} tasks got resource offers. The resource offers may have " +
-                "been blacklisted or cannot fulfill task locality requirements.")
+          // materialize the barrier coordinator.
+          maybeInitBarrierCoordinator()
 
-            // materialize the barrier coordinator.
-            maybeInitBarrierCoordinator()
+          // Update the taskInfos into all the barrier task properties.
+          val addressesStr = addressesWithDescs
+            // Addresses ordered by partitionId
+            .sortBy(_._2.partitionId)
+            .map(_._1)
+            .mkString(",")
+          addressesWithDescs.foreach(_._2.properties.setProperty("addresses", addressesStr))
 
-            // Update the taskInfos into all the barrier task properties.
-            val addressesStr = addressesWithDescs
-              // Addresses ordered by partitionId
-              .sortBy(_._2.partitionId)
-              .map(_._1)
-              .mkString(",")
-            addressesWithDescs.foreach(_._2.properties.setProperty("addresses", addressesStr))
-
-            logInfo(s"Successfully scheduled all the ${addressesWithDescs.size} tasks for " +
-              s"barrier stage ${taskSet.stageId}.")
-          }
+          logInfo(s"Successfully scheduled all the ${addressesWithDescs.size} tasks for barrier " +
+            s"stage ${taskSet.stageId}.")
         }
       }
-      allTasks ++= tasks
     }
 
     // TODO SPARK-24823 Cancel a job that contains barrier stage(s) if the barrier tasks don't get
     // launched within a configured time.
-    if (allTasks.size > 0) {
+    if (tasks.size > 0) {
       hasLaunchedTask = true
     }
-    return allTasks
+    return tasks
   }
 
   /**
-   * Shuffle offers around to avoid always placing tasks on the same workers.
-   * If shuffle-biased task scheduling is enabled, this function will bias tasks
-   * towards executors with active shuffles.
+   * Shuffle offers around to avoid always placing tasks on the same workers.  Exposed to allow
+   * overriding in tests, so it can be deterministic.
    */
-  def partitionShuffleOffers(offers: IndexedSeq[WorkerOffer])
-  : IndexedSeq[(ExecutorShuffleStatus.Value, IndexedSeq[WorkerOffer])] = {
-    if (SHUFFLE_BIASED_SCHEDULING_ENABLED && offers.length > 1) {
-      // bias towards executors that have active shuffle outputs
-      val execShuffles = mapOutputTracker.getExecutorShuffleStatus
-      offers
-        .groupBy(offer => execShuffles.getOrElse(offer.executorId, ExecutorShuffleStatus.Unknown))
-        .mapValues(doShuffleOffers)
-        .toStream
-        .sortBy(_._1) // order: Active, Inactive, Unknown
-        .toIndexedSeq
-    } else {
-      IndexedSeq((ExecutorShuffleStatus.Unknown, doShuffleOffers(offers)))
-    }
-  }
-
-  /**
-   * Does the shuffling for [[partitionShuffleOffers()]]. Exposed to allow overriding in tests,
-   * so that it can be deterministic.
-   */
-  protected def doShuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
+  protected def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
     Random.shuffle(offers)
   }
 

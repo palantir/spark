@@ -61,9 +61,6 @@ private[spark] class KubernetesClusterSchedulerBackend(
     super.start()
     if (!Utils.isDynamicAllocationEnabled(conf)) {
       podAllocator.setTotalExpectedExecutors(initialExecutors)
-    } else if (!Utils.isShuffleBiasedTaskSchedulingEnabled(conf)) {
-      throw new SparkException("Dynamic allocation of executors on kubernetes requires that " +
-        "spark.scheduler.shuffleBiasedTaskScheduling.enabled be set to 'true'.")
     }
     lifecycleEventHandler.start(this)
     podAllocator.start(applicationId())
