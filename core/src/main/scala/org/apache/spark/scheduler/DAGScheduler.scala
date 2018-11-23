@@ -1343,14 +1343,24 @@ private[spark] class DAGScheduler(
                 }
               case None => // Ignore update if task's job has finished.
             }
+          case _ =>
+            updateAccumulators(event)
+        }
+      case _: ExceptionFailure | _: TaskKilled => updateAccumulators(event)
+      case _ =>
+    }
+
+    // Make sure shuffle outputs are registered before we post the event so that
+    // handlers can act on up-to-date shuffle information.
+    event.reason match {
+      case Success =>
+        task match {
           case smt: ShuffleMapTask =>
-            // Make sure shuffle outputs are registered before we post the event so that
-            // handlers can act on up-to-date shuffle information.
             val shuffleStage = stage.asInstanceOf[ShuffleMapStage]
             shuffleStage.pendingPartitions -= task.partitionId
             val status = event.result.asInstanceOf[MapStatus]
             val execId = status.location.executorId
-            logDebug("ShuffleMapTask finished on " + execId)
+            logDebug("Registering shuffle output on executor " + execId)
             if (failedEpoch.contains(execId) && smt.epoch <= failedEpoch(execId)) {
               logInfo(s"Ignoring possibly bogus $smt completion from executor $execId")
             } else {
@@ -1361,11 +1371,10 @@ private[spark] class DAGScheduler(
                 shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
             }
           case _ =>
-            updateAccumulators(event)
         }
-      case _: ExceptionFailure | _: TaskKilled => updateAccumulators(event)
       case _ =>
     }
+
     postTaskEnd(event)
 
     event.reason match {
