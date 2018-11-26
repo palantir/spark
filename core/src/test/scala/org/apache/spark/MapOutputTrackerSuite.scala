@@ -349,9 +349,9 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     assert(tracker.hasOutputsOnExecutor("exec2"))
     assert(!tracker.hasOutputsOnExecutor("exec2", activeOnly = true))
 
-    assert(tracker.getExecutorShuffleStatus.equals(Map("exec2" -> ExecutorShuffleStatus.Inactive)))
+    assert(tracker.getExecutorShuffleStatus == Map("exec2" -> ExecutorShuffleStatus.Inactive))
     tracker.markShuffleActive(11)
-    assert(tracker.getExecutorShuffleStatus.sameElements(Map("exec2" -> ExecutorShuffleStatus.Active)))
+    assert(tracker.getExecutorShuffleStatus == Map("exec2" -> ExecutorShuffleStatus.Active))
   }
 
 }
