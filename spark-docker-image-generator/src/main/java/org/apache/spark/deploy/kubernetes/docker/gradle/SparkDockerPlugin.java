@@ -16,20 +16,14 @@
  */
 package org.apache.spark.deploy.kubernetes.docker.gradle;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.commons.io.IOUtils;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
