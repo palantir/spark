@@ -66,7 +66,7 @@ private[spark] class ExecutorPodsAllocator(
 
   private var latestSnapshot: Option[ExecutorPodsSnapshot] = None
 
-  private var applicationId: Option[String] = None
+  private var appId: Option[String] = None
 
   def start(applicationId: String): Unit = {
     snapshotsStore.addSubscriber(podAllocationDelay) {
@@ -77,11 +77,11 @@ private[spark] class ExecutorPodsAllocator(
   def setTotalExpectedExecutors(total: Int): Unit = {
     safeLogDebug("Setting total expected executors", SafeArg.of("totalExpectedExecutors", total))
     totalExpectedExecutors.set(total)
-    applicationId.foreach { id => latestSnapshot.foreach { requestExecutorsIfNecessary(id, _) } }
+    appId.foreach { id => latestSnapshot.foreach { requestExecutorsIfNecessary(id, _) } }
   }
 
   private def onNewSnapshots(applicationId: String, snapshots: Seq[ExecutorPodsSnapshot]): Unit = {
-    this.applicationId = Some(applicationId)
+    this.appId = Some(applicationId)
     newlyCreatedExecutors --= snapshots.flatMap(_.executorPods.keys)
     // For all executors we've created against the API but have not seen in a snapshot
     // yet - check the current time. If the current time has exceeded some threshold,
@@ -117,7 +117,7 @@ private[spark] class ExecutorPodsAllocator(
       // Only need to examine the cluster as of the latest snapshot, the "current" state, to see if
       // we need to allocate more executors or not.
       latestSnapshot = Some(snapshots.last)
-      applicationId.foreach { requestExecutorsIfNecessary(_, snapshots.last) }
+      requestExecutorsIfNecessary(applicationId, snapshots.last)
     }
   }
 
