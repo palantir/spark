@@ -544,7 +544,7 @@ private[spark] class ExecutorAllocationManager(
       // has been reached, it will no longer be marked as idle. When new executors join,
       // however, we are no longer at the lower bound, and so we must mark executor X
       // as idle again so as not to forget that it is a candidate for removal. (see SPARK-4951)
-      executorIds.filter(listener.isExecutorIdle).foreach(onExecutorIdle)
+      checkForIdleExecutors()
       logInfo(s"New executor $executorId has registered (new total is ${executorIds.size})")
     } else {
       logWarning(s"Duplicate executor $executorId has registered")
@@ -601,7 +601,6 @@ private[spark] class ExecutorAllocationManager(
     if (executorIds.contains(executorId)) {
       val hasActiveShuffleBlocks =
         mapOutputTracker.hasOutputsOnExecutor(executorId, activeOnly = true)
-      val hasAnyShuffleBlocks = mapOutputTracker.hasOutputsOnExecutor(executorId)
       if (!removeTimes.contains(executorId)
         && !executorsPendingToRemove.contains(executorId)
         && !hasActiveShuffleBlocks) {
@@ -609,6 +608,7 @@ private[spark] class ExecutorAllocationManager(
         // blocks we are concerned with are reported to the driver. Note that this
         // does not include broadcast blocks.
         val hasCachedBlocks = blockManagerMaster.hasCachedBlocks(executorId)
+        val hasAnyShuffleBlocks = mapOutputTracker.hasOutputsOnExecutor(executorId)
         val now = clock.getTimeMillis()
 
         // Use the maximum of all the timeouts that apply.
@@ -628,6 +628,13 @@ private[spark] class ExecutorAllocationManager(
     } else {
       logWarning(s"Attempted to mark unknown executor $executorId idle")
     }
+  }
+
+  /**
+   * Check if any executors are now idle, and call the idle callback for them.
+   */
+  private def checkForIdleExecutors(): Unit = synchronized {
+    executorIds.filter(listener.isExecutorIdle).foreach(onExecutorIdle)
   }
 
   /**
@@ -667,11 +674,7 @@ private[spark] class ExecutorAllocationManager(
     override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
       // At the end of a job, trigger the callbacks for idle executors again to clean up executors
       // which we were keeping around only because they held active shuffle blocks.
-      allocationManager.executorIds.foreach(executorId => {
-        if (!executorIdToTaskIds.contains(executorId)) {
-          allocationManager.onExecutorIdle(executorId)
-        }
-      })
+      allocationManager.checkForIdleExecutors()
     }
 
     override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted): Unit = {

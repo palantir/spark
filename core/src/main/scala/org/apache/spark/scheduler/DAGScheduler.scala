@@ -1357,7 +1357,6 @@ private[spark] class DAGScheduler(
         task match {
           case smt: ShuffleMapTask =>
             val shuffleStage = stage.asInstanceOf[ShuffleMapStage]
-            shuffleStage.pendingPartitions -= task.partitionId
             val status = event.result.asInstanceOf[MapStatus]
             val execId = status.location.executorId
             logDebug("Registering shuffle output on executor " + execId)
