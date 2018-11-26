@@ -36,7 +36,7 @@ import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.shuffle.MetadataFetchFailedException
 import org.apache.spark.storage.{BlockId, BlockManagerId, ShuffleBlockId}
 import org.apache.spark.util._
-
+import org.apache.spark.ExecutorShuffleStatus.ExecutorShuffleStatus
 
 /**
  * Helper class used by the [[MapOutputTrackerMaster]] to perform bookkeeping for a single
@@ -653,14 +653,12 @@ private[spark] class MapOutputTrackerMaster(
    *
    * @return a map of executor IDs to their corresponding [[ExecutorShuffleStatus]]
    */
-  import ExecutorShuffleStatus.ExecutorShuffleStatus
   def getExecutorShuffleStatus: scala.collection.Map[String, ExecutorShuffleStatus] = {
-    import ExecutorShuffleStatus._
     shuffleStatuses.values
       .flatMap(status => status.executorsWithOutputs().map(_ -> status.isActive))
       .groupBy(_._1)
       .mapValues(_.exists(_._2))
-      .mapValues(if (_) Active else Inactive)
+      .mapValues(if (_) ExecutorShuffleStatus.Active else ExecutorShuffleStatus.Inactive)
   }
 
   /**

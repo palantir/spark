@@ -77,7 +77,7 @@ private[spark] class ExecutorPodsAllocator(
   def setTotalExpectedExecutors(total: Int): Unit = {
     safeLogDebug("Setting total expected executors", SafeArg.of("totalExpectedExecutors", total))
     totalExpectedExecutors.set(total)
-    requestExecutorsIfNecessary()
+    applicationId.foreach { id => latestSnapshot.foreach { requestExecutorsIfNecessary(id, _) } }
   }
 
   private def onNewSnapshots(applicationId: String, snapshots: Seq[ExecutorPodsSnapshot]): Unit = {
@@ -117,21 +117,12 @@ private[spark] class ExecutorPodsAllocator(
       // Only need to examine the cluster as of the latest snapshot, the "current" state, to see if
       // we need to allocate more executors or not.
       latestSnapshot = Some(snapshots.last)
-      requestExecutorsIfNecessary()
+      applicationId.foreach { requestExecutorsIfNecessary(_, snapshots.last) }
     }
   }
 
-  private def requestExecutorsIfNecessary(): Unit = {
-    val applicationId = this.applicationId match {
-      case Some(id) => id
-      case None => return
-    }
-
-    val snapshot = latestSnapshot match {
-      case Some(s) => s
-      case None => return
-    }
-
+  private def requestExecutorsIfNecessary(applicationId: String,
+                                          snapshot: ExecutorPodsSnapshot): Unit = {
     val currentRunningExecutors = snapshot.executorPods.values.count {
       case PodRunning(_) => true
       case _ => false
