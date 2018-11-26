@@ -23,7 +23,7 @@ import org.apache.spark.deploy.k8s.integrationtest.KubernetesSuite.{k8sTestTag, 
 
 private[spark] trait DynamicAllocationTestsSuite { k8sSuite: KubernetesSuite =>
 
-  test("Run in client mode.", k8sTestTag) {
+  test("Run with dynamic allocation.", k8sTestTag) {
     val labels = Map("spark-app-selector" -> driverPodName)
     val driverPort = 7077
     val blockManagerPort = 10000
