@@ -82,7 +82,8 @@ private[spark] class TaskSchedulerImpl(
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("task-scheduler-speculation")
 
   // whether to prefer assigning tasks to executors that contain shuffle files
-  val SHUFFLE_BIASED_SCHEDULING_ENABLED = Utils.isShuffleBiasedTaskSchedulingEnabled(conf)
+  val shuffledBiasedTaskSchedulingEnabled =
+    conf.getBoolean("spark.scheduler.shuffleBiasedTaskScheduling.enabled", false)
 
   // Threshold above which we warn user initial TaskSet may be starved
   val STARVATION_TIMEOUT_MS = conf.getTimeAsMs("spark.starvation.timeout", "15s")
@@ -474,7 +475,7 @@ private[spark] class TaskSchedulerImpl(
    */
   def partitionShuffleOffers(offers: IndexedSeq[WorkerOffer])
   : IndexedSeq[(ExecutorShuffleStatus.Value, IndexedSeq[WorkerOffer])] = {
-    if (SHUFFLE_BIASED_SCHEDULING_ENABLED && offers.length > 1) {
+    if (shuffledBiasedTaskSchedulingEnabled && offers.length > 1) {
       // bias towards executors that have active shuffle outputs
       val execShuffles = mapOutputTracker.getExecutorShuffleStatus
       offers
