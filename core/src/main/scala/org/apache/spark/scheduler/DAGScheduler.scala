@@ -617,7 +617,7 @@ private[spark] class DAGScheduler(
     getShuffleDependencies(stage.rdd).foreach { shuffleDep =>
       val shuffleId = shuffleDep.shuffleId
       logDebug("Tracking that stage " + stage.id + " depends on shuffle " + shuffleId)
-      shuffleIdToDependentStages.getOrElseUpdate(shuffleId, new HashSet[Int]()) += stage.id
+      shuffleIdToDependentStages.getOrElseUpdate(shuffleId, Set.empty) += stage.id
     }
   }
 
