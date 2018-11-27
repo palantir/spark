@@ -897,9 +897,9 @@ class TaskSchedulerImplSuite extends SparkFunSuite with LocalSparkContext with B
     val execStatus = mapOutputTracker.getExecutorShuffleStatus
     assert(execStatus.equals(Map("exec1" -> Inactive, "exec2" -> Active)))
 
-    assert(taskScheduler.partitionShuffleOffers(offers).map(_._1)
+    assert(taskScheduler.partitionAndShuffleOffers(offers).map(_._1)
       .equals(IndexedSeq(Active, Inactive, Unknown)))
-    assert(taskScheduler.partitionShuffleOffers(offers).flatMap(_._2).map(offers.indexOf(_))
+    assert(taskScheduler.partitionAndShuffleOffers(offers).flatMap(_._2).map(offers.indexOf(_))
       .equals(IndexedSeq(1, 0, 2)))
 
     taskScheduler.submitTasks(FakeTask.createTaskSet(3, stageId = 1, stageAttemptId = 0))

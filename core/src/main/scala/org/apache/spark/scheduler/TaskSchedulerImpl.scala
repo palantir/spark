@@ -82,7 +82,7 @@ private[spark] class TaskSchedulerImpl(
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("task-scheduler-speculation")
 
   // whether to prefer assigning tasks to executors that contain shuffle files
-  val shuffledBiasedTaskSchedulingEnabled =
+  val shuffleBiasedTaskSchedulingEnabled =
     conf.getBoolean("spark.scheduler.shuffleBiasedTaskScheduling.enabled", false)
 
   // Threshold above which we warn user initial TaskSet may be starved
@@ -391,7 +391,11 @@ private[spark] class TaskSchedulerImpl(
       }
     }
 
-    val partitionedAndShuffledOffers = partitionShuffleOffers(filteredOffers)
+    // If shuffle-biased task scheduling is enabled, then first assign as many tasks as possible to
+    // executors containing active shuffle files, followed by assigning to executors with inactive
+    // shuffle files, and then finally to those without shuffle files. This bin packing allows for
+    // more efficient dynamic allocation in the absence of an external shuffle service.
+    val partitionedAndShuffledOffers = partitionAndShuffleOffers(filteredOffers)
     for (shuffledOffers <- partitionedAndShuffledOffers.map(_._2)) {
       tasks ++= doResourceOffers(shuffledOffers, sortedTaskSets)
     }
@@ -470,12 +474,12 @@ private[spark] class TaskSchedulerImpl(
 
   /**
    * Shuffle offers around to avoid always placing tasks on the same workers.
-   * If shuffle-biased task scheduling is enabled, this function will bias tasks
-   * towards executors with active shuffles.
+   * If shuffle-biased task scheduling is enabled, this function partitions the offers based on
+   * whether they have active/inactive/no shuffle files present.
    */
-  def partitionShuffleOffers(offers: IndexedSeq[WorkerOffer])
+  def partitionAndShuffleOffers(offers: IndexedSeq[WorkerOffer])
   : IndexedSeq[(ExecutorShuffleStatus.Value, IndexedSeq[WorkerOffer])] = {
-    if (shuffledBiasedTaskSchedulingEnabled && offers.length > 1) {
+    if (shuffleBiasedTaskSchedulingEnabled && offers.length > 1) {
       // bias towards executors that have active shuffle outputs
       val execShuffles = mapOutputTracker.getExecutorShuffleStatus
       offers
@@ -490,7 +494,7 @@ private[spark] class TaskSchedulerImpl(
   }
 
   /**
-   * Does the shuffling for [[partitionShuffleOffers()]]. Exposed to allow overriding in tests,
+   * Does the shuffling for [[partitionAndShuffleOffers()]]. Exposed to allow overriding in tests,
    * so that it can be deterministic.
    */
   protected def doShuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
