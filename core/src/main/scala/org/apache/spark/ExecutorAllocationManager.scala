@@ -601,17 +601,17 @@ private[spark] class ExecutorAllocationManager(
    */
   private def onExecutorIdle(executorId: String): Unit = synchronized {
     if (executorIds.contains(executorId)) {
-      val hasActiveShuffleBlocks =
+      val hasActiveShuffleBlocks = !externalShuffleServiceEnabled &&
         mapOutputTracker.hasOutputsOnExecutor(executorId, activeOnly = true)
       if (!removeTimes.contains(executorId)
         && !executorsPendingToRemove.contains(executorId)
-        && (externalShuffleServiceEnabled || !hasActiveShuffleBlocks)) {
+        && !hasActiveShuffleBlocks) {
         // Note that it is not necessary to query the executors since all the cached
         // blocks we are concerned with are reported to the driver. Note that this
         // does not include broadcast blocks.
         val hasCachedBlocks = blockManagerMaster.hasCachedBlocks(executorId)
         val hasAnyShuffleBlocks =
-          mapOutputTracker.hasOutputsOnExecutor(executorId) && !externalShuffleServiceEnabled
+          !externalShuffleServiceEnabled && mapOutputTracker.hasOutputsOnExecutor(executorId)
         val now = clock.getTimeMillis()
 
         // Use the maximum of all the timeouts that apply.
