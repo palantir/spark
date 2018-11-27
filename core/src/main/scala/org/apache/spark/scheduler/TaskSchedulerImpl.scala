@@ -380,8 +380,7 @@ private[spark] class TaskSchedulerImpl(
       }
     }.getOrElse(offers)
 
-    val partitionedAndShuffledOffers = partitionShuffleOffers(filteredOffers)
-    var allTasks: Seq[Seq[TaskDescription]] = Nil
+    var tasks: Seq[Seq[TaskDescription]] = Nil
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
     for (taskSet <- sortedTaskSets) {
       logDebug("parentName: %s, name: %s, runningTasks: %s".format(
@@ -391,16 +390,17 @@ private[spark] class TaskSchedulerImpl(
       }
     }
 
+    val partitionedAndShuffledOffers = partitionShuffleOffers(filteredOffers)
     for (shuffledOffers <- partitionedAndShuffledOffers.map(_._2)) {
-      allTasks ++= doResourceOffers(shuffledOffers, sortedTaskSets)
+      tasks ++= doResourceOffers(shuffledOffers, sortedTaskSets)
     }
 
     // TODO SPARK-24823 Cancel a job that contains barrier stage(s) if the barrier tasks don't get
     // launched within a configured time.
-    if (allTasks.size > 0) {
+    if (tasks.size > 0) {
       hasLaunchedTask = true
     }
-    return allTasks
+    return tasks
   }
 
   private def doResourceOffers(
