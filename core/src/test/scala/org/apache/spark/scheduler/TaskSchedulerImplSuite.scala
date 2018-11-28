@@ -27,6 +27,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.mockito.MockitoSugar
 
 import org.apache.spark._
+import org.apache.spark.ExecutorShuffleStatus._
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config
 import org.apache.spark.storage.BlockManagerId
@@ -893,7 +894,6 @@ class TaskSchedulerImplSuite extends SparkFunSuite with LocalSparkContext with B
     mapOutputTracker.registerMapOutput(1, 0, makeMapStatus(offers(1)))
     mapOutputTracker.markShuffleInactive(0)
 
-    import ExecutorShuffleStatus._
     val execStatus = mapOutputTracker.getExecutorShuffleStatus
     assert(execStatus.equals(Map("exec1" -> Inactive, "exec2" -> Active)))
 
