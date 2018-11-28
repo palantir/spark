@@ -1,3 +1,4 @@
 src/main/resources/docker-resources
+.gradle
 gradle-build
 src/main/resources/version/version.txt
