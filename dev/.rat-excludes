@@ -121,7 +121,7 @@ vote.tmpl
 gradle-build/*
 gradlew
 gradlew.bat
-gradle/wrapper/*
+gradle-wrapper.properties
 spark-docker-image-generator/gradle-build/*
 spark-docker-image-generator/plugin-test-project/gradle-build/*
 spark-docker-image-generator/plugin-test-project/build/*
