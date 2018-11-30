@@ -19,4 +19,3 @@
 rootProject.name = 'spark'
 
 include ':spark-docker-image-generator'
-include ':spark-docker-image-generator:plugin-test-project'
