@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 public final class HelloWorld {
 
-  private void HelloWorld() { }
+  private HelloWorld() { }
 
   public static void main(String[] args) {
     List<String> strs = ImmutableList.of("Hello", "World");
