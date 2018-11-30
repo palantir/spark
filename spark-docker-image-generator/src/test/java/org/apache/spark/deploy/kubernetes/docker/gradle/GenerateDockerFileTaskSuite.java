@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
 import org.apache.commons.io.IOUtils;
 import org.assertj.core.api.Assertions;
 import org.gradle.api.provider.Property;
@@ -99,4 +98,3 @@ public final class GenerateDockerFileTaskSuite {
   }
 
 }
-

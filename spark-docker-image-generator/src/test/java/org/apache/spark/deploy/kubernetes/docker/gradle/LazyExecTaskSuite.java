@@ -18,7 +18,6 @@ package org.apache.spark.deploy.kubernetes.docker.gradle;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.gradle.api.Project;
 import org.gradle.api.provider.Property;
 import org.gradle.process.ExecSpec;

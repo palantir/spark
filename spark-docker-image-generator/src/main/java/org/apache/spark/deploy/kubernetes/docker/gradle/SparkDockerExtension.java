@@ -19,7 +19,6 @@ package org.apache.spark.deploy.kubernetes.docker.gradle;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.gradle.api.Project;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.SetProperty;

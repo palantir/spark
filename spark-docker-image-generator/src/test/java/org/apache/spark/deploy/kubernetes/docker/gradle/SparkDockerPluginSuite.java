@@ -16,10 +16,6 @@
  */
 package org.apache.spark.deploy.kubernetes.docker.gradle;
 
-import java.io.File;
-import java.nio.file.Paths;
-import java.util.UUID;
-
 import com.spotify.docker.client.DefaultDockerClient;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.LogStream;
@@ -27,6 +23,9 @@ import com.spotify.docker.client.exceptions.DockerException;
 import com.spotify.docker.client.messages.ContainerConfig;
 import com.spotify.docker.client.messages.ExecCreation;
 import com.spotify.docker.client.messages.ImageInfo;
+import java.io.File;
+import java.nio.file.Paths;
+import java.util.UUID;
 import org.assertj.core.api.Assertions;
 import org.gradle.testkit.runner.GradleRunner;
 import org.junit.After;
