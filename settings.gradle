@@ -19,4 +19,4 @@
 rootProject.name = 'spark'
 
 include ':spark-docker-image-generator'
-enableFeaturePreview('STABLE_PUBLISHING')
+include ':spark-docker-image-generator:plugin-test-project'
