@@ -25,45 +25,45 @@ import org.gradle.api.provider.SetProperty;
 
 public class SparkDockerExtension {
 
-  private final Property<String> baseImage;
-  private final Property<String> imageName;
-  private final SetProperty<String> tags;
+    private final Property<String> baseImage;
+    private final Property<String> imageName;
+    private final SetProperty<String> tags;
 
-  public SparkDockerExtension(Project project) {
-    this.baseImage = project.getObjects().property(String.class);
-    this.imageName = project.getObjects().property(String.class);
-    this.tags = project.getObjects().setProperty(String.class);
-  }
+    public SparkDockerExtension(Project project) {
+        this.baseImage = project.getObjects().property(String.class);
+        this.imageName = project.getObjects().property(String.class);
+        this.tags = project.getObjects().setProperty(String.class);
+    }
 
-  public final Property<String> getBaseImage() {
-    return baseImage;
-  }
+    public final Property<String> getBaseImage() {
+        return baseImage;
+    }
 
-  public final Property<String> getImageName() {
-    return imageName;
-  }
+    public final Property<String> getImageName() {
+        return imageName;
+    }
 
-  public final SetProperty<String> getTags() {
-    return tags;
-  }
+    public final SetProperty<String> getTags() {
+        return tags;
+    }
 
-  @SuppressWarnings("HiddenField")
-  public final void baseImage(String baseImage) {
-    this.baseImage.set(baseImage);
-  }
+    @SuppressWarnings("HiddenField")
+    public final void baseImage(String baseImage) {
+        this.baseImage.set(baseImage);
+    }
 
-  @SuppressWarnings("HiddenField")
-  public final void imageName(String imageName) {
-    this.imageName.set(imageName);
-  }
+    @SuppressWarnings("HiddenField")
+    public final void imageName(String imageName) {
+        this.imageName.set(imageName);
+    }
 
-  @SuppressWarnings("HiddenField")
-  public final void tags(Collection<String> tags) {
-    this.tags.set(tags);
-  }
+    @SuppressWarnings("HiddenField")
+    public final void tags(Collection<String> tags) {
+        this.tags.set(tags);
+    }
 
-  @SuppressWarnings("HiddenField")
-  public final void tags(String... tags) {
-    this.tags.set(Stream.of(tags).collect(Collectors.toSet()));
-  }
+    @SuppressWarnings("HiddenField")
+    public final void tags(String... tags) {
+        this.tags.set(Stream.of(tags).collect(Collectors.toSet()));
+    }
 }

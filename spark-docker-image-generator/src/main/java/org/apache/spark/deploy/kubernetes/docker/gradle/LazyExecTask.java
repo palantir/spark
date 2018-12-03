@@ -25,22 +25,22 @@ import org.gradle.api.tasks.TaskAction;
 
 public class LazyExecTask extends DefaultTask {
 
-  private List<Property<String>> commandLine;
+    private List<Property<String>> commandLine;
 
-  @Input
-  public final List<Property<String>> getCommandLine() {
-    return commandLine;
-  }
+    @Input
+    public final List<Property<String>> getCommandLine() {
+        return commandLine;
+    }
 
-  public final void setCommandLine(List<Property<String>> commandLine) {
-    this.commandLine = commandLine;
-  }
+    public final void setCommandLine(List<Property<String>> commandLine) {
+        this.commandLine = commandLine;
+    }
 
-  @TaskAction
-  public final void runCommand() {
-    getProject().exec(exec ->
-        exec.commandLine(commandLine.stream()
-            .map(Property::get)
-            .collect(Collectors.toList())));
-  }
+    @TaskAction
+    public final void runCommand() {
+        getProject().exec(exec ->
+                exec.commandLine(commandLine.stream()
+                        .map(Property::get)
+                        .collect(Collectors.toList())));
+    }
 }
