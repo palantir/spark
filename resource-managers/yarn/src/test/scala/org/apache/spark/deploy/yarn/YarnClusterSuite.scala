@@ -84,7 +84,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |        exit(-1)
     |    sc = SparkContext(conf=SparkConf())
     |
-    |    sc.addCondaPackages('numpy=1.11.1')
+    |    sc.addCondaPackages('numpy=1.15.4')
     |    import numpy
     |
     |    status = open(sys.argv[1],'w')
@@ -376,8 +376,8 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
 
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
-      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/free",
-      "spark.conda.bootstrapPackages" -> "python=3.5"
+      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
+      "spark.conda.bootstrapPackages" -> "python=3.6"
     )
 
     val moduleDir =

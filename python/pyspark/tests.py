@@ -2292,7 +2292,7 @@ class SparkSubmitTests(unittest.TestCase):
                     """)
         props = self.createTempFile("properties", """
             |spark.conda.binaryPath        {}
-            |spark.conda.channelUrls       https://repo.continuum.io/pkgs/free
+            |spark.conda.channelUrls       https://repo.continuum.io/pkgs/main
             |spark.conda.bootstrapPackages python=3.5
         """.format(os.environ["CONDA_BIN"]))
         env = dict(os.environ)
