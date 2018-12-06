@@ -122,18 +122,12 @@ public final class SparkDockerPlugin implements Plugin<Project> {
                     dockerBuildTask.dependsOn("sparkDockerPrepare");
                 });
         Task tagAllTask = project.getTasks().create("sparkDockerTag");
-        LazyExecTask pushAllTask = project.getTasks().create(
-                "sparkDockerPush",
-                LazyExecTask.class,
-                task -> {
-                    List<Property<String>> commandLine = new ArrayList<>();
-                    commandLine.add(constProperty(project, "docker"));
-                    commandLine.add(constProperty(project, "push"));
-                    commandLine.add(extension.getImageName());
-                    task.setCommandLine(commandLine);
-                });
+        Task pushAllTask = project.getTasks().create("sparkDockerPush");
         project.afterEvaluate(evaluatedProject -> {
             Set<String> tags = extension.getTags().getOrElse(Collections.emptySet());
+            if (tags.isEmpty()) {
+                throw new IllegalArgumentException("Must specify one or more tags.");
+            }
             String resolvedImageName = extension.getImageName().get();
             List<Exec> tagTasks = tags.stream()
                     .map(tag ->
