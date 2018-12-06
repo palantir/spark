@@ -18,7 +18,6 @@ package org.apache.spark.deploy.kubernetes.docker.gradle;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
