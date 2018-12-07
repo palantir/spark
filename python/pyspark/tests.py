@@ -2279,14 +2279,14 @@ class SparkSubmitTests(unittest.TestCase):
                     |from pyspark import SparkContext
                     |
                     |sc = SparkContext()
-                    |sc.addCondaPackages('numpy=1.11.1')
+                    |sc.addCondaPackages('numpy=1.15.4')
                     |
                     |# Ensure numpy is accessible on the driver
                     |import numpy
                     |arr = [1, 2, 3]
                     |def mul2(x):
                     |  # Also ensure numpy accessible from executor
-                    |  assert numpy.version.version == "1.11.1"
+                    |  assert numpy.version.version == "1.15.4"
                     |  return x * 2
                     |print(sc.parallelize(arr).map(mul2).collect())
                     """)
