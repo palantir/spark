@@ -91,7 +91,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |
     |    # Addict exists only in external-conda-forge, not anaconda
     |    sc.addCondaChannel("https://conda.anaconda.org/conda-forge")
-    |    sc.addCondaPackages('addict=1.0.0')
+    |    sc.addCondaPackages('addict=2.2.0')
     |
     |    def numpy_multiply(x):
     |        # Ensure package from non-base channel is installed
