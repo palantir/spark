@@ -363,7 +363,7 @@ private[r] object RRunner {
     val rLibDir = condaEnv.map(conda =>
       RUtils.sparkRPackagePath(isDriver = false) :+ (conda.condaEnvDir + "/lib/R/library"))
       .getOrElse(RUtils.sparkRPackagePath(isDriver = false))
-      .filter(dir => new File(dir + script).exists)
+      .filter(dir => new File(dir + "/SparkR/worker/" + script).exists)
     if (rLibDir.isEmpty) {
       throw new SparkException("SparkR package is not installed on executor.")
     }
