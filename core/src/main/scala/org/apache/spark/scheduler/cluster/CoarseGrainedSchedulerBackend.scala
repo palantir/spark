@@ -705,7 +705,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
    * @return whether the kill request is acknowledged.
    */
   final override def killExecutorsOnHost(host: String): Boolean = {
-    safeLogInfo(s"Requesting to kill any and all executors on host",
+    safeLogInfo("Requesting to kill any and all executors on host",
       UnsafeArg.of("host", host))
     // A potential race exists if a new executor attempts to register on a host
     // that is on the blacklist and is no no longer valid. To avoid this race,

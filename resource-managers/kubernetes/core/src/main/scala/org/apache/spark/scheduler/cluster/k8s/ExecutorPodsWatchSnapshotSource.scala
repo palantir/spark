@@ -35,7 +35,7 @@ private[spark] class ExecutorPodsWatchSnapshotSource(
 
   def start(applicationId: String): Unit = {
     require(watchConnection == null, "Cannot start the watcher twice.")
-    safeLogDebug("Starting watch for pods with labels.",
+    safeLogDebug("Starting watch for pods.",
       SafeArg.of("applicationId", applicationId))
     watchConnection = kubernetesClient.pods()
       .withLabel(SPARK_APP_ID_LABEL, applicationId)
