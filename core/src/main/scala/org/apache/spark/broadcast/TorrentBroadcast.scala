@@ -21,11 +21,12 @@ import java.io._
 import java.nio.ByteBuffer
 import java.util.zip.Adler32
 
-import com.palantir.logsafe.SafeArg
-
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.util.Random
+
+import com.palantir.logsafe.SafeArg
+
 import org.apache.spark._
 import org.apache.spark.internal.SafeLogging
 import org.apache.spark.io.CompressionCodec

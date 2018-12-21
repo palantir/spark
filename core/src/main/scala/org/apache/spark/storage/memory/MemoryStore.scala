@@ -157,7 +157,7 @@ private[spark] class MemoryStore(
       entries.synchronized {
         entries.put(blockId, entry)
       }
-      safeLogInfo("Block %s stored as bytes in memory (estimated size %s, free %s)",
+      safeLogInfo("Block %stored as bytes in memory",
         SafeArg.of("blockId", blockId),
         SafeArg.of("estimatedSize", Utils.bytesToString(size)),
         SafeArg.of("freeMemory", Utils.bytesToString(maxMemory - blocksMemoryUsed)))
@@ -627,7 +627,7 @@ private[spark] class MemoryStore(
    */
   private def logMemoryUsage(): Unit = {
     safeLogInfo(
-      s"Memory use",
+      "Memory use",
       SafeArg.of("blocksMemoryUsed", Utils.bytesToString(blocksMemoryUsed)),
       SafeArg.of("scratchSpaceShared", Utils.bytesToString(currentUnrollMemory)),
       SafeArg.of("numTasksSharingScratchSpace", numTasksUnrolling),
@@ -650,7 +650,7 @@ private[spark] class MemoryStore(
     )
     logMemoryUsage()
   }
-}ScratchSpaceShared
+}
 
 private trait MemoryEntryBuilder[T] {
   def preciseSize: Long

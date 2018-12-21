@@ -470,7 +470,8 @@ private[spark] class Executor(
           // unlikely).  So we will log an error and keep going.
           safeLogError("Task completed successfully though internally it encountered " +
             "unrecoverable fetch failures!  Most likely this means user code is incorrectly " +
-            "swallowing Spark's internal exception", fetchFailure,
+            "swallowing Spark's internal exception",
+            fetchFailure,
             SafeArg.of("taskId", taskId),
             SafeArg.of("internalExceptionName", classOf[FetchFailedException]))
         }

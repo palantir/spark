@@ -620,7 +620,8 @@ class SparkContext(config: SparkConf) extends SafeLogging {
       }
     } catch {
       case e: Exception =>
-        safeLogError("Exception getting thread dump from executor", e,
+        safeLogError("Exception getting thread dump from executor",
+          e,
           SafeArg.of("executorId", executorId))
         None
     }
