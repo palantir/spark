@@ -41,7 +41,7 @@ private[spark] class ExecutorPodsPollingSnapshotSource(
   def start(applicationId: String): Unit = {
     require(pollingFuture == null, "Cannot start polling more than once.")
     safeLogDebug("Starting to check for executor pod state",
-      SafeArg.of("pollingIntervalInMs",  pollingInterval))
+      SafeArg.of("pollingIntervalInMs", pollingInterval))
     pollingFuture = pollingExecutor.scheduleWithFixedDelay(
       new PollRunnable(applicationId), pollingInterval, pollingInterval, TimeUnit.MILLISECONDS)
   }

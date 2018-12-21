@@ -28,8 +28,9 @@ import scala.collection.Map
 import scala.collection.generic.Growable
 import scala.collection.mutable.HashMap
 import scala.language.implicitConversions
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.{classTag, ClassTag}
 import scala.util.control.NonFatal
+
 import com.google.common.collect.MapMaker
 import com.palantir.logsafe.{SafeArg, UnsafeArg}
 import org.apache.commons.lang3.SerializationUtils
@@ -39,6 +40,7 @@ import org.apache.hadoop.io.{ArrayWritable, BooleanWritable, BytesWritable, Doub
 import org.apache.hadoop.mapred.{FileInputFormat, InputFormat, JobConf, SequenceFileInputFormat, TextInputFormat}
 import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat, Job => NewHadoopJob}
 import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFormat}
+
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
@@ -618,7 +620,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
       }
     } catch {
       case e: Exception =>
-        safeLogError("Exception getting thread dump from executor $executorId", e,
+        safeLogError("Exception getting thread dump from executor", e,
           SafeArg.of("executorId", executorId))
         None
     }
@@ -2446,7 +2448,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
         listeners.foreach { listener =>
           listenerBus.addToSharedQueue(listener)
           safeLogInfo("Registered listener",
-            SafeArg.of("ListenerName", listener.getClass().getName()))
+            SafeArg.of("listenerName", listener.getClass().getName()))
         }
       }
     } catch {

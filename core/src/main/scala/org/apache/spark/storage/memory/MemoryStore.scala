@@ -24,8 +24,10 @@ import java.util.LinkedHashMap
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
+
 import com.google.common.io.ByteStreams
 import com.palantir.logsafe.SafeArg
+
 import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.internal.{Logging, SafeLogging}
 import org.apache.spark.internal.config.{UNROLL_MEMORY_CHECK_PERIOD, UNROLL_MEMORY_GROWTH_FACTOR}
@@ -158,7 +160,7 @@ private[spark] class MemoryStore(
       safeLogInfo("Block %s stored as bytes in memory (estimated size %s, free %s)",
         SafeArg.of("blockId", blockId),
         SafeArg.of("estimatedSize", Utils.bytesToString(size)),
-        SafeArg.of("free", Utils.bytesToString(maxMemory - blocksMemoryUsed)))
+        SafeArg.of("freeMemory", Utils.bytesToString(maxMemory - blocksMemoryUsed)))
       true
     } else {
       false
@@ -272,7 +274,7 @@ private[spark] class MemoryStore(
         safeLogInfo("Block stored as values in memory",
           SafeArg.of("blockId", blockId),
           SafeArg.of("estimatedSize", Utils.bytesToString(entry.size)),
-          SafeArg.of("free", Utils.bytesToString(maxMemory - blocksMemoryUsed)))
+          SafeArg.of("freeMemory", Utils.bytesToString(maxMemory - blocksMemoryUsed)))
         Right(entry.size)
       } else {
         // We ran out of space while unrolling the values for this block
@@ -345,7 +347,7 @@ private[spark] class MemoryStore(
       safeLogWarning("Initial memory threshold " +
         "is too large to be set as chunk size. Chunk size has been capped",
         SafeArg.of("threshold", Utils.bytesToString(initialMemoryThreshold)),
-        SafeArg.of("capped", Utils.bytesToString(Int.MaxValue)))
+        SafeArg.of("cappedChunkSize", Utils.bytesToString(Int.MaxValue)))
       Int.MaxValue
     } else {
       initialMemoryThreshold.toInt
@@ -403,10 +405,10 @@ private[spark] class MemoryStore(
         case _ =>
       }
       memoryManager.releaseStorageMemory(entry.size, entry.memoryMode)
-      safeLogDebug("Block of size dropped from memory",
+      safeLogDebug("Block dropped from memory",
         SafeArg.of("blockId", blockId),
         SafeArg.of("size", entry.size),
-        SafeArg.of("free", maxMemory - blocksMemoryUsed))
+        SafeArg.of("freeMemory", maxMemory - blocksMemoryUsed))
       true
     } else {
       false
@@ -627,7 +629,7 @@ private[spark] class MemoryStore(
     safeLogInfo(
       s"Memory use",
       SafeArg.of("blocksMemoryUsed", Utils.bytesToString(blocksMemoryUsed)),
-      SafeArg.of("ScratchSpaceShared", Utils.bytesToString(currentUnrollMemory)),
+      SafeArg.of("scratchSpaceShared", Utils.bytesToString(currentUnrollMemory)),
       SafeArg.of("numTasksSharingScratchSpace", numTasksUnrolling),
       SafeArg.of("memoryUsed", Utils.bytesToString(memoryUsed)),
       SafeArg.of("stogrageLimit", Utils.bytesToString(maxMemory))
@@ -648,7 +650,7 @@ private[spark] class MemoryStore(
     )
     logMemoryUsage()
   }
-}
+}ScratchSpaceShared
 
 private trait MemoryEntryBuilder[T] {
   def preciseSize: Long

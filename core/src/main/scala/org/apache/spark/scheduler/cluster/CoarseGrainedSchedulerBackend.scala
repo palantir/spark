@@ -130,8 +130,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
               makeOffers(executorId)
             case None =>
               // Ignoring the update since we don't know about the executor.
-              safeLogWarning("Ignored task status update ($taskId state $state) " +
-                "from unknown executor with ID $executorId",
+              safeLogWarning("Ignored task status update from unknown executor",
                 SafeArg.of("taskId", taskId),
                 SafeArg.of("state", state),
                 SafeArg.of("executorId", executorId))
@@ -388,8 +387,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
       }
 
       if (shouldDisable) {
-        safeLogInfo("Disabling executor.",
-          SafeArg.of("executorId", executorId))
+        safeLogInfo("Disabling executor.", SafeArg.of("executorId", executorId))
         scheduler.executorLost(executorId, LossReasonPending)
       }
 
@@ -498,12 +496,13 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   override def isReady(): Boolean = {
     if (sufficientResourcesRegistered) {
       safeLogInfo("SchedulerBackend is ready for scheduling beginning after " +
-        s"reached minRegisteredResourcesRatio",
+        "reached minRegisteredResourcesRatio",
         SafeArg.of("minRegisteredRatio", minRegisteredRatio))
       return true
     }
     if ((System.currentTimeMillis() - createTime) >= maxRegisteredWaitingTimeMs) {
-      safeLogInfo("SchedulerBackend is ready for scheduling beginning after waiting",
+      safeLogInfo("SchedulerBackend is ready for scheduling beginning after " +
+        "waiting maxRegisteredResourcesWaitingTime",
         SafeArg.of("maxRegisteredResourcesWaitingTimeInMs", maxRegisteredWaitingTimeMs))
       return true
     }
@@ -705,8 +704,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
    * @return whether the kill request is acknowledged.
    */
   final override def killExecutorsOnHost(host: String): Boolean = {
-    safeLogInfo("Requesting to kill any and all executors on host",
-      UnsafeArg.of("host", host))
+    safeLogInfo("Requesting to kill any and all executors on host", UnsafeArg.of("host", host))
     // A potential race exists if a new executor attempts to register on a host
     // that is on the blacklist and is no no longer valid. To avoid this race,
     // all executor registration and killing happens in the event loop. This way, either

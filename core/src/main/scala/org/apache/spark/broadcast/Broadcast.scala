@@ -19,9 +19,10 @@ package org.apache.spark.broadcast
 
 import java.io.Serializable
 
+import scala.reflect.ClassTag
+
 import com.palantir.logsafe.{SafeArg, UnsafeArg}
 
-import scala.reflect.ClassTag
 import org.apache.spark.SparkException
 import org.apache.spark.internal.SafeLogging
 import org.apache.spark.util.Utils

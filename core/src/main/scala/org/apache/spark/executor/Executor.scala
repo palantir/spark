@@ -24,15 +24,16 @@ import java.net.{URI, URL}
 import java.nio.ByteBuffer
 import java.util.Properties
 import java.util.concurrent._
-
 import javax.annotation.concurrent.GuardedBy
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap, Map}
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.palantir.logsafe.{SafeArg, UnsafeArg}
+
 import org.apache.spark._
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.internal.SafeLogging
@@ -63,7 +64,7 @@ private[spark] class Executor(
 
   safeLogInfo("Starting executor on host",
     SafeArg.of("executorId", executorId),
-    UnsafeArg.of("host",executorHostname))
+    UnsafeArg.of("host", executorHostname))
 
   // Application dependencies (added through SparkContext) that we've fetched so far on this node.
   // Each map holds the master's timestamp for the version of that file or JAR we got.
@@ -272,7 +273,7 @@ private[spark] class Executor(
         } catch {
           case e: Exception =>
             safeLogWarning("Plugin shutdown failed", e,
-              SafeArg.of("pluginName", plugin.getClass().getCanonicalName()))
+              UnsafeArg.of("pluginName", plugin.getClass().getCanonicalName()))
         }
       }
     }
@@ -468,8 +469,8 @@ private[spark] class Executor(
           // other exceptions.  Its *possible* this is what the user meant to do (though highly
           // unlikely).  So we will log an error and keep going.
           safeLogError("Task completed successfully though internally it encountered " +
-            s"unrecoverable fetch failures!  Most likely this means user code is incorrectly " +
-            s"swallowing Spark's internal exception", fetchFailure,
+            "unrecoverable fetch failures!  Most likely this means user code is incorrectly " +
+            "swallowing Spark's internal exception", fetchFailure,
             SafeArg.of("taskId", taskId),
             SafeArg.of("internalExceptionName", classOf[FetchFailedException]))
         }
@@ -550,8 +551,7 @@ private[spark] class Executor(
         // directSend = sending directly back to the driver
         val serializedResult: ByteBuffer = {
           if (maxResultSize > 0 && resultSize > maxResultSize) {
-            safeLogWarning("Finished task. Result is larger than maxResultSize " +
-              "dropping it.",
+            safeLogWarning("Finished task. Result is larger than maxResultSize, dropping it.",
               UnsafeArg.of("taskName", taskName),
               SafeArg.of("taskId", taskId),
               SafeArg.of("resultSize", Utils.bytesToString(resultSize)),
@@ -610,10 +610,11 @@ private[spark] class Executor(
             // there was a fetch failure in the task, but some user code wrapped that exception
             // and threw something else.  Regardless, we treat it as a fetch failure.
             val fetchFailedCls = classOf[FetchFailedException].getName
-            safeLogWarning(s"Task encountered a fetch failure exception and " +
-              s"failed, but the fetch failure exception was hidden by another " +
-              s"exception.  Spark is handling this like a fetch failure and ignoring the " +
-              s"other exception: $t",
+            safeLogWarning("Task encountered a fetch failure exception and " +
+              "failed, but the fetch failure exception was hidden by another " +
+              "exception.  Spark is handling this like a fetch failure and ignoring the " +
+              "other exception",
+              t,
               SafeArg.of("taskId", taskId),
               SafeArg.of("fetchFailedExceptionClass", fetchFailedCls))
           }
@@ -629,7 +630,8 @@ private[spark] class Executor(
           // Attempt to exit cleanly by informing the driver of our failure.
           // If anything goes wrong (or this was a fatal exception), we will delegate to
           // the default uncaught exception handler, which will terminate the Executor.
-          safeLogError("Exception in task", t,
+          safeLogError("Exception in task",
+            t,
             UnsafeArg.of("taskName", taskName),
             SafeArg.of("taskId", taskId))
 
@@ -760,7 +762,7 @@ private[spark] class Executor(
 
         if (!taskRunner.isFinished && timeoutExceeded()) {
           if (isLocal) {
-            safeLogError(s"Killed task could not be stopped; " +
+            safeLogError("Killed task could not be stopped; " +
               "not killing JVM because we are running in local mode.",
               SafeArg.of("taskId", taskId),
               SafeArg.of("notStoppedWithinMs", killTimeoutMs))

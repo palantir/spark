@@ -153,7 +153,7 @@ private[spark] class TorrentBroadcast[T: ClassTag](obj: T, id: Long)
       val pieceId = BroadcastBlockId(id, "piece" + pid)
       safeLogDebug("Reading piece",
         SafeArg.of("pieceId", pieceId),
-        SafeArg.of("broadCastId", broadcastId))
+        SafeArg.of("broadcastId", broadcastId))
       // First try getLocalBytes because there is a chance that previous attempts to fetch the
       // broadcast blocks have already fetched some of the blocks. In that case, some blocks
       // would be available locally (on this executor).
@@ -229,10 +229,13 @@ private[spark] class TorrentBroadcast[T: ClassTag](obj: T, id: Long)
               throw new SparkException(s"Failed to get locally stored broadcast data: $broadcastId")
             }
           case None =>
-            logInfo("Started reading broadcast variable " + id)
+            safeLogInfo("Started reading broadcast variable",
+              SafeArg.of("id", id))
             val startTimeMs = System.currentTimeMillis()
             val blocks = readBlocks()
-            logInfo("Reading broadcast variable " + id + " took" + Utils.getUsedTimeMs(startTimeMs))
+            safeLogInfo("Reading broadcast variable finished",
+              SafeArg.of("id", id),
+              SafeArg.of("timeUsed", Utils.getUsedTimeMs(startTimeMs)))
 
             try {
               val obj = TorrentBroadcast.unBlockifyObject[T](
