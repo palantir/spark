@@ -28,10 +28,10 @@ import scala.collection.Map
 import scala.collection.generic.Growable
 import scala.collection.mutable.HashMap
 import scala.language.implicitConversions
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 import scala.util.control.NonFatal
-
 import com.google.common.collect.MapMaker
+import com.palantir.logsafe.{SafeArg, UnsafeArg}
 import org.apache.commons.lang3.SerializationUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -39,14 +39,13 @@ import org.apache.hadoop.io.{ArrayWritable, BooleanWritable, BytesWritable, Doub
 import org.apache.hadoop.mapred.{FileInputFormat, InputFormat, JobConf, SequenceFileInputFormat, TextInputFormat}
 import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat, Job => NewHadoopJob}
 import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFormat}
-
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.deploy.{CondaRunner, LocalSparkCluster, SparkHadoopUtil}
 import org.apache.spark.input.{FixedLengthBinaryInputFormat, PortableDataStream, StreamInputFormat, WholeTextFileInputFormat}
-import org.apache.spark.internal.Logging
+import org.apache.spark.internal.SafeLogging
 import org.apache.spark.internal.config._
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.partial.{ApproximateEvaluator, PartialResult}
@@ -72,7 +71,7 @@ import org.apache.spark.util._
  * @param config a Spark Config object describing the application configuration. Any settings in
  *   this config overrides the default configs as well as system properties.
  */
-class SparkContext(config: SparkConf) extends Logging {
+class SparkContext(config: SparkConf) extends SafeLogging {
 
   // The call site where this SparkContext was constructed.
   private val creationSite: CallSite = Utils.getCallSite()
@@ -182,7 +181,7 @@ class SparkContext(config: SparkConf) extends Logging {
     this(master, appName, sparkHome, jars, Map())
 
   // log out Spark Version in Spark driver log
-  logInfo(s"Running Spark version $SPARK_VERSION")
+  safeLogInfo("Running Spark version", SafeArg.of("SPARK_VERSION", SPARK_VERSION))
 
   /* ------------------------------------------------------------------------------------- *
    | Private variables. These variables keep the internal state of the context, and are    |
@@ -348,7 +347,7 @@ class SparkContext(config: SparkConf) extends Logging {
    * ------------------------------------------------------------------------------------- */
 
   private def warnSparkMem(value: String): String = {
-    logWarning("Using SPARK_MEM to set amount of memory to use per executor process is " +
+    safeLogWarning("Using SPARK_MEM to set amount of memory to use per executor process is " +
       "deprecated, please use spark.executor.memory instead.")
     value
   }
@@ -378,7 +377,7 @@ class SparkContext(config: SparkConf) extends Logging {
     }
 
     // log out spark.app.name in the Spark driver logs
-    logInfo(s"Submitted application: $appName")
+    safeLogInfo("Submitted application", SafeArg.of("appName", appName))
 
     // System property spark.yarn.app.id must be set if user code ran by AM on a YARN cluster
     if (master == "yarn" && deployMode == "cluster" && !_conf.contains("spark.yarn.app.id")) {
@@ -387,7 +386,7 @@ class SparkContext(config: SparkConf) extends Logging {
     }
 
     if (_conf.getBoolean("spark.logConf", false)) {
-      logInfo("Spark configuration:\n" + _conf.toDebugString)
+      safeLogInfo("Spark configuration", UnsafeArg.of("conf", _conf.toDebugString))
     }
 
     // Set Spark driver host and port system properties. This explicitly sets the configuration
@@ -439,7 +438,7 @@ class SparkContext(config: SparkConf) extends Logging {
     _statusTracker = new SparkStatusTracker(this, _statusStore)
 
     _progressBar =
-      if (_conf.get(UI_SHOW_CONSOLE_PROGRESS) && !log.isInfoEnabled) {
+      if (_conf.get(UI_SHOW_CONSOLE_PROGRESS) && !safeLogIsInfoEnabled) {
         Some(new ConsoleProgressBar(this))
       } else {
         None
@@ -579,25 +578,25 @@ class SparkContext(config: SparkConf) extends Logging {
     // Make sure the context is stopped if the user forgets about it. This avoids leaving
     // unfinished event logs around after the JVM exits cleanly. It doesn't help if the JVM
     // is killed, though.
-    logDebug("Adding shutdown hook") // force eager creation of logger
+    safeLogDebug("Adding shutdown hook") // force eager creation of logger
     _shutdownHookRef = ShutdownHookManager.addShutdownHook(
       ShutdownHookManager.SPARK_CONTEXT_SHUTDOWN_PRIORITY) { () =>
-      logInfo("Invoking stop() from shutdown hook")
+      safeLogInfo("Invoking stop() from shutdown hook")
       try {
         stop()
       } catch {
         case e: Throwable =>
-          logWarning("Ignoring Exception while stopping SparkContext from shutdown hook", e)
+          safeLogWarning("Ignoring Exception while stopping SparkContext from shutdown hook", e)
       }
     }
   } catch {
     case NonFatal(e) =>
-      logError("Error initializing SparkContext.", e)
+      safeLogError("Error initializing SparkContext.", e)
       try {
         stop()
       } catch {
         case NonFatal(inner) =>
-          logError("Error stopping SparkContext after init error.", inner)
+          safeLogError("Error stopping SparkContext after init error.", inner)
       } finally {
         throw e
       }
@@ -619,7 +618,8 @@ class SparkContext(config: SparkConf) extends Logging {
       }
     } catch {
       case e: Exception =>
-        logError(s"Exception getting thread dump from executor $executorId", e)
+        safeLogError("Exception getting thread dump from executor $executorId", e,
+          SafeArg.of("executorId", executorId))
         None
     }
   }
@@ -1500,7 +1500,9 @@ class SparkContext(config: SparkConf) extends Logging {
       "Can not directly broadcast RDDs; instead, call collect() and broadcast the result.")
     val bc = env.broadcastManager.newBroadcast[T](value, isLocal)
     val callSite = getCallSite
-    logInfo("Created broadcast " + bc.id + " from " + callSite.shortForm)
+    safeLogInfo("Created broadcast",
+      SafeArg.of("broadcastId", bc.id),
+      UnsafeArg.of("from", callSite.shortForm))
     cleaner.foreach(_.registerBroadcastForCleanup(bc))
     bc
   }
@@ -1543,7 +1545,7 @@ class SparkContext(config: SparkConf) extends Logging {
     val schemeCorrectedPath = uri.getScheme match {
       case null => new File(path).getCanonicalFile.toURI.toString
       case "local" =>
-        logWarning("File with 'local' scheme is not supported to add to file server, since " +
+        safeLogWarning("File with 'local' scheme is not supported to add to file server, since " +
           "it is already available on every node.")
         return
       case _ => path
@@ -1574,15 +1576,19 @@ class SparkContext(config: SparkConf) extends Logging {
     }
     val timestamp = System.currentTimeMillis
     if (addedFiles.putIfAbsent(key, timestamp).isEmpty) {
-      logInfo(s"Added file $path at $key with timestamp $timestamp")
+      safeLogInfo("Added file",
+        UnsafeArg.of("path", path),
+        UnsafeArg.of("key", key),
+        SafeArg.of("timestamp", timestamp))
       // Fetch the file locally so that closures which are run on the driver can still use the
       // SparkFiles API to access files.
       Utils.fetchFile(uri.toString, new File(SparkFiles.getRootDirectory()), conf,
         env.securityManager, hadoopConfiguration, timestamp, useCache = false)
       postEnvironmentUpdate()
     } else {
-      logWarning(s"The path $path has been added already. Overwriting of added paths " +
-       "is not supported in the current version.")
+      safeLogWarning("The path has been added already. Overwriting of added paths " +
+       "is not supported in the current version.",
+        UnsafeArg.of("path", path))
     }
   }
 
@@ -1609,7 +1615,7 @@ class SparkContext(config: SparkConf) extends Logging {
       case b: ExecutorAllocationClient =>
         b.getExecutorIds()
       case _ =>
-        logWarning("Requesting executors is not supported by current scheduler.")
+        safeLogWarning("Requesting executors is not supported by current scheduler.")
         Nil
     }
   }
@@ -1647,7 +1653,7 @@ class SparkContext(config: SparkConf) extends Logging {
       case b: ExecutorAllocationClient =>
         b.requestTotalExecutors(numExecutors, localityAwareTasks, hostToLocalTaskCount)
       case _ =>
-        logWarning("Requesting executors is not supported by current scheduler.")
+        safeLogWarning("Requesting executors is not supported by current scheduler.")
         false
     }
   }
@@ -1663,7 +1669,7 @@ class SparkContext(config: SparkConf) extends Logging {
       case b: ExecutorAllocationClient =>
         b.requestExecutors(numAdditionalExecutors)
       case _ =>
-        logWarning("Requesting executors is not supported by current scheduler.")
+        safeLogWarning("Requesting executors is not supported by current scheduler.")
         false
     }
   }
@@ -1690,7 +1696,7 @@ class SparkContext(config: SparkConf) extends Logging {
         b.killExecutors(executorIds, adjustTargetNumExecutors = true, countFailures = false,
           force = true).nonEmpty
       case _ =>
-        logWarning("Killing executors is not supported by current scheduler.")
+        safeLogWarning("Killing executors is not supported by current scheduler.")
         false
     }
   }
@@ -1729,7 +1735,7 @@ class SparkContext(config: SparkConf) extends Logging {
         b.killExecutors(Seq(executorId), adjustTargetNumExecutors = false, countFailures = true,
           force = true).nonEmpty
       case _ =>
-        logWarning("Killing executors is not supported by current scheduler.")
+        safeLogWarning("Killing executors is not supported by current scheduler.")
         false
     }
   }
@@ -1856,13 +1862,13 @@ class SparkContext(config: SparkConf) extends Logging {
         env.rpcEnv.fileServer.addJar(file)
       } catch {
         case NonFatal(e) =>
-          logError(s"Failed to add $path to Spark environment", e)
+          safeLogError("Failed to add jar to Spark environment", e, UnsafeArg.of("path", path))
           null
       }
     }
 
     if (path == null) {
-      logWarning("null specified as parameter to addJar")
+      safeLogWarning("null specified as parameter to addJar")
     } else {
       val key = if (path.contains("\\")) {
         // For local paths with backslashes on Windows, URI throws an exception
@@ -1886,11 +1892,15 @@ class SparkContext(config: SparkConf) extends Logging {
       if (key != null) {
         val timestamp = System.currentTimeMillis
         if (addedJars.putIfAbsent(key, timestamp).isEmpty) {
-          logInfo(s"Added JAR $path at $key with timestamp $timestamp")
+          safeLogInfo("Added JAR",
+            UnsafeArg.of("path", path),
+            UnsafeArg.of("key", key),
+            SafeArg.of("timestamp", timestamp))
           postEnvironmentUpdate()
         } else {
-          logWarning(s"The jar $path has been added already. Overwriting of added jars " +
-            "is not supported in the current version.")
+          safeLogWarning("The jar has been added already. Overwriting of added jars " +
+            "is not supported in the current version.",
+            UnsafeArg.of("path", path))
         }
       }
     }
@@ -1941,7 +1951,7 @@ class SparkContext(config: SparkConf) extends Logging {
           SparkContext.this.stop()
         } catch {
           case e: Throwable =>
-            logError(e.getMessage, e)
+            safeLogError("Error", e, UnsafeArg.of("message", e.getMessage))
             throw e
         }
       }
@@ -1958,7 +1968,7 @@ class SparkContext(config: SparkConf) extends Logging {
     // Use the stopping variable to ensure no contention for the stop scenario.
     // Still track the stopped variable for use elsewhere in the code.
     if (!stopped.compareAndSet(false, true)) {
-      logInfo("SparkContext already stopped.")
+      safeLogInfo("SparkContext already stopped.")
       return
     }
     if (_shutdownHookRef != null) {
@@ -2027,7 +2037,7 @@ class SparkContext(config: SparkConf) extends Logging {
     localProperties.remove()
     // Unset YARN mode system env variable, to allow switching between cluster types.
     SparkContext.clearActiveContext()
-    logInfo("Successfully stopped SparkContext")
+    safeLogInfo("Successfully stopped SparkContext")
   }
 
 
@@ -2098,9 +2108,10 @@ class SparkContext(config: SparkConf) extends Logging {
     }
     val callSite = getCallSite
     val cleanedFunc = clean(func)
-    logInfo("Starting job: " + callSite.shortForm)
+    safeLogInfo("Starting job", UnsafeArg.of("callSite", callSite.shortForm))
     if (conf.getBoolean("spark.logLineage", false)) {
-      logInfo("RDD's recursive dependencies:\n" + rdd.toDebugString)
+      safeLogInfo("RDD's recursive dependencies",
+        UnsafeArg.of("dependencies", rdd.toDebugString))
     }
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
@@ -2221,13 +2232,15 @@ class SparkContext(config: SparkConf) extends Logging {
       timeout: Long): PartialResult[R] = {
     assertNotStopped()
     val callSite = getCallSite
-    logInfo("Starting job: " + callSite.shortForm)
+    safeLogInfo("Starting job", UnsafeArg.of("callSite", callSite.shortForm))
     val start = System.nanoTime
     val cleanedFunc = clean(func)
     val result = dagScheduler.runApproximateJob(rdd, cleanedFunc, evaluator, callSite, timeout,
       localProperties.get)
-    logInfo(
-      "Job finished: " + callSite.shortForm + ", took " + (System.nanoTime - start) / 1e9 + " s")
+    safeLogInfo(
+      "Job finished",
+      UnsafeArg.of("callSite", callSite.shortForm),
+      SafeArg.of("durationInSeconds", (System.nanoTime - start) / 1e9))
     result
   }
 
@@ -2383,9 +2396,10 @@ class SparkContext(config: SparkConf) extends Logging {
     // its own local file system, which is incorrect because the checkpoint files
     // are actually on the executor machines.
     if (!isLocal && Utils.nonLocalPaths(directory).isEmpty) {
-      logWarning("Spark is not running in local mode, therefore the checkpoint directory " +
-        s"must not be on the local filesystem. Directory '$directory' " +
-        "appears to be on the local filesystem.")
+      safeLogWarning("Spark is not running in local mode, therefore the checkpoint directory " +
+        "must not be on the local filesystem. Directory " +
+        "appears to be on the local filesystem.",
+        UnsafeArg.of("directory", directory))
     }
 
     checkpointDir = Option(directory).map { dir =>
@@ -2431,7 +2445,8 @@ class SparkContext(config: SparkConf) extends Logging {
         val listeners = Utils.loadExtensions(classOf[SparkListenerInterface], classNames, conf)
         listeners.foreach { listener =>
           listenerBus.addToSharedQueue(listener)
-          logInfo(s"Registered listener ${listener.getClass().getName()}")
+          safeLogInfo("Registered listener",
+            SafeArg.of("ListenerName", listener.getClass().getName()))
         }
       }
     } catch {
@@ -2491,7 +2506,7 @@ class SparkContext(config: SparkConf) extends Logging {
  * The SparkContext object contains a number of implicit conversions and parameters for use with
  * various Spark features.
  */
-object SparkContext extends Logging {
+object SparkContext extends SafeLogging {
   private val VALID_LOG_LEVELS =
     Set("ALL", "DEBUG", "ERROR", "FATAL", "INFO", "OFF", "TRACE", "WARN")
 
@@ -2534,7 +2549,7 @@ object SparkContext extends Logging {
             s"The currently running SparkContext was created at:\n${ctx.creationSite.longForm}"
           val exception = new SparkException(errMsg)
           if (allowMultipleContexts) {
-            logWarning("Multiple running SparkContexts detected in the same JVM!", exception)
+            safeLogWarning("Multiple running SparkContexts detected in the same JVM!", exception)
           } else {
             throw exception
           }
@@ -2545,11 +2560,10 @@ object SparkContext extends Logging {
         // its creationSite field being null:
         val otherContextCreationSite =
           Option(otherContext.creationSite).map(_.longForm).getOrElse("unknown location")
-        val warnMsg = "Another SparkContext is being constructed (or threw an exception in its" +
+        safeLogWarning("Another SparkContext is being constructed (or threw an exception in its" +
           " constructor).  This may indicate an error, since only one SparkContext may be" +
-          " running in this JVM (see SPARK-2243)." +
-          s" The other SparkContext was created at:\n$otherContextCreationSite"
-        logWarning(warnMsg)
+          " running in this JVM (see SPARK-2243).",
+          UnsafeArg.of("otherContextCreationSite", otherContextCreationSite))
       }
     }
   }
@@ -2572,7 +2586,7 @@ object SparkContext extends Logging {
         setActiveContext(new SparkContext(config), allowMultipleContexts = false)
       } else {
         if (config.getAll.nonEmpty) {
-          logWarning("Using an existing SparkContext; some configuration may not take effect.")
+          safeLogWarning("Using an existing SparkContext; some configuration may not take effect.")
         }
       }
       activeContext.get()
