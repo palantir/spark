@@ -54,15 +54,28 @@ object CondaRunner {
       val condaBootstrapDeps = sparkConf.get(CONDA_BOOTSTRAP_PACKAGES)
       val condaChannelUrls = sparkConf.get(CONDA_CHANNEL_URLS)
       val condaExtraArgs = sparkConf.get(CONDA_EXTRA_ARGUMENTS)
+      val condaEnvVariables = extractEnvVariables(sparkConf)
       val condaBaseDir = Utils.createTempDir(Utils.getLocalDir(sparkConf), "conda").getAbsolutePath
       val condaEnvironmentManager = CondaEnvironmentManager.fromConf(sparkConf)
       val environment = condaEnvironmentManager
-                        .create(condaBaseDir, condaBootstrapDeps, condaChannelUrls, condaExtraArgs)
+        .create(condaBaseDir, condaBootstrapDeps, condaChannelUrls, condaExtraArgs, condaEnvVariables)
       setCondaEnvironment(environment)
       Some(environment)
     } else {
       None
     }
+  }
+
+  def extractEnvVariables(sparkConf: SparkConf): Map[String, String] = {
+    sparkConf.get(CONDA_ENVIRONMENT_VARIABLES)
+      .split(",")
+      .map(_.trim)
+      .filter(_.nonEmpty)
+      .map(_.split("=", 2) match {
+        case Array(key, value) => (key, value)
+        case other => throw new IllegalArgumentException(
+          s"Environment variables should be of the form 'key=value, found '${other.mkString(",")}'")
+      }).toMap
   }
 
   /**

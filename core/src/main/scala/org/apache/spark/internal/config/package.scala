@@ -326,6 +326,11 @@ package object config {
     .toSequence
     .createWithDefault(Nil)
 
+  private[spark] val CONDA_ENVIRONMENT_VARIABLES = ConfigBuilder("spark.conda.envVars")
+    .doc("Environment variables to use while running conda")
+    .stringConf
+    .createWithDefault("")
+
   // To limit how many applications are shown in the History Server summary ui
   private[spark] val HISTORY_UI_MAX_APPS =
     ConfigBuilder("spark.history.ui.maxApplications").intConf.createWithDefault(Integer.MAX_VALUE)
