@@ -1793,10 +1793,22 @@ class SQLTests(ReusedSQLTestCase):
         self.assertRaises(TypeError, lambda: struct1[9.9])
 
     def test_struct_type_to_internal(self):
-        struct1 = StructType().add("b", StringType(), True).add("a", StringType(), True)
-        row = Row(a="a", b="b")
+        # Verify when not needSerializeAnyField
+        struct1 = StructType().add("b", StringType()).add("a", StringType())
+        string_a = "value_a"
+        string_b = "value_b"
+        row = Row(a=string_a, b=string_b)
         tupleResult = struct1.toInternal(row)
-        self.assertEqual(tupleResult, ())
+        self.assertEqual(tupleResult, (string_b, string_a))
+
+        # Verify when needSerializeAnyField
+        struct1 = StructType().add("b", TimestampType()).add("a", TimestampType())
+        timestamp_a = datetime.datetime(2018, 1, 1, 1, 1, 1)
+        timestamp_b = datetime.datetime(2019, 1, 1, 1, 1, 1)
+        row = Row(a=timestamp_a, b=timestamp_b)
+        tupleResult = struct1.toInternal(row)
+        # THIS IS BROKEN, SHOULD BE (timestamp_b, timestamp_a)
+        self.assertEqual(tupleResult, (timestamp_a, timestamp_b))
 
     def test_parse_datatype_string(self):
         from pyspark.sql.types import _all_atomic_types, _parse_datatype_string
