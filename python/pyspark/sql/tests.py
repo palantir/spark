@@ -1803,8 +1803,8 @@ class SQLTests(ReusedSQLTestCase):
 
         # Verify when needSerializeAnyField
         struct1 = StructType().add("b", TimestampType()).add("a", TimestampType())
-        timestamp_a = datetime.datetime(2018, 1, 1, 1, 1, 1)
-        timestamp_b = datetime.datetime(2019, 1, 1, 1, 1, 1)
+        timestamp_a = time.time()
+        timestamp_b = time.time() + 1000000
         row = Row(a=timestamp_a, b=timestamp_b)
         tupleResult = struct1.toInternal(row)
         # THIS IS BROKEN, SHOULD BE (timestamp_b, timestamp_a)
