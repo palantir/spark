@@ -1813,9 +1813,8 @@ class SQLTests(ReusedSQLTestCase):
         new_timestamp_b = datetime.datetime.fromtimestamp(ts_b // 1000000).replace(microsecond=ts_b % 1000000)
         ts_a = tupleResult[1]
         new_timestamp_a = datetime.datetime.fromtimestamp(ts_a // 1000000).replace(microsecond=ts_a % 1000000)
-        # FIXME
-        self.assertEqual(timestamp_a, new_timestamp_b)
-        self.assertEqual(timestamp_b, new_timestamp_a)
+        self.assertEqual(timestamp_a, new_timestamp_a)
+        self.assertEqual(timestamp_b, new_timestamp_b)
 
     def test_parse_datatype_string(self):
         from pyspark.sql.types import _all_atomic_types, _parse_datatype_string
