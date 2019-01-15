@@ -1794,21 +1794,26 @@ class SQLTests(ReusedSQLTestCase):
 
     def test_struct_type_to_internal(self):
         # Verify when not needSerializeAnyField
-        struct1 = StructType().add("b", StringType()).add("a", StringType())
+        struct = StructType().add("b", StringType()).add("a", StringType())
         string_a = "value_a"
         string_b = "value_b"
         row = Row(a=string_a, b=string_b)
-        tupleResult = struct1.toInternal(row)
+        tupleResult = struct.toInternal(row)
+        # Reversed because of struct
         self.assertEqual(tupleResult, (string_b, string_a))
 
         # Verify when needSerializeAnyField
         struct1 = StructType().add("b", TimestampType()).add("a", TimestampType())
-        timestamp_a = time.time()
-        timestamp_b = time.time() + 1000000
+        timestamp_a = datetime.datetime(2018, 1, 1, 1, 1, 1)
+        timestamp_b = datetime.datetime(2019, 1, 1, 1, 1, 1)
         row = Row(a=timestamp_a, b=timestamp_b)
         tupleResult = struct1.toInternal(row)
-        # THIS IS BROKEN, SHOULD BE (timestamp_b, timestamp_a)
-        self.assertEqual(tupleResult, (timestamp_a, timestamp_b))
+        # Reversed because of struct
+        new_timestamp_b = datetime.datetime.fromtimestamp(tupleResult[0])
+        new_timestamp_a = datetime.datetime.fromtimestamp(tupleResult[1])
+        # FIXME
+        self.assertEqual(timestamp_a, new_timestamp_b)
+        self.assertEqual(timestamp_b, new_timestamp_a)
 
     def test_parse_datatype_string(self):
         from pyspark.sql.types import _all_atomic_types, _parse_datatype_string
