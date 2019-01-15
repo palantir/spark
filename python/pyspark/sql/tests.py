@@ -1792,6 +1792,12 @@ class SQLTests(ReusedSQLTestCase):
         self.assertRaises(IndexError, lambda: struct1[9])
         self.assertRaises(TypeError, lambda: struct1[9.9])
 
+    def test_struct_type_to_internal(self):
+        struct1 = StructType().add("b", StringType(), True).add("a", StringType(), True)
+        row = Row(a="a", b="b")
+        tupleResult = struct1.toInternal(row)
+        self.assertEqual(tupleResult, ())
+
     def test_parse_datatype_string(self):
         from pyspark.sql.types import _all_atomic_types, _parse_datatype_string
         for k, t in _all_atomic_types.items():
