@@ -1809,8 +1809,10 @@ class SQLTests(ReusedSQLTestCase):
         row = Row(a=timestamp_a, b=timestamp_b)
         tupleResult = struct1.toInternal(row)
         # Reversed because of struct
-        new_timestamp_b = datetime.datetime.fromtimestamp(tupleResult[0])
-        new_timestamp_a = datetime.datetime.fromtimestamp(tupleResult[1])
+        ts_b = tupleResult[0]
+        new_timestamp_b = datetime.datetime.fromtimestamp(ts_b // 1000000).replace(microsecond=ts_b % 1000000)
+        ts_a = tupleResult[1]
+        new_timestamp_a = datetime.datetime.fromtimestamp(ts_a // 1000000).replace(microsecond=ts_a % 1000000)
         # FIXME
         self.assertEqual(timestamp_a, new_timestamp_b)
         self.assertEqual(timestamp_b, new_timestamp_a)
