@@ -72,9 +72,9 @@ object CondaRunner {
   }
 
   /**
-    * Extracts environment variables specified in the form
-    * "spark.conda.env.[EnvironmentVariableName]" from the sparkConf.
-    */
+   * Extracts environment variables specified in the form
+   * "spark.conda.env.[EnvironmentVariableName]" from the sparkConf.
+   */
   def extractEnvVariables(sparkConf: SparkConf): Map[String, String] = {
     val condaEnvPrefix = "spark.conda.env."
     sparkConf.getAll
