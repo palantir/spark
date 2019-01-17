@@ -71,16 +71,16 @@ object CondaRunner {
     }
   }
 
+  /**
+    * Extracts environment variables specified in the form
+    * "spark.conda.env.[EnvironmentVariableName]" from the sparkConf.
+    */
   def extractEnvVariables(sparkConf: SparkConf): Map[String, String] = {
-    sparkConf.get(CONDA_ENVIRONMENT_VARIABLES)
-      .split(",")
-      .map(_.trim)
-      .filter(_.nonEmpty)
-      .map(_.split("=", 2) match {
-        case Array(key, value) => (key, value)
-        case other => throw new IllegalArgumentException(
-          s"Environment variables should be of the form 'key=value, found '${other.mkString(",")}'")
-      }).toMap
+    val condaEnvPrefix = "spark.conda.env."
+    sparkConf.getAll
+      .filter { case (k, v) => k.startsWith(condaEnvPrefix) }
+      .map { case (k, v) => (k.substring(condaEnvPrefix.length), v) }
+      .toMap
   }
 
   /**

@@ -31,7 +31,8 @@ public class CondaRunnerTest {
     @Test
     public void testReadingEnvVariables() throws IOException {
         SparkConf conf = new SparkConf();
-        conf.set("spark.conda.envVars", "key1=value1,key2=value2");
+        conf.set("spark.conda.env.key1", "value1");
+        conf.set("spark.conda.env.key2", "value2");
         Map.Map2 expected = new Map.Map2<>("key1", "value1", "key2", "value2");
         assertThat(CondaRunner.extractEnvVariables(conf), is(expected));
     }
