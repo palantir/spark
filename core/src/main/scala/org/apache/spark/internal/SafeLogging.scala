@@ -22,62 +22,62 @@ import org.slf4j.{Logger, LoggerFactory}
 
 trait SafeLogging {
   // Taken from Logging.scala
-  @transient private[this] var log_ : Logger = null
+  @transient private[this] var safeLog_ : Logger = null
 
   // Method to get the logger name for this object
-  protected def logName: String = {
+  protected def getLogName: String = {
     // Ignore trailing $'s in the class names for Scala objects
     this.getClass.getName.stripSuffix("$")
   }
 
   // Method to get or create the logger for this object
-  protected def log: Logger = {
-    if (log_ == null) {
-      log_ = LoggerFactory.getLogger(logName)
+  protected def safeLog: Logger = {
+    if (safeLog_ == null) {
+      safeLog_ = LoggerFactory.getLogger(getLogName)
     }
-    log_
+    safeLog_
   }
 
-  def safeLogIsInfoEnabled: Boolean = log.isInfoEnabled
+  def safeLogIsInfoEnabled: Boolean = safeLog.isInfoEnabled
 
   def safeLogInfo(message: String, args: Arg[_]*): Unit = {
-    if (log.isInfoEnabled) log.info(message, args: _*)
+    if (safeLog.isInfoEnabled) safeLog.info(message, args: _*)
   }
 
   def safeLogInfo(message: String, error: Throwable, args: Arg[_]*): Unit = {
-    if (log.isInfoEnabled) log.info(message, args :+ error: _*)
+    if (safeLog.isInfoEnabled) safeLog.info(message, args :+ error: _*)
   }
 
   def safeLogDebug(message: String, args: Arg[_]*): Unit = {
-    if (log.isDebugEnabled) log.debug(message, args: _*)
+    if (safeLog.isDebugEnabled) safeLog.debug(message, args: _*)
   }
 
   def safeLogDebug(message: String, error: Throwable, args: Arg[_]*): Unit = {
-    if (log.isDebugEnabled) log.debug(message, args :+ error: _*)
+    if (safeLog.isDebugEnabled) safeLog.debug(message, args :+ error: _*)
   }
 
   def safeLogTrace(message: String, args: Arg[_]*): Unit = {
-    if (log.isTraceEnabled) log.trace(message, args: _*)
+    if (safeLog.isTraceEnabled) safeLog.trace(message, args: _*)
   }
 
   def safeLogTrace(message: String, error: Throwable, args: Arg[_]*): Unit = {
-    if (log.isTraceEnabled) log.trace(message, args :+ error: _*)
+    if (safeLog.isTraceEnabled) safeLog.trace(message, args :+ error: _*)
   }
 
   def safeLogWarning(message: String, args: Arg[_]*): Unit = {
-    if (log.isWarnEnabled) log.warn(message, args: _*)
+    if (safeLog.isWarnEnabled) safeLog.warn(message, args: _*)
   }
 
   def safeLogWarning(message: String, error: Throwable, args: Arg[_]*): Unit = {
-    if (log.isWarnEnabled) log.warn(message, args :+ error: _*)
+    if (safeLog.isWarnEnabled) safeLog.warn(message, args :+ error: _*)
   }
 
   def safeLogError(message: String, args: Arg[_]*): Unit = {
-    if (log.isErrorEnabled) log.error(message, args: _*)
+    if (safeLog.isErrorEnabled) safeLog.error(message, args: _*)
   }
 
   def safeLogError(message: String, error: Throwable, args: Arg[_]*): Unit = {
-    if (log.isErrorEnabled) log.error(message, args :+ error: _*)
+    if (safeLog.isErrorEnabled) safeLog.error(message, args :+ error: _*)
   }
 }
 
