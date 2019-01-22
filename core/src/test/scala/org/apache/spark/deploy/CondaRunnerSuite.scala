@@ -14,26 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.deploy;
 
+package org.apache.spark.deploy
 
-import org.apache.spark.SparkConf;
-import org.junit.Test;
-import scala.collection.immutable.Map;
+import org.apache.spark.{SparkConf, SparkFunSuite}
 
-import java.io.IOException;
+class CondaRunnerSuite extends SparkFunSuite {
 
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
+  test("correctly reads conda env vars") {
+    val conf = new SparkConf
+    conf.set("spark.conda.env.key1", "value1")
+    conf.set("spark.conda.env.key2", "value2")
+    val expected = Map("key1" -> "value1", "key2" -> "value2")
+    assert(CondaRunner.extractEnvVariables(conf).equals(expected))
+  }
 
-public class CondaRunnerTest {
-
-    @Test
-    public void testReadingEnvVariables() throws IOException {
-        SparkConf conf = new SparkConf();
-        conf.set("spark.conda.env.key1", "value1");
-        conf.set("spark.conda.env.key2", "value2");
-        Map.Map2 expected = new Map.Map2<>("key1", "value1", "key2", "value2");
-        assertThat(CondaRunner.extractEnvVariables(conf), is(expected));
-    }
 }
