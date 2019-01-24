@@ -26,7 +26,7 @@ class CondaRunnerSuite extends SparkFunSuite {
     conf.set("spark.conda.env.key1", "value1")
     conf.set("spark.conda.env.key2", "value2")
     val expected = Map("key1" -> "value1", "key2" -> "value2")
-    assert(CondaRunner.extractEnvVariables(conf).equals(expected))
+    assert(CondaRunner.extractEnvVariables(conf) == expected)
   }
 
 }
