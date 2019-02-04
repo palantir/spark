@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.JavaConverters._
 
+import com.palantir.logsafe.UnsafeArg
 import org.apache.log4j._
 import org.slf4j.{Logger, LoggerFactory}
 import org.slf4j.impl.StaticLoggerBinder
@@ -59,40 +60,40 @@ trait Logging {
   }
 
   protected def logDebug(msg: => String) {
-    if (log.isDebugEnabled) log.debug(msg)
+    if (log.isDebugEnabled) log.debug("", UnsafeArg.of("msg", msg))
   }
 
   protected def logTrace(msg: => String) {
-    if (log.isTraceEnabled) log.trace(msg)
+    if (log.isTraceEnabled) log.trace("", UnsafeArg.of("msg", msg))
   }
 
   protected def logWarning(msg: => String) {
-    if (log.isWarnEnabled) log.warn(msg)
+    if (log.isWarnEnabled) log.warn("", UnsafeArg.of("msg", msg))
   }
 
   protected def logError(msg: => String) {
-    if (log.isErrorEnabled) log.error(msg)
+    if (log.isErrorEnabled) log.error("", UnsafeArg.of("msg", msg))
   }
 
   // Log methods that take Throwables (Exceptions/Errors) too
   protected def logInfo(msg: => String, throwable: Throwable) {
-    if (log.isInfoEnabled) log.info(msg, throwable)
+    if (log.isInfoEnabled) log.info("", UnsafeArg.of("msg", msg), throwable)
   }
 
   protected def logDebug(msg: => String, throwable: Throwable) {
-    if (log.isDebugEnabled) log.debug(msg, throwable)
+    if (log.isDebugEnabled) log.debug("", UnsafeArg.of("msg", msg), throwable)
   }
 
   protected def logTrace(msg: => String, throwable: Throwable) {
-    if (log.isTraceEnabled) log.trace(msg, throwable)
+    if (log.isTraceEnabled) log.trace("", UnsafeArg.of("msg", msg), throwable)
   }
 
   protected def logWarning(msg: => String, throwable: Throwable) {
-    if (log.isWarnEnabled) log.warn(msg, throwable)
+    if (log.isWarnEnabled) log.warn("", UnsafeArg.of("msg", msg), throwable)
   }
 
   protected def logError(msg: => String, throwable: Throwable) {
-    if (log.isErrorEnabled) log.error(msg, throwable)
+    if (log.isErrorEnabled) log.error("", UnsafeArg.of("msg", msg), throwable)
   }
 
   protected def isTraceEnabled(): Boolean = {
