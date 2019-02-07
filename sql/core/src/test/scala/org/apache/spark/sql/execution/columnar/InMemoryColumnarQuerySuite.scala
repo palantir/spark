@@ -114,7 +114,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
   }
 
   test("non-primitive type with nullability:false") {
-      tesNonPrimitiveType(false)
+    tesNonPrimitiveType(false)
   }
 
   test("simple columnar query") {
@@ -240,7 +240,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
     val struct =
       StructType(
         StructField("f1", FloatType, true) ::
-        StructField("f2", ArrayType(BooleanType), true) :: Nil)
+          StructField("f2", ArrayType(BooleanType), true) :: Nil)
     val dataTypes =
       Seq(StringType, BinaryType, NullType, BooleanType,
         ByteType, ShortType, IntegerType, LongType,
@@ -463,39 +463,36 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
     assert(tableScanExec.partitionFilters.isEmpty)
   }
 
-  testWithWholeStageCodegenOnAndOff("SPARK-22348: table cache " +
-    "should do partition batch pruning") { codegenEnabled =>
-    val df1 = Seq((1, 1), (1, 1), (2, 2)).toDF("x", "y")
-    df1.unpersist()
-    df1.cache()
+  test("SPARK-22348: table cache should do partition batch pruning") {
+    Seq("true", "false").foreach { enabled =>
+      withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> enabled) {
+        val df1 = Seq((1, 1), (1, 1), (2, 2)).toDF("x", "y")
+        df1.unpersist()
+        df1.cache()
 
-    // Push predicate to the cached table.
-    val df2 = df1.where("y = 3")
+        // Push predicate to the cached table.
+        val df2 = df1.where("y = 3")
 
-    val planBeforeFilter = df2.queryExecution.executedPlan.collect {
-      case f: FilterExec => f.child
+        val planBeforeFilter = df2.queryExecution.executedPlan.collect {
+          case f: FilterExec => f.child
+        }
+        assert(planBeforeFilter.head.isInstanceOf[InMemoryTableScanExec])
+
+        val execPlan = if (enabled == "true") {
+          WholeStageCodegenExec(planBeforeFilter.head)(codegenStageId = 0)
+        } else {
+          planBeforeFilter.head
+        }
+        assert(execPlan.executeCollectPublic().length == 0)
+      }
     }
-    assert(planBeforeFilter.head.isInstanceOf[InMemoryTableScanExec])
-
-    val execPlan = if (codegenEnabled == "true") {
-      WholeStageCodegenExec(planBeforeFilter.head)(codegenStageId = 0)
-    } else {
-      planBeforeFilter.head
-    }
-    assert(execPlan.executeCollectPublic().length == 0)
-  }
-
-  test("SPARK-25727 - otherCopyArgs in InMemoryRelation does not include outputOrdering") {
-    val data = Seq(100).toDF("count").cache()
-    val json = data.queryExecution.optimizedPlan.toJSON
-    assert(json.contains("outputOrdering") && json.contains("statsOfPlanToCache"))
   }
 
   test("SPARK-22673: InMemoryRelation should utilize existing stats of the plan to be cached") {
     // This test case depends on the size of parquet in statistics.
     withSQLConf(
-        SQLConf.CBO_ENABLED.key -> "true",
-        SQLConf.DEFAULT_DATA_SOURCE_NAME.key -> "parquet") {
+      SQLConf.CBO_ENABLED.key -> "true",
+      SQLConf.DEFAULT_DATA_SOURCE_NAME.key -> "parquet") {
       withTempPath { workDir =>
         withTable("table1") {
           val workDirPath = workDir.getAbsolutePath
@@ -506,7 +503,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
             case plan: InMemoryRelation => plan
           }.head
           // InMemoryRelation's stats is file size before the underlying RDD is materialized
-          assert(inMemoryRelation.computeStats().sizeInBytes === 916)
+          assert(inMemoryRelation.computeStats().sizeInBytes === 848)
 
           // InMemoryRelation's stats is updated after materializing RDD
           dfFromFile.collect()
@@ -519,7 +516,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
 
           // Even CBO enabled, InMemoryRelation's stats keeps as the file size before table's stats
           // is calculated
-          assert(inMemoryRelation2.computeStats().sizeInBytes === 916)
+          assert(inMemoryRelation2.computeStats().sizeInBytes === 848)
 
           // InMemoryRelation's stats should be updated after calculating stats of the table
           // clear cache to simulate a fresh environment
