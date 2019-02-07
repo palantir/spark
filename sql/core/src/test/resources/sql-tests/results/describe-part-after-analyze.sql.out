@@ -93,9 +93,9 @@ Partition Values    	[ds=2017-08-01, hr=10]
 Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=10	                    
 Created Time [not included in comparison]
 Last Access [not included in comparison]
-Partition Statistics	1264 bytes, 3 rows
-
-# Storage Information
+Partition Statistics	1195 bytes, 3 rows  	                    
+                    	                    	                    
+# Storage Information	                    	                    
 Location [not included in comparison]sql/core/spark-warehouse/t
 
 
@@ -112,25 +112,25 @@ DESC EXTENDED t PARTITION (ds='2017-08-01', hr=10)
 -- !query 8 schema
 struct<col_name:string,data_type:string,comment:string>
 -- !query 8 output
-key                 	string
-value               	string
-ds                  	string
-hr                  	int
-# Partition Information
-# col_name          	data_type           	comment
-ds                  	string
-hr                  	int
-
-# Detailed Partition Information
-Database            	default
-Table               	t
-Partition Values    	[ds=2017-08-01, hr=10]
-Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=10
+key                 	string              	                    
+value               	string              	                    
+ds                  	string              	                    
+hr                  	int                 	                    
+# Partition Information	                    	                    
+# col_name          	data_type           	comment             
+ds                  	string              	                    
+hr                  	int                 	                    
+                    	                    	                    
+# Detailed Partition Information	                    	                    
+Database            	default             	                    
+Table               	t                   	                    
+Partition Values    	[ds=2017-08-01, hr=10]	                    
+Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=10	                    
 Created Time [not included in comparison]
 Last Access [not included in comparison]
-Partition Statistics	1264 bytes, 3 rows
-
-# Storage Information
+Partition Statistics	1195 bytes, 3 rows  	                    
+                    	                    	                    
+# Storage Information	                    	                    
 Location [not included in comparison]sql/core/spark-warehouse/t
 
 
@@ -139,25 +139,25 @@ DESC EXTENDED t PARTITION (ds='2017-08-01', hr=11)
 -- !query 9 schema
 struct<col_name:string,data_type:string,comment:string>
 -- !query 9 output
-key                 	string
-value               	string
-ds                  	string
-hr                  	int
-# Partition Information
-# col_name          	data_type           	comment
-ds                  	string
-hr                  	int
-
-# Detailed Partition Information
-Database            	default
-Table               	t
-Partition Values    	[ds=2017-08-01, hr=11]
-Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=11
+key                 	string              	                    
+value               	string              	                    
+ds                  	string              	                    
+hr                  	int                 	                    
+# Partition Information	                    	                    
+# col_name          	data_type           	comment             
+ds                  	string              	                    
+hr                  	int                 	                    
+                    	                    	                    
+# Detailed Partition Information	                    	                    
+Database            	default             	                    
+Table               	t                   	                    
+Partition Values    	[ds=2017-08-01, hr=11]	                    
+Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=11	                    
 Created Time [not included in comparison]
 Last Access [not included in comparison]
-Partition Statistics	1278 bytes, 4 rows
-
-# Storage Information
+Partition Statistics	1208 bytes, 4 rows  	                    
+                    	                    	                    
+# Storage Information	                    	                    
 Location [not included in comparison]sql/core/spark-warehouse/t
 
 
@@ -174,25 +174,25 @@ DESC EXTENDED t PARTITION (ds='2017-08-01', hr=10)
 -- !query 11 schema
 struct<col_name:string,data_type:string,comment:string>
 -- !query 11 output
-key                 	string
-value               	string
-ds                  	string
-hr                  	int
-# Partition Information
-# col_name          	data_type           	comment
-ds                  	string
-hr                  	int
-
-# Detailed Partition Information
-Database            	default
-Table               	t
-Partition Values    	[ds=2017-08-01, hr=10]
-Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=10
+key                 	string              	                    
+value               	string              	                    
+ds                  	string              	                    
+hr                  	int                 	                    
+# Partition Information	                    	                    
+# col_name          	data_type           	comment             
+ds                  	string              	                    
+hr                  	int                 	                    
+                    	                    	                    
+# Detailed Partition Information	                    	                    
+Database            	default             	                    
+Table               	t                   	                    
+Partition Values    	[ds=2017-08-01, hr=10]	                    
+Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=10	                    
 Created Time [not included in comparison]
 Last Access [not included in comparison]
-Partition Statistics	1264 bytes, 3 rows
-
-# Storage Information
+Partition Statistics	1195 bytes, 3 rows  	                    
+                    	                    	                    
+# Storage Information	                    	                    
 Location [not included in comparison]sql/core/spark-warehouse/t
 
 
@@ -201,25 +201,25 @@ DESC EXTENDED t PARTITION (ds='2017-08-01', hr=11)
 -- !query 12 schema
 struct<col_name:string,data_type:string,comment:string>
 -- !query 12 output
-key                 	string
-value               	string
-ds                  	string
-hr                  	int
-# Partition Information
-# col_name          	data_type           	comment
-ds                  	string
-hr                  	int
-
-# Detailed Partition Information
-Database            	default
-Table               	t
-Partition Values    	[ds=2017-08-01, hr=11]
-Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=11
+key                 	string              	                    
+value               	string              	                    
+ds                  	string              	                    
+hr                  	int                 	                    
+# Partition Information	                    	                    
+# col_name          	data_type           	comment             
+ds                  	string              	                    
+hr                  	int                 	                    
+                    	                    	                    
+# Detailed Partition Information	                    	                    
+Database            	default             	                    
+Table               	t                   	                    
+Partition Values    	[ds=2017-08-01, hr=11]	                    
+Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-08-01/hr=11	                    
 Created Time [not included in comparison]
 Last Access [not included in comparison]
-Partition Statistics	1278 bytes, 4 rows
-
-# Storage Information
+Partition Statistics	1208 bytes, 4 rows  	                    
+                    	                    	                    
+# Storage Information	                    	                    
 Location [not included in comparison]sql/core/spark-warehouse/t
 
 
@@ -228,25 +228,25 @@ DESC EXTENDED t PARTITION (ds='2017-09-01', hr=5)
 -- !query 13 schema
 struct<col_name:string,data_type:string,comment:string>
 -- !query 13 output
-key                 	string
-value               	string
-ds                  	string
-hr                  	int
-# Partition Information
-# col_name          	data_type           	comment
-ds                  	string
-hr                  	int
-
-# Detailed Partition Information
-Database            	default
-Table               	t
-Partition Values    	[ds=2017-09-01, hr=5]
-Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-09-01/hr=5
+key                 	string              	                    
+value               	string              	                    
+ds                  	string              	                    
+hr                  	int                 	                    
+# Partition Information	                    	                    
+# col_name          	data_type           	comment             
+ds                  	string              	                    
+hr                  	int                 	                    
+                    	                    	                    
+# Detailed Partition Information	                    	                    
+Database            	default             	                    
+Table               	t                   	                    
+Partition Values    	[ds=2017-09-01, hr=5]	                    
+Location [not included in comparison]sql/core/spark-warehouse/t/ds=2017-09-01/hr=5	                    
 Created Time [not included in comparison]
 Last Access [not included in comparison]
-Partition Statistics	1250 bytes, 2 rows
-
-# Storage Information
+Partition Statistics	1182 bytes, 2 rows  	                    
+                    	                    	                    
+# Storage Information	                    	                    
 Location [not included in comparison]sql/core/spark-warehouse/t
 
 
@@ -255,3 +255,4 @@ DROP TABLE t
 -- !query 14 schema
 struct<>
 -- !query 14 output
+

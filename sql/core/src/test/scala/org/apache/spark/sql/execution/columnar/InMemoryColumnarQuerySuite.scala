@@ -114,7 +114,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
   }
 
   test("non-primitive type with nullability:false") {
-    tesNonPrimitiveType(false)
+      tesNonPrimitiveType(false)
   }
 
   test("simple columnar query") {
@@ -240,7 +240,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
     val struct =
       StructType(
         StructField("f1", FloatType, true) ::
-          StructField("f2", ArrayType(BooleanType), true) :: Nil)
+        StructField("f2", ArrayType(BooleanType), true) :: Nil)
     val dataTypes =
       Seq(StringType, BinaryType, NullType, BooleanType,
         ByteType, ShortType, IntegerType, LongType,
@@ -491,8 +491,8 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
   test("SPARK-22673: InMemoryRelation should utilize existing stats of the plan to be cached") {
     // This test case depends on the size of parquet in statistics.
     withSQLConf(
-      SQLConf.CBO_ENABLED.key -> "true",
-      SQLConf.DEFAULT_DATA_SOURCE_NAME.key -> "parquet") {
+        SQLConf.CBO_ENABLED.key -> "true",
+        SQLConf.DEFAULT_DATA_SOURCE_NAME.key -> "parquet") {
       withTempPath { workDir =>
         withTable("table1") {
           val workDirPath = workDir.getAbsolutePath
@@ -503,7 +503,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
             case plan: InMemoryRelation => plan
           }.head
           // InMemoryRelation's stats is file size before the underlying RDD is materialized
-          assert(inMemoryRelation.computeStats().sizeInBytes === 848)
+          assert(inMemoryRelation.computeStats().sizeInBytes === 822)
 
           // InMemoryRelation's stats is updated after materializing RDD
           dfFromFile.collect()
@@ -516,7 +516,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSQLContext {
 
           // Even CBO enabled, InMemoryRelation's stats keeps as the file size before table's stats
           // is calculated
-          assert(inMemoryRelation2.computeStats().sizeInBytes === 848)
+          assert(inMemoryRelation2.computeStats().sizeInBytes === 822)
 
           // InMemoryRelation's stats should be updated after calculating stats of the table
           // clear cache to simulate a fresh environment
