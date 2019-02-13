@@ -159,25 +159,14 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-azure-datalake</artifactId>
+        <scope>${hadoop.deps.scope}</scope>
+    </dependency>
   </dependencies>
 
   <profiles>
-    <profile>
-        <id>hadoop-palantir</id>
-        <dependencies>
-            <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-azure-datalake</artifactId>
-                <scope>${hadoop.deps.scope}</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-azure</artifactId>
-                <scope>${hadoop.deps.scope}</scope>
-            </dependency>
-        </dependencies>
-    </profile>
-
     <!--
      Hadoop 3 simplifies the classpath, and adds a new committer base class which
      enables store-specific committers.

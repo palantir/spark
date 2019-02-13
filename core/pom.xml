@@ -415,13 +415,11 @@
       <artifactId>libfb303</artifactId>
       <scope>provided</scope>
     </dependency>
-
     <dependency>
       <groupId>com.palantir.safe-logging</groupId>
       <artifactId>safe-logging</artifactId>
       <version>1.5.1</version>
     </dependency>
-
   </dependencies>
   <build>
     <outputDirectory>target/scala-${scala.binary.version}/classes</outputDirectory>
@@ -487,6 +485,7 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
 

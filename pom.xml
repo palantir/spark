@@ -105,8 +105,14 @@
     <module>external/kafka-0-10-assembly</module>
     <module>external/kafka-0-10-sql</module>
     <module>external/avro</module>
+    <module>external/kinesis-asl</module>
+    <module>external/kinesis-asl-assembly</module>
     <module>dists/hadoop-palantir-bom</module>
     <module>dists/hadoop-palantir</module>
+    <module>resource-managers/yarn</module>
+    <module>common/network-yarn</module>
+    <module>resource-managers/kubernetes/core</module>
+    <module>hadoop-cloud</module>
     <!-- See additional modules enabled by profiles below -->
   </modules>
 
@@ -120,7 +126,7 @@
     <sbt.project.name>spark</sbt.project.name>
     <slf4j.version>1.7.25</slf4j.version>
     <log4j.version>1.2.17</log4j.version>
-    <hadoop.version>2.7.4</hadoop.version>
+    <hadoop.version>2.9.1-palantir.11</hadoop.version>
     <protobuf.version>2.5.0</protobuf.version>
     <yarn.version>${hadoop.version}</yarn.version>
     <zookeeper.version>3.4.7</zookeeper.version>
@@ -1140,6 +1146,18 @@
             <artifactId>*</artifactId>
           </exclusion>
         </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-azure-datalake</artifactId>
+        <version>${hadoop.version}</version>
+        <scope>${hadoop.deps.scope}</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-azure</artifactId>
+        <version>${hadoop.version}</version>
+        <scope>${hadoop.deps.scope}</scope>
       </dependency>
       <dependency>
         <groupId>org.apache.avro</groupId>
@@ -2950,48 +2968,6 @@
     <profile>
       <id>hadoop-2.7</id>
       <!-- Default hadoop profile. Uses global properties. -->
-    </profile>
-
-    <profile>
-      <id>hadoop-palantir</id>
-      <properties>
-        <hadoop.version>2.9.1-palantir.11</hadoop.version>
-        <curator.version>2.7.1</curator.version>
-      </properties>
-      <dependencyManagement>
-        <dependencies>
-          <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-azure-datalake</artifactId>
-            <version>${hadoop.version}</version>
-            <scope>${hadoop.deps.scope}</scope>
-          </dependency>
-          <!--
-          Hadoop-Azure isn't in Hadoop 2.6, so this has to be made
-          a 2.7+ moodule.
-          -->
-          <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-azure</artifactId>
-            <version>${hadoop.version}</version>
-            <scope>${hadoop.deps.scope}</scope>
-            <exclusions>
-              <exclusion>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-common</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>org.codehaus.jackson</groupId>
-                <artifactId>jackson-mapper-asl</artifactId>
-              </exclusion>
-              <exclusion>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-core</artifactId>
-              </exclusion>
-            </exclusions>
-          </dependency>
-        </dependencies>
-      </dependencyManagement>
     </profile>
 
     <profile>

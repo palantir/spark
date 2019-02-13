@@ -21,11 +21,7 @@
 # with failure (either resolution or compilation); the "q" makes SBT quit.
 ERRORS=$(echo -e "q\n" \
     | build/sbt \
-        -Phadoop-palantir \
-        -Pkinesis-asl \
         -Pmesos \
-        -Pkubernetes \
-        -Pyarn \
         -Phive \
         -Phive-thriftserver \
         checkstyle test:checkstyle \
