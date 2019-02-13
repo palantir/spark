@@ -2971,6 +2971,10 @@
     </profile>
 
     <profile>
+      <id>hadoop-palantir</id>
+    </profile>
+
+    <profile>
       <id>hadoop-3.1</id>
       <properties>
         <hadoop.version>3.1.0</hadoop.version>
