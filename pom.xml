@@ -82,37 +82,37 @@
   </mailingLists>
 
   <modules>
-    <module>common/sketch</module>
+    <module>assembly</module>
     <module>common/kvstore</module>
     <module>common/network-common</module>
     <module>common/network-shuffle</module>
-    <module>common/unsafe</module>
+    <module>common/network-yarn</module>
+    <module>common/sketch</module>
     <module>common/tags</module>
+    <module>common/unsafe</module>
     <module>core</module>
+    <module>dists/hadoop-palantir-bom</module>
+    <module>dists/hadoop-palantir</module>
+    <module>examples</module>
+    <module>external/avro</module>
+    <module>external/kafka-0-10-assembly</module>
+    <module>external/kafka-0-10-sql</module>
+    <module>external/kafka-0-10</module>
+    <module>external/kinesis-asl-assembly</module>
+    <module>external/kinesis-asl</module>
     <module>graphx</module>
-    <module>mllib</module>
+    <module>hadoop-cloud</module>
+    <module>launcher</module>
     <module>mllib-local</module>
-    <module>tools</module>
-    <module>streaming</module>
+    <module>mllib</module>
+    <module>repl</module>
+    <module>resource-managers/kubernetes/core</module>
+    <module>resource-managers/yarn</module>
     <module>sql/catalyst</module>
     <module>sql/core</module>
     <module>sql/hive</module>
-    <module>assembly</module>
-    <module>examples</module>
-    <module>repl</module>
-    <module>launcher</module>
-    <module>external/kafka-0-10</module>
-    <module>external/kafka-0-10-assembly</module>
-    <module>external/kafka-0-10-sql</module>
-    <module>external/avro</module>
-    <module>external/kinesis-asl</module>
-    <module>external/kinesis-asl-assembly</module>
-    <module>dists/hadoop-palantir-bom</module>
-    <module>dists/hadoop-palantir</module>
-    <module>resource-managers/yarn</module>
-    <module>common/network-yarn</module>
-    <module>resource-managers/kubernetes/core</module>
-    <module>hadoop-cloud</module>
+    <module>streaming</module>
+    <module>tools</module>
     <!-- See additional modules enabled by profiles below -->
   </modules>
 
