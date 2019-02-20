@@ -17,7 +17,7 @@
 
 package org.apache.spark.api.r
 
-import java.io.{DataInputStream, File}
+import java.io.{DataInputStream, File, OutputStream}
 import java.net.Socket
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.{Map => JMap}
@@ -113,7 +113,7 @@ private class StringRRDD[T: ClassTag](
   lazy val asJavaRDD : JavaRDD[String] = JavaRDD.fromRDD(this)
 }
 
-private[r] object RRDD {
+private[spark] object RRDD {
   def createSparkContext(
       master: String,
       appName: String,
@@ -173,6 +173,11 @@ private[r] object RRDD {
   def createRDDFromFile(jsc: JavaSparkContext, fileName: String, parallelism: Int):
   JavaRDD[Array[Byte]] = {
     PythonRDD.readRDDFromFile(jsc, fileName, parallelism)
+  }
+
+  private[spark] def serveToStream(
+      threadName: String)(writeFunc: OutputStream => Unit): Array[Any] = {
+    PythonRDD.serveToStream(threadName, new RSocketAuthHelper())(writeFunc)
   }
 }
 
