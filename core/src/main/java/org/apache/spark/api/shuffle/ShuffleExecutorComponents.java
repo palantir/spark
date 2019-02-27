@@ -19,7 +19,7 @@ package org.apache.spark.api.shuffle;
 
 public interface ShuffleExecutorComponents {
 
-  void intitializeExecutor(String appId, String execId);
+    void intitializeExecutor(String appId, String execId);
 
-  ShuffleWriteSupport writes();
+    ShuffleWriteSupport writes();
 }
