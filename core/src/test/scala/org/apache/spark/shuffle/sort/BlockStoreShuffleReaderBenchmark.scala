@@ -277,6 +277,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     val size = TEST_DATA_SIZE
     val tempDataFile: File = File.createTempFile("test-data", "", tempDir)
     val dataFileLength = generateDataOnDisk(size, tempDataFile)
+    initializeServers(tempDataFile, dataFileLength)
     val baseBenchmark =
       new Benchmark("no aggregation or sorting",
         size,
