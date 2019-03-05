@@ -37,7 +37,6 @@ function usage {
     exit 1
 }
 
-mv blah asdf
 UPLOAD=false
 while getopts "hu" opt; do
   case $opt in
