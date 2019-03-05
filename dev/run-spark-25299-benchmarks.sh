@@ -23,7 +23,7 @@
 # so it is completely self contained.
 # It does not contain source or *.class files.
 
-set -ou pipefail
+set -oue pipefail
 
 
 function usage {
@@ -37,6 +37,7 @@ function usage {
     exit 1
 }
 
+mv blah asdf
 UPLOAD=false
 while getopts "hu" opt; do
   case $opt in
