@@ -72,7 +72,6 @@ object BypassMergeSortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase 
 
     addBenchmarkCase(benchmark, "without transferTo") { timer =>
       val shuffleWriter = getWriter(false)
-      timer.startTiming()
       Utils.tryWithResource(DataIterator(inputFile = dataFile, DEFAULT_DATA_STRING_SIZE)) {
         iterator =>
           timer.startTiming()

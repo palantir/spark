@@ -30,6 +30,7 @@ spark-25299-branch-only: &spark-25299-branch-only
         - spark-25299
         - spark-25299-test-build
         - yh/add-benchmarks-and-ci
+        - yh/add-benchmarks-and-ci-two-writers
 
 deployable-branches-and-tags: &deployable-branches-and-tags
   filters:
