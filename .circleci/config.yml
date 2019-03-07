@@ -8,6 +8,11 @@ defaults: &defaults
     TERM: dumb
     BUILD_SBT_CACHE: "/home/circleci/build-sbt-cache"
 
+spark-25299-config: &spark-25299-config
+  machine: true
+  environment: &defaults-environment
+    TERM: dumb
+    BUILD_SBT_CACHE: "/home/circleci/build-sbt-cache"
 
 test-defaults: &test-defaults
   <<: *defaults
@@ -28,7 +33,6 @@ spark-25299-branch-only: &spark-25299-branch-only
     branches:
       only:
         - spark-25299
-        - spark-25299-test-build
         - yh/add-benchmarks-and-ci
         - yh/add-benchmarks-and-ci-reader
 
@@ -462,9 +466,7 @@ jobs:
           paths: ~/.m2
 
   run-spark-25299-benchmarks:
-    <<: *defaults
-    docker:
-      - image: palantirtechnologies/circle-spark-r:0.1.3
+    <<: *spark-25299-config
     steps:
       - *checkout-code
       - attach_workspace:
@@ -475,7 +477,7 @@ jobs:
       - *restore-build-binaries-cache
       - *restore-home-sbt-cache
       - run:
-          command: ./dev/run-spark-25299-benchmarks.sh
+          command: ./dev/run-spark-25299-benchmarks.sh -u
       - store_artifacts:
           path: /tmp/artifacts/
 
