@@ -477,7 +477,7 @@ jobs:
       - *restore-build-binaries-cache
       - *restore-home-sbt-cache
       - run:
-          command: ./dev/run-spark-25299-benchmarks.sh -u
+          command: ./dev/run-spark-25299-benchmarks.sh
       - store_artifacts:
           path: /tmp/artifacts/
 
