@@ -134,59 +134,26 @@ abstract class ShuffleWriterBenchmarkBase extends BenchmarkBase {
     filenameToFile.clear()
   }
 
-  protected class DataIterator private (
-      inputStream: BufferedInputStream,
-      buffer: Array[Byte])
-    extends Iterator[Product2[String, String]] with Closeable {
+  protected class DataIterator (size: Int, random: Random)
+    extends Iterator[Product2[String, String]] {
+    var count = 0
     override def hasNext: Boolean = {
-      inputStream.available() > 0
+      count < size
     }
 
     override def next(): Product2[String, String] = {
-      val read = inputStream.read(buffer)
-      assert(read == buffer.length)
-      val string = buffer.mkString
+      count+=1
+      val string = random.nextString(DEFAULT_DATA_STRING_SIZE)
       (string, string)
-    }
-
-    override def close(): Unit = inputStream.close()
-  }
-
-  protected object DataIterator {
-    def apply(inputFile: File, bufferSize: Int): DataIterator = {
-      val inputStream = new BufferedInputStream(
-        new FileInputStream(inputFile), DEFAULT_DATA_STRING_SIZE)
-      val buffer = new Array[Byte](DEFAULT_DATA_STRING_SIZE)
-      new DataIterator(inputStream, buffer)
     }
   }
 
   private val random = new Random(123)
 
-  def createDataInMemory(size: Int): Array[(String, String)] = {
-    (1 to size).map { i => {
-      val x = random.alphanumeric.take(DEFAULT_DATA_STRING_SIZE).mkString
-      Tuple2(x, x)
-    } }.toArray
-  }
 
-  def createDataOnDisk(size: Int): File = {
-    // scalastyle:off println
-    println("Generating test data with num records: " + size)
-    val tempDataFile = File.createTempFile("test-data", "")
-    Utils.tryWithResource(new FileOutputStream(tempDataFile)) {
-      dataOutput =>
-        (1 to size).foreach { i => {
-          if (i % 1000000 == 0) {
-            println("Wrote " + i + " test data points")
-          }
-          val x = random.alphanumeric.take(DEFAULT_DATA_STRING_SIZE).mkString
-          dataOutput.write(x.getBytes)
-        }}
-    }
-    // scalastyle:on println
-
-    tempDataFile
+  def createDataIterator(size: Int): DataIterator = {
+    random.setSeed(123)
+    new DataIterator(size, random)
   }
 
 }

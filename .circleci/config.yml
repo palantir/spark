@@ -9,7 +9,8 @@ defaults: &defaults
     BUILD_SBT_CACHE: "/home/circleci/build-sbt-cache"
 
 spark-25299-config: &spark-25299-config
-  machine: true
+  machine:
+    image: circleci/classic:201808-01
   environment: &defaults-environment
     TERM: dumb
     BUILD_SBT_CACHE: "/home/circleci/build-sbt-cache"
@@ -33,8 +34,6 @@ spark-25299-branch-only: &spark-25299-branch-only
     branches:
       only:
         - spark-25299
-        - yh/add-benchmarks-and-ci
-        - yh/add-benchmarks-and-ci-reader
 
 deployable-branches-and-tags: &deployable-branches-and-tags
   filters:
