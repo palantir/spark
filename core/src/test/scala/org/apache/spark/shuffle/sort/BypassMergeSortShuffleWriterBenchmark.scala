@@ -79,9 +79,13 @@ object BypassMergeSortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase 
     addBenchmarkCase(benchmark, "with transferTo") { timer =>
       val shuffleWriter = getWriter(true)
       val dataIterator = createDataIterator(size)
-      timer.startTiming()
-      shuffleWriter.write(dataIterator)
-      timer.stopTiming()
+      try {
+        timer.startTiming()
+        shuffleWriter.write(dataIterator)
+        timer.stopTiming()
+      } finally {
+        shuffleWriter.stop(true)
+      }
     }
     benchmark.run()
   }
@@ -95,9 +99,13 @@ object BypassMergeSortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase 
     addBenchmarkCase(benchmark, "small dataset without disk spill") { timer =>
       val shuffleWriter = getWriter(false)
       val dataIterator = createDataIterator(size)
-      timer.startTiming()
-      shuffleWriter.write(dataIterator)
-      timer.stopTiming()
+      try {
+        timer.startTiming()
+        shuffleWriter.write(dataIterator)
+        timer.stopTiming()
+      } finally {
+        shuffleWriter.stop(true)
+      }
     }
     benchmark.run()
   }

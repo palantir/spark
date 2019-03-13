@@ -98,6 +98,7 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       timer.startTiming()
       shuffleWriter.write(dataIterator)
       timer.stopTiming()
+      shuffleWriter.stop(true)
       assert(tempFilesCreated.isEmpty)
     }
     benchmark.run()
@@ -117,6 +118,7 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       timer.startTiming()
       shuffleWriter.write(dataIterator)
       timer.stopTiming()
+      shuffleWriter.stop(true)
       assert(tempFilesCreated.length == 7)
     }
 
@@ -132,6 +134,7 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       timer.startTiming()
       shuffleWriter.write(dataIterator)
       timer.stopTiming()
+      shuffleWriter.stop(true)
       assert(tempFilesCreated.length == 7)
     }
 
@@ -142,6 +145,7 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       timer.startTiming()
       shuffleWriter.write(dataIterator)
       timer.stopTiming()
+      shuffleWriter.stop(true)
       assert(tempFilesCreated.length == 7)
     }
     benchmark.run()

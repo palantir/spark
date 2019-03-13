@@ -65,10 +65,14 @@ object UnsafeShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
     addBenchmarkCase(benchmark, "small dataset without spills") { timer =>
       val writer = getWriter(false)
       val dataIterator = createDataIterator(size)
-      timer.startTiming()
-      writer.write(dataIterator)
-      timer.stopTiming()
-      assert(tempFilesCreated.length == 1) // The single temp file is for the temp index file
+      try {
+        timer.startTiming()
+        writer.write(dataIterator)
+        timer.stopTiming()
+        assert(tempFilesCreated.length == 1) // The single temp file is for the temp index file
+      } finally {
+        writer.stop(true)
+      }
     }
     benchmark.run()
   }
@@ -81,20 +85,28 @@ object UnsafeShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       output = output,
       outputPerIteration = true)
     addBenchmarkCase(benchmark, "without transferTo") { timer =>
-      val shuffleWriter = getWriter(false)
+      val writer = getWriter(false)
       val dataIterator = createDataIterator(size)
-      timer.startTiming()
-      shuffleWriter.write(dataIterator)
-      timer.stopTiming()
-      assert(tempFilesCreated.length == 8)
+      try {
+        timer.startTiming()
+        writer.write(dataIterator)
+        timer.stopTiming()
+        assert(tempFilesCreated.length == 7)
+      } finally {
+        writer.stop(true)
+      }
     }
     addBenchmarkCase(benchmark, "with transferTo") { timer =>
       val shuffleWriter = getWriter(true)
       val dataIterator = createDataIterator(size)
-      timer.startTiming()
-      shuffleWriter.write(dataIterator)
-      timer.stopTiming()
-      assert(tempFilesCreated.length == 8)
+      try {
+        timer.startTiming()
+        shuffleWriter.write(dataIterator)
+        timer.stopTiming()
+        assert(tempFilesCreated.length == 7)
+      } finally {
+        shuffleWriter.stop(true)
+      }
     }
     benchmark.run()
   }
