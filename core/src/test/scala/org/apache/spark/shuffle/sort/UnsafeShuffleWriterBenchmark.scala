@@ -58,15 +58,15 @@ object UnsafeShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
 
   def writeBenchmarkWithSmallDataset(): Unit = {
     val size = DATA_SIZE_SMALL
-    val array = createDataInMemory(size)
     val benchmark = new Benchmark("UnsafeShuffleWriter without spills",
       size,
       minNumIters = MIN_NUM_ITERS,
       output = output)
     addBenchmarkCase(benchmark, "small dataset without spills") { timer =>
       val writer = getWriter(false)
+      val dataIterator = createDataIterator(size)
       timer.startTiming()
-      writer.write(array.iterator)
+      writer.write(dataIterator)
       timer.stopTiming()
       assert(tempFilesCreated.length == 1) // The single temp file is for the temp index file
     }
@@ -75,7 +75,6 @@ object UnsafeShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
 
   def writeBenchmarkWithSpill(): Unit = {
     val size = DATA_SIZE_LARGE
-    val tempDataFile = createDataOnDisk(size)
     val benchmark = new Benchmark("UnsafeShuffleWriter with spills",
       size,
       minNumIters = MIN_NUM_ITERS,
@@ -83,26 +82,21 @@ object UnsafeShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       outputPerIteration = true)
     addBenchmarkCase(benchmark, "without transferTo") { timer =>
       val shuffleWriter = getWriter(false)
-      Utils.tryWithResource(DataIterator(inputFile = tempDataFile, DEFAULT_DATA_STRING_SIZE)) {
-        iterator =>
-          timer.startTiming()
-          shuffleWriter.write(iterator)
-          timer.stopTiming()
-      }
-      assert(tempFilesCreated.length == 7)
+      val dataIterator = createDataIterator(size)
+      timer.startTiming()
+      shuffleWriter.write(dataIterator)
+      timer.stopTiming()
+      assert(tempFilesCreated.length == 8)
     }
     addBenchmarkCase(benchmark, "with transferTo") { timer =>
       val shuffleWriter = getWriter(true)
-      Utils.tryWithResource(DataIterator(inputFile = tempDataFile, DEFAULT_DATA_STRING_SIZE)) {
-        iterator =>
-          timer.startTiming()
-          shuffleWriter.write(iterator)
-          timer.stopTiming()
-      }
-      assert(tempFilesCreated.length == 7)
+      val dataIterator = createDataIterator(size)
+      timer.startTiming()
+      shuffleWriter.write(dataIterator)
+      timer.stopTiming()
+      assert(tempFilesCreated.length == 8)
     }
     benchmark.run()
-    tempDataFile.delete()
   }
 
   override def runBenchmarkSuite(mainArgs: Array[String]): Unit = {
