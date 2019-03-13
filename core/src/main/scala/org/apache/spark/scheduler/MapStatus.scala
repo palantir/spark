@@ -19,12 +19,13 @@ package org.apache.spark.scheduler
 
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
 
+import org.roaringbitmap.RoaringBitmap
 import scala.collection.mutable
 
-import org.roaringbitmap.RoaringBitmap
-
 import org.apache.spark.SparkEnv
+import org.apache.spark.api.shuffle.MapShuffleLocations
 import org.apache.spark.internal.config
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.Utils
 
@@ -33,8 +34,13 @@ import org.apache.spark.util.Utils
  * task ran on as well as the sizes of outputs for each reducer, for passing on to the reduce tasks.
  */
 private[spark] sealed trait MapStatus {
-  /** Location where this task was run. */
-  def location: BlockManagerId
+  /**
+   * Locations where this task stored shuffle blocks.
+   *
+   * May be null if the MapOutputTracker is not tracking the location of shuffle blocks, leaving it
+   * up to the implementation of shuffle plugins to do so.
+   */
+  def location: MapShuffleLocations
 
   /**
    * Estimated size for the reduce block, in bytes.
@@ -56,7 +62,15 @@ private[spark] object MapStatus {
     .map(_.conf.get(config.SHUFFLE_MIN_NUM_PARTS_TO_HIGHLY_COMPRESS))
     .getOrElse(config.SHUFFLE_MIN_NUM_PARTS_TO_HIGHLY_COMPRESS.defaultValue.get)
 
-  def apply(loc: BlockManagerId, uncompressedSizes: Array[Long]): MapStatus = {
+  // A temporary concession to the fact that we only expect implementations of shuffle provided by
+  // Spark to be storing shuffle locations in the driver, meaning we want to introduce as little
+  // serialization overhead as possible in such default cases.
+  //
+  // If more similar cases arise, consider adding a serialization API for these shuffle locations.
+  private val DEFAULT_MAP_SHUFFLE_LOCATIONS_ID: Byte = 0
+  private val NON_DEFAULT_MAP_SHUFFLE_LOCATIONS_ID: Byte = 1
+
+  def apply(loc: MapShuffleLocations, uncompressedSizes: Array[Long]): MapStatus = {
     if (uncompressedSizes.length > minPartitionsToUseHighlyCompressMapStatus) {
       HighlyCompressedMapStatus(loc, uncompressedSizes)
     } else {
@@ -91,6 +105,34 @@ private[spark] object MapStatus {
       math.pow(LOG_BASE, compressedSize & 0xFF).toLong
     }
   }
+
+  def writeShuffleLocations(loc: MapShuffleLocations, out: ObjectOutput): Unit = {
+    if (loc != null) {
+      out.writeBoolean(true)
+      loc match {
+        case DefaultMapShuffleLocations =>
+          out.writeByte(MapStatus.DEFAULT_MAP_SHUFFLE_LOCATIONS_ID)
+          loc.asInstanceOf[DefaultMapShuffleLocations].getBlockManagerId.writeExternal(out)
+        case _ =>
+          out.writeByte(MapStatus.NON_DEFAULT_MAP_SHUFFLE_LOCATIONS_ID)
+          out.writeObject(loc)
+      }
+    } else {
+      out.writeBoolean(false)
+    }
+  }
+
+  def readShuffleLocations(in: ObjectInput): MapShuffleLocations = {
+    if (in.readBoolean()) {
+      val locId = in.readByte()
+      if (locId == MapStatus.DEFAULT_MAP_SHUFFLE_LOCATIONS_ID) {
+        val blockManagerId = BlockManagerId(in)
+        DefaultMapShuffleLocations.get(blockManagerId)
+      } else {
+        in.readObject().asInstanceOf[MapShuffleLocations]
+      }
+    } else null
+  }
 }
 
 
@@ -102,30 +144,30 @@ private[spark] object MapStatus {
  * @param compressedSizes size of the blocks, indexed by reduce partition id.
  */
 private[spark] class CompressedMapStatus(
-    private[this] var loc: BlockManagerId,
+    private[this] var loc: MapShuffleLocations,
     private[this] var compressedSizes: Array[Byte])
   extends MapStatus with Externalizable {
 
   protected def this() = this(null, null.asInstanceOf[Array[Byte]])  // For deserialization only
 
-  def this(loc: BlockManagerId, uncompressedSizes: Array[Long]) {
+  def this(loc: MapShuffleLocations, uncompressedSizes: Array[Long]) {
     this(loc, uncompressedSizes.map(MapStatus.compressSize))
   }
 
-  override def location: BlockManagerId = loc
+  override def location: MapShuffleLocations = loc
 
   override def getSizeForBlock(reduceId: Int): Long = {
     MapStatus.decompressSize(compressedSizes(reduceId))
   }
 
   override def writeExternal(out: ObjectOutput): Unit = Utils.tryOrIOException {
-    loc.writeExternal(out)
+    MapStatus.writeShuffleLocations(loc, out)
     out.writeInt(compressedSizes.length)
     out.write(compressedSizes)
   }
 
   override def readExternal(in: ObjectInput): Unit = Utils.tryOrIOException {
-    loc = BlockManagerId(in)
+    loc = MapStatus.readShuffleLocations(in)
     val len = in.readInt()
     compressedSizes = new Array[Byte](len)
     in.readFully(compressedSizes)
@@ -144,7 +186,7 @@ private[spark] class CompressedMapStatus(
  * @param hugeBlockSizes sizes of huge blocks by their reduceId.
  */
 private[spark] class HighlyCompressedMapStatus private (
-    private[this] var loc: BlockManagerId,
+    private[this] var loc: MapShuffleLocations,
     private[this] var numNonEmptyBlocks: Int,
     private[this] var emptyBlocks: RoaringBitmap,
     private[this] var avgSize: Long,
@@ -157,7 +199,7 @@ private[spark] class HighlyCompressedMapStatus private (
 
   protected def this() = this(null, -1, null, -1, null)  // For deserialization only
 
-  override def location: BlockManagerId = loc
+  override def location: MapShuffleLocations = loc
 
   override def getSizeForBlock(reduceId: Int): Long = {
     assert(hugeBlockSizes != null)
@@ -172,7 +214,7 @@ private[spark] class HighlyCompressedMapStatus private (
   }
 
   override def writeExternal(out: ObjectOutput): Unit = Utils.tryOrIOException {
-    loc.writeExternal(out)
+    MapStatus.writeShuffleLocations(loc, out)
     emptyBlocks.writeExternal(out)
     out.writeLong(avgSize)
     out.writeInt(hugeBlockSizes.size)
@@ -183,7 +225,7 @@ private[spark] class HighlyCompressedMapStatus private (
   }
 
   override def readExternal(in: ObjectInput): Unit = Utils.tryOrIOException {
-    loc = BlockManagerId(in)
+    loc = MapStatus.readShuffleLocations(in)
     emptyBlocks = new RoaringBitmap()
     emptyBlocks.readExternal(in)
     avgSize = in.readLong()
@@ -199,7 +241,7 @@ private[spark] class HighlyCompressedMapStatus private (
 }
 
 private[spark] object HighlyCompressedMapStatus {
-  def apply(loc: BlockManagerId, uncompressedSizes: Array[Long]): HighlyCompressedMapStatus = {
+  def apply(loc: MapShuffleLocations, uncompressedSizes: Array[Long]): HighlyCompressedMapStatus = {
     // We must keep track of which blocks are empty so that we don't report a zero-sized
     // block as being non-empty (or vice-versa) when using the average block size.
     var i = 0

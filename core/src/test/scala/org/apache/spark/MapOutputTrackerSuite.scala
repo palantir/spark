@@ -18,10 +18,8 @@
 package org.apache.spark
 
 import scala.collection.mutable.ArrayBuffer
-
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
-
 import org.apache.spark.LocalSparkContext._
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.internal.config._
@@ -29,6 +27,7 @@ import org.apache.spark.internal.config.Network.{RPC_ASK_TIMEOUT, RPC_MESSAGE_MA
 import org.apache.spark.rpc.{RpcAddress, RpcCallContext, RpcEnv}
 import org.apache.spark.scheduler.{CompressedMapStatus, MapStatus}
 import org.apache.spark.shuffle.FetchFailedException
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.storage.{BlockManagerId, ShuffleBlockId}
 
 class MapOutputTrackerSuite extends SparkFunSuite {
@@ -262,7 +261,8 @@ class MapOutputTrackerSuite extends SparkFunSuite {
       masterTracker.registerShuffle(20, 100)
       (0 until 100).foreach { i =>
         masterTracker.registerMapOutput(20, i, new CompressedMapStatus(
-          BlockManagerId("999", "mps", 1000), Array.fill[Long](4000000)(0)))
+            DefaultMapShuffleLocations.get(BlockManagerId("999", "mps", 1000)),
+            Array.fill[Long](4000000)(0)))
       }
       val senderAddress = RpcAddress("localhost", 12345)
       val rpcCallContext = mock(classOf[RpcCallContext])
