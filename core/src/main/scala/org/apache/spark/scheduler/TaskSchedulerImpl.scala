@@ -23,7 +23,7 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.Set
-import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
+import scala.collection.mutable.{ArrayBuffer, BitSet, HashMap, HashSet}
 import scala.util.Random
 
 import org.apache.spark._
@@ -51,7 +51,12 @@ import org.apache.spark.util.{AccumulatorV2, SystemClock, ThreadUtils, Utils}
  * threads, so it needs locks in public API methods to maintain its state. In addition, some
  * [[SchedulerBackend]]s synchronize on themselves when they want to send events here, and then
  * acquire a lock on us, so we need to make sure that we don't try to lock the backend while
- * we are holding a lock on ourselves.
+ * we are holding a lock on ourselves.  This class is called from many threads, notably:
+ *   * The DAGScheduler Event Loop
+ *   * The RPCHandler threads, responding to status updates from Executors
+ *   * Periodic revival of all offers from the CoarseGrainedSchedulerBackend, to accomodate delay
+ *      scheduling
+ *   * task-result-getter threads
  */
 private[spark] class TaskSchedulerImpl(
     val sc: SparkContext,
@@ -82,10 +87,6 @@ private[spark] class TaskSchedulerImpl(
   private val speculationScheduler =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("task-scheduler-speculation")
 
-  // whether to prefer assigning tasks to executors that contain shuffle files
-  val shuffleBiasedTaskSchedulingEnabled =
-    conf.getBoolean("spark.scheduler.shuffleBiasedTaskScheduling.enabled", false)
-
   // Threshold above which we warn user initial TaskSet may be starved
   val STARVATION_TIMEOUT_MS = conf.getTimeAsMs("spark.starvation.timeout", "15s")
 
@@ -93,12 +94,16 @@ private[spark] class TaskSchedulerImpl(
   val CPUS_PER_TASK = conf.get(config.CPUS_PER_TASK)
 
   // TaskSetManagers are not thread safe, so any access to one should be synchronized
-  // on this class.
+  // on this class.  Protected by `this`
   private val taskSetsByStageIdAndAttempt = new HashMap[Int, HashMap[Int, TaskSetManager]]
 
   // Protected by `this`
   private[scheduler] val taskIdToTaskSetManager = new ConcurrentHashMap[Long, TaskSetManager]
+  // Protected by `this`
   val taskIdToExecutorId = new HashMap[Long, String]
+
+  // Protected by `this`
+  private[scheduler] val stageIdToFinishedPartitions = new HashMap[Int, BitSet]
 
   @volatile private var hasReceivedTask = false
   @volatile private var hasLaunchedTask = false
@@ -210,14 +215,20 @@ private[spark] class TaskSchedulerImpl(
       val stage = taskSet.stageId
       val stageTaskSets =
         taskSetsByStageIdAndAttempt.getOrElseUpdate(stage, new HashMap[Int, TaskSetManager])
+
+      // Mark all the existing TaskSetManagers of this stage as zombie, as we are adding a new one.
+      // This is necessary to handle a corner case. Let's say a stage has 10 partitions and has 2
+      // TaskSetManagers: TSM1(zombie) and TSM2(active). TSM1 has a running task for partition 10
+      // and it completes. TSM2 finishes tasks for partition 1-9, and thinks he is still active
+      // because partition 10 is not completed yet. However, DAGScheduler gets task completion
+      // events for all the 10 partitions and thinks the stage is finished. If it's a shuffle stage
+      // and somehow it has missing map outputs, then DAGScheduler will resubmit it and create a
+      // TSM3 for it. As a stage can't have more than one active task set managers, we must mark
+      // TSM2 as zombie (it actually is).
+      stageTaskSets.foreach { case (_, ts) =>
+        ts.isZombie = true
+      }
       stageTaskSets(taskSet.stageAttemptId) = manager
-      val conflictingTaskSet = stageTaskSets.exists { case (_, ts) =>
-        ts.taskSet != taskSet && !ts.isZombie
-      }
-      if (conflictingTaskSet) {
-        throw new IllegalStateException(s"more than one active taskSet for stage $stage:" +
-          s" ${stageTaskSets.toSeq.map{_._2.taskSet.id}.mkString(",")}")
-      }
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
       if (!isLocal && !hasReceivedTask) {
@@ -242,7 +253,20 @@ private[spark] class TaskSchedulerImpl(
   private[scheduler] def createTaskSetManager(
       taskSet: TaskSet,
       maxTaskFailures: Int): TaskSetManager = {
-    new TaskSetManager(this, taskSet, maxTaskFailures, blacklistTrackerOpt)
+    // only create a BitSet once for a certain stage since we only remove
+    // that stage when an active TaskSetManager succeed.
+    stageIdToFinishedPartitions.getOrElseUpdate(taskSet.stageId, new BitSet)
+    val tsm = new TaskSetManager(this, taskSet, maxTaskFailures, blacklistTrackerOpt)
+    // TaskSet got submitted by DAGScheduler may have some already completed
+    // tasks since DAGScheduler does not always know all the tasks that have
+    // been completed by other tasksets when completing a stage, so we mark
+    // those tasks as finished here to avoid launching duplicate tasks, while
+    // holding the TaskSchedulerImpl lock.
+    // See SPARK-25250 and `markPartitionCompletedInAllTaskSets()`
+    stageIdToFinishedPartitions.get(taskSet.stageId).foreach {
+      finishedPartitions => finishedPartitions.foreach(tsm.markPartitionCompleted(_, None))
+    }
+    tsm
   }
 
   override def cancelTasks(stageId: Int, interruptThread: Boolean): Unit = synchronized {
@@ -258,7 +282,10 @@ private[spark] class TaskSchedulerImpl(
     }
   }
 
-  override def killTaskAttempt(taskId: Long, interruptThread: Boolean, reason: String): Boolean = {
+  override def killTaskAttempt(
+      taskId: Long,
+      interruptThread: Boolean,
+      reason: String): Boolean = synchronized {
     logInfo(s"Killing task $taskId: $reason")
     val execId = taskIdToExecutorId.get(taskId)
     if (execId.isDefined) {
@@ -387,7 +414,11 @@ private[spark] class TaskSchedulerImpl(
       }
     }.getOrElse(offers)
 
-    var tasks: Seq[Seq[TaskDescription]] = Nil
+    val shuffledOffers = shuffleOffers(filteredOffers)
+    // Build a list of tasks to assign to each worker.
+    val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores / CPUS_PER_TASK))
+    val availableCpus = shuffledOffers.map(o => o.cores).toArray
+    val availableSlots = shuffledOffers.map(o => o.cores / CPUS_PER_TASK).sum
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
     for (taskSet <- sortedTaskSets) {
       logDebug("parentName: %s, name: %s, runningTasks: %s".format(
@@ -397,36 +428,11 @@ private[spark] class TaskSchedulerImpl(
       }
     }
 
-    // If shuffle-biased task scheduling is enabled, then first assign as many tasks as possible to
-    // executors containing active shuffle files, followed by assigning to executors with inactive
-    // shuffle files, and then finally to those without shuffle files. This bin packing allows for
-    // more efficient dynamic allocation in the absence of an external shuffle service.
-    val partitionedAndShuffledOffers = partitionAndShuffleOffers(filteredOffers)
-    for (shuffledOffers <- partitionedAndShuffledOffers.map(_._2)) {
-      tasks ++= doResourceOffers(shuffledOffers, sortedTaskSets)
-    }
-
-    // TODO SPARK-24823 Cancel a job that contains barrier stage(s) if the barrier tasks don't get
-    // launched within a configured time.
-    if (tasks.size > 0) {
-      hasLaunchedTask = true
-    }
-    return tasks
-  }
-
-  private def doResourceOffers(
-      shuffledOffers: IndexedSeq[WorkerOffer],
-      sortedTaskSets: IndexedSeq[TaskSetManager]): Seq[Seq[TaskDescription]] = {
-    // Build a list of tasks to assign to each worker.
-    val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores / CPUS_PER_TASK))
-    val availableCpus = shuffledOffers.map(o => o.cores).toArray
-    val availableSlots = shuffledOffers.map(o => o.cores / CPUS_PER_TASK).sum
-
     // Take each TaskSet in our scheduling order, and then offer it each node in increasing order
     // of locality levels so that it gets a chance to launch local tasks on all of them.
     // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
     for (taskSet <- sortedTaskSets) {
-      // Skip the barrier taskSet if the available slots are less than the number of pending tasks
+      // Skip the barrier taskSet if the available slots are less than the number of pending tasks.
       if (taskSet.isBarrier && availableSlots < taskSet.numTasks) {
         // Skip the launch process.
         // TODO SPARK-24819 If the job requires more slots than available (both busy and free
@@ -514,33 +520,18 @@ private[spark] class TaskSchedulerImpl(
             .mkString(",")
           addressesWithDescs.foreach(_._2.properties.setProperty("addresses", addressesStr))
 
-          logInfo(s"Successfully scheduled all the ${addressesWithDescs.size} tasks for " +
-            s"barrier stage ${taskSet.stageId}.")
+          logInfo(s"Successfully scheduled all the ${addressesWithDescs.size} tasks for barrier " +
+            s"stage ${taskSet.stageId}.")
         }
       }
     }
-    tasks
-  }
 
-  /**
-   * Shuffle offers around to avoid always placing tasks on the same workers.
-   * If shuffle-biased task scheduling is enabled, this function partitions the offers based on
-   * whether they have active/inactive/no shuffle files present.
-   */
-  def partitionAndShuffleOffers(offers: IndexedSeq[WorkerOffer])
-  : IndexedSeq[(ExecutorShuffleStatus.Value, IndexedSeq[WorkerOffer])] = {
-    if (shuffleBiasedTaskSchedulingEnabled && offers.length > 1) {
-      // bias towards executors that have active shuffle outputs
-      val execShuffles = mapOutputTracker.getExecutorShuffleStatus
-      offers
-        .groupBy(offer => execShuffles.getOrElse(offer.executorId, ExecutorShuffleStatus.Unknown))
-        .mapValues(doShuffleOffers)
-        .toStream
-        .sortBy(_._1) // order: Active, Inactive, Unknown
-        .toIndexedSeq
-    } else {
-      IndexedSeq((ExecutorShuffleStatus.Unknown, doShuffleOffers(offers)))
+    // TODO SPARK-24823 Cancel a job that contains barrier stage(s) if the barrier tasks don't get
+    // launched within a configured time.
+    if (tasks.size > 0) {
+      hasLaunchedTask = true
     }
+    return tasks
   }
 
   private def createUnschedulableTaskSetAbortTimer(
@@ -561,10 +552,10 @@ private[spark] class TaskSchedulerImpl(
   }
 
   /**
-   * Does the shuffling for [[partitionAndShuffleOffers()]]. Exposed to allow overriding in tests,
-   * so that it can be deterministic.
+   * Shuffle offers around to avoid always placing tasks on the same workers.  Exposed to allow
+   * overriding in tests, so it can be deterministic.
    */
-  protected def doShuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
+  protected def shuffleOffers(offers: IndexedSeq[WorkerOffer]): IndexedSeq[WorkerOffer] = {
     Random.shuffle(offers)
   }
 
@@ -865,9 +856,10 @@ private[spark] class TaskSchedulerImpl(
 
   override def applicationAttemptId(): Option[String] = backend.applicationAttemptId()
 
+  // exposed for testing
   private[scheduler] def taskSetManagerForAttempt(
       stageId: Int,
-      stageAttemptId: Int): Option[TaskSetManager] = {
+      stageAttemptId: Int): Option[TaskSetManager] = synchronized {
     for {
       attempts <- taskSetsByStageIdAndAttempt.get(stageId)
       manager <- attempts.get(stageAttemptId)
@@ -877,19 +869,31 @@ private[spark] class TaskSchedulerImpl(
   }
 
   /**
-   * Marks the task has completed in all TaskSetManagers for the given stage.
+   * Marks the task has completed in all TaskSetManagers(active / zombie) for the given stage.
    *
    * After stage failure and retry, there may be multiple TaskSetManagers for the stage.
    * If an earlier attempt of a stage completes a task, we should ensure that the later attempts
    * do not also submit those same tasks.  That also means that a task completion from an earlier
    * attempt can lead to the entire stage getting marked as successful.
+   * And there is also the possibility that the DAGScheduler submits another taskset at the same
+   * time as we're marking a task completed here -- that taskset would have a task for a partition
+   * that was already completed. We maintain the set of finished partitions in
+   * stageIdToFinishedPartitions, protected by this, so we can detect those tasks when the taskset
+   * is submitted. See SPARK-25250 for more details.
+   *
+   * note: this method must be called with a lock on this.
    */
   private[scheduler] def markPartitionCompletedInAllTaskSets(
       stageId: Int,
       partitionId: Int,
       taskInfo: TaskInfo) = {
+    // if we do not find a BitSet for this stage, which means an active TaskSetManager
+    // has already succeeded and removed the stage.
+    stageIdToFinishedPartitions.get(stageId).foreach{
+      finishedPartitions => finishedPartitions += partitionId
+    }
     taskSetsByStageIdAndAttempt.getOrElse(stageId, Map()).values.foreach { tsm =>
-      tsm.markPartitionCompleted(partitionId, taskInfo)
+      tsm.markPartitionCompleted(partitionId, Some(taskInfo))
     }
   }
 
