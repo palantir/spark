@@ -34,7 +34,6 @@ spark-25299-branch-only: &spark-25299-branch-only
     branches:
       only:
         - spark-25299
-        - yh/add-benchmarks-and-ci
 
 deployable-branches-and-tags: &deployable-branches-and-tags
   filters:
@@ -477,7 +476,7 @@ jobs:
       - *restore-build-binaries-cache
       - *restore-home-sbt-cache
       - run:
-          command: ./dev/run-spark-25299-benchmarks.sh
+          command: ./dev/run-spark-25299-benchmarks.sh -u
       - store_artifacts:
           path: /tmp/artifacts/
 

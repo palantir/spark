@@ -17,7 +17,7 @@
 
 package org.apache.spark.shuffle.sort
 
-import java.io.{BufferedInputStream, Closeable, File, FileInputStream, FileOutputStream}
+import java.io.File
 import java.util.UUID
 
 import org.apache.commons.io.FileUtils
@@ -35,7 +35,7 @@ import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.memory.{MemoryManager, TaskMemoryManager, TestMemoryManager}
 import org.apache.spark.rpc.{RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.serializer.{KryoSerializer, Serializer, SerializerManager}
-import org.apache.spark.shuffle.{IndexShuffleBlockResolver, ShuffleWriter}
+import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.storage.{BlockManager, DiskBlockManager, TempShuffleBlockId}
 import org.apache.spark.util.Utils
 
