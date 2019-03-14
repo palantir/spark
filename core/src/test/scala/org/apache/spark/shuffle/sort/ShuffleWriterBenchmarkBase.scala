@@ -92,6 +92,7 @@ abstract class ShuffleWriterBenchmarkBase extends BenchmarkBase {
     null,
     1) {
     override val diskBlockManager = new TestDiskBlockManager(tempDir)
+    override val remoteBlockTempFileManager = null
   }
 
   protected var tempDir: File = _
@@ -134,8 +135,9 @@ abstract class ShuffleWriterBenchmarkBase extends BenchmarkBase {
     filenameToFile.clear()
   }
 
-  protected class DataIterator (size: Int, random: Random)
+  protected class DataIterator (size: Int)
     extends Iterator[Product2[String, String]] {
+    val random = new Random(123)
     var count = 0
     override def hasNext: Boolean = {
       count < size
@@ -143,17 +145,14 @@ abstract class ShuffleWriterBenchmarkBase extends BenchmarkBase {
 
     override def next(): Product2[String, String] = {
       count+=1
-      val string = random.nextString(DEFAULT_DATA_STRING_SIZE)
+      val string = random.alphanumeric.take(DEFAULT_DATA_STRING_SIZE).mkString
       (string, string)
     }
   }
 
-  private val random = new Random(123)
-
 
   def createDataIterator(size: Int): DataIterator = {
-    random.setSeed(123)
-    new DataIterator(size, random)
+    new DataIterator(size)
   }
 
 }
