@@ -35,7 +35,7 @@ import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.memory.{MemoryManager, TaskMemoryManager, TestMemoryManager}
 import org.apache.spark.rpc.{RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.serializer.{KryoSerializer, Serializer, SerializerManager}
-import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.{IndexShuffleBlockResolver, ShuffleWriter}
 import org.apache.spark.storage.{BlockManager, DiskBlockManager, TempShuffleBlockId}
 import org.apache.spark.util.Utils
 
@@ -121,10 +121,23 @@ abstract class ShuffleWriterBenchmarkBase extends BenchmarkBase {
       blockManager)
   }
 
-  def addBenchmarkCase(benchmark: Benchmark, name: String)(func: Benchmark.Timer => Unit): Unit = {
+  def addBenchmarkCase(benchmark: Benchmark, name: String, size: Int,
+                       writerSupplier: () => ShuffleWriter[String, String],
+                       numSpillFiles: Option[Int] = Option.empty): Unit = {
     benchmark.addTimerCase(name) { timer =>
       setup()
-      func(timer)
+      val writer = writerSupplier()
+      val dataIterator = createDataIterator(size)
+      try {
+        timer.startTiming()
+        writer.write(dataIterator)
+        timer.stopTiming()
+        if (numSpillFiles.isDefined) {
+          assert(tempFilesCreated.length == numSpillFiles.get)
+        }
+      } finally {
+        writer.stop(true)
+      }
       teardown()
     }
   }
