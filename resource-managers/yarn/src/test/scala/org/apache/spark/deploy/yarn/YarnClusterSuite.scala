@@ -158,26 +158,6 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
       ))
   }
 
-  test("run Spark in yarn-client mode with dynamic allocation") {
-    testBasicYarnApp(true,
-      Map(
-        "spark.dynamicAllocation.enabled" -> "true",
-        // Start with 0 executors to at least test that we will request more to run the job.
-        "spark.dynamicAllocation.initialExecutors" -> "0",
-        "spark.dynamicAllocation.maxExecutors" -> "1"
-      ))
-  }
-
-  test("run Spark in yarn-cluster mode with dynamic allocation") {
-    testBasicYarnApp(false,
-      Map(
-        "spark.dynamicAllocation.enabled" -> "true",
-        // Start with 0 executors to at least test that we will request more to run the job.
-        "spark.dynamicAllocation.initialExecutors" -> "0",
-        "spark.dynamicAllocation.maxExecutors" -> "1"
-      ))
-  }
-
   test("yarn-cluster should respect conf overrides in SparkHadoopUtil (SPARK-16414, SPARK-23630)") {
     // Create a custom hadoop config file, to make sure it's contents are propagated to the driver.
     val customConf = Utils.createTempDir()
