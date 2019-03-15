@@ -71,7 +71,9 @@ private[spark] class SortShuffleWriter[K, V, C](
       val partitionLengths = sorter.writePartitionedFile(blockId, tmp)
       shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, tmp)
       mapStatus = MapStatus(
-          DefaultMapShuffleLocations.get(blockManager.shuffleServerId), partitionLengths)
+          blockManager.shuffleServerId,
+          DefaultMapShuffleLocations.get(blockManager.shuffleServerId),
+          partitionLengths)
     } finally {
       if (tmp.exists() && !tmp.delete()) {
         logError(s"Error while deleting temp file ${tmp.getAbsolutePath}")

@@ -17,9 +17,10 @@
 
 package org.apache.spark
 
-import scala.collection.mutable.ArrayBuffer
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
+import scala.collection.mutable.ArrayBuffer
+
 import org.apache.spark.LocalSparkContext._
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.internal.config._
@@ -68,8 +69,11 @@ class MapOutputTrackerSuite extends SparkFunSuite {
         Array(10000L, 1000L)))
     val statuses = tracker.getMapSizesByExecutorId(10, 0)
     assert(statuses.toSet ===
-      Seq((BlockManagerId("a", "hostA", 1000), ArrayBuffer((ShuffleBlockId(10, 0, 0), size1000))),
-          (BlockManagerId("b", "hostB", 1000), ArrayBuffer((ShuffleBlockId(10, 1, 0), size10000))))
+      Seq(
+        (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
+          ArrayBuffer((ShuffleBlockId(10, 0, 0), size1000))),
+        (DefaultMapShuffleLocations.get(BlockManagerId("b", "hostB", 1000)),
+          ArrayBuffer((ShuffleBlockId(10, 1, 0), size10000))))
         .toSet)
     assert(0 == tracker.getNumCachedSerializedBroadcast)
     tracker.stop()
@@ -149,7 +153,9 @@ class MapOutputTrackerSuite extends SparkFunSuite {
       BlockManagerId("a", "hostA", 1000), Array(1000L)))
     slaveTracker.updateEpoch(masterTracker.getEpoch)
     assert(slaveTracker.getMapSizesByExecutorId(10, 0).toSeq ===
-      Seq((BlockManagerId("a", "hostA", 1000), ArrayBuffer((ShuffleBlockId(10, 0, 0), size1000)))))
+      Seq(
+        (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
+          ArrayBuffer((ShuffleBlockId(10, 0, 0), size1000)))))
     assert(0 == masterTracker.getNumCachedSerializedBroadcast)
 
     val masterTrackerEpochBeforeLossOfMapOutput = masterTracker.getEpoch
@@ -260,8 +266,10 @@ class MapOutputTrackerSuite extends SparkFunSuite {
       // being sent.
       masterTracker.registerShuffle(20, 100)
       (0 until 100).foreach { i =>
+        val bmId = BlockManagerId("999", "mps", 1000)
         masterTracker.registerMapOutput(20, i, new CompressedMapStatus(
-            DefaultMapShuffleLocations.get(BlockManagerId("999", "mps", 1000)),
+            bmId,
+            DefaultMapShuffleLocations.get(bmId),
             Array.fill[Long](4000000)(0)))
       }
       val senderAddress = RpcAddress("localhost", 12345)
@@ -317,9 +325,9 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     assert(tracker.containsShuffle(10))
     assert(tracker.getMapSizesByExecutorId(10, 0, 4).toSeq ===
         Seq(
-          (BlockManagerId("a", "hostA", 1000),
+          (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
               Seq((ShuffleBlockId(10, 0, 1), size1000), (ShuffleBlockId(10, 0, 3), size10000))),
-          (BlockManagerId("b", "hostB", 1000),
+          (DefaultMapShuffleLocations.get(BlockManagerId("b", "hostB", 1000)),
               Seq((ShuffleBlockId(10, 1, 0), size10000), (ShuffleBlockId(10, 1, 2), size1000)))
         )
     )

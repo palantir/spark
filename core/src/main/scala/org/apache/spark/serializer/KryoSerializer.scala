@@ -20,22 +20,21 @@ package org.apache.spark.serializer
 import java.io._
 import java.nio.ByteBuffer
 import java.util.Locale
+
 import javax.annotation.Nullable
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
-
 import com.esotericsoftware.kryo.{Kryo, KryoException, Serializer => KryoClassSerializer}
 import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
 import com.esotericsoftware.kryo.io.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
 import com.esotericsoftware.kryo.pool.{KryoCallback, KryoFactory, KryoPool}
-import com.esotericsoftware.kryo.serializers.{JavaSerializer => KryoJavaSerializer}
+import com.esotericsoftware.kryo.serializers.{ExternalizableSerializer, JavaSerializer => KryoJavaSerializer}
 import com.twitter.chill.{AllScalaRegistrar, EmptyScalaKryoInstantiator}
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.roaringbitmap.RoaringBitmap
-
 import org.apache.spark._
 import org.apache.spark.api.python.PythonBroadcast
 import org.apache.spark.internal.Logging
@@ -152,6 +151,8 @@ class KryoSerializer(conf: SparkConf)
     kryo.register(classOf[SerializableConfiguration], new KryoJavaSerializer())
     kryo.register(classOf[SerializableJobConf], new KryoJavaSerializer())
     kryo.register(classOf[PythonBroadcast], new KryoJavaSerializer())
+    kryo.register(classOf[CompressedMapStatus], new ExternalizableSerializer())
+    kryo.register(classOf[HighlyCompressedMapStatus], new ExternalizableSerializer())
 
     kryo.register(classOf[GenericRecord], new GenericAvroSerializer(avroSchemas))
     kryo.register(classOf[GenericData.Record], new GenericAvroSerializer(avroSchemas))
@@ -485,8 +486,6 @@ private[serializer] object KryoSerializer {
   private val toRegister: Seq[Class[_]] = Seq(
     ByteBuffer.allocate(1).getClass,
     classOf[StorageLevel],
-    classOf[CompressedMapStatus],
-    classOf[HighlyCompressedMapStatus],
     classOf[CompactBuffer[_]],
     classOf[BlockManagerId],
     classOf[Array[Boolean]],

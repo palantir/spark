@@ -21,11 +21,11 @@ import java.io.{ByteArrayOutputStream, InputStream}
 import java.nio.ByteBuffer
 
 import org.mockito.Mockito.{mock, when}
-
 import org.apache.spark._
 import org.apache.spark.internal.config
 import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
 import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.storage.{BlockManager, BlockManagerId, ShuffleBlockId}
 
 /**
@@ -109,7 +109,9 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
         val shuffleBlockId = ShuffleBlockId(shuffleId, mapId, reduceId)
         (shuffleBlockId, byteOutputStream.size().toLong)
       }
-      Seq((localBlockManagerId, shuffleBlockIdsAndSizes)).toIterator
+      Seq(
+        (DefaultMapShuffleLocations.get(localBlockManagerId), shuffleBlockIdsAndSizes))
+        .toIterator
     }
 
     // Create a mocked shuffle handle to pass into HashShuffleReader.

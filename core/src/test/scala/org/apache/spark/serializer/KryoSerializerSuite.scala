@@ -21,23 +21,23 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream, Fi
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
+import com.esotericsoftware.kryo.{Kryo, KryoException}
+import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
+import org.roaringbitmap.RoaringBitmap
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
-import com.esotericsoftware.kryo.{Kryo, KryoException}
-import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
-import org.roaringbitmap.RoaringBitmap
-
 import org.apache.spark.{SharedSparkContext, SparkConf, SparkFunSuite}
 import org.apache.spark.internal.config._
 import org.apache.spark.internal.config.Kryo._
 import org.apache.spark.scheduler.HighlyCompressedMapStatus
 import org.apache.spark.serializer.KryoTest._
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.storage.BlockManagerId
-import org.apache.spark.util.{ThreadUtils, Utils}
+import org.apache.spark.util.ThreadUtils
 
 class KryoSerializerSuite extends SparkFunSuite with SharedSparkContext {
   conf.set(SERIALIZER, "org.apache.spark.serializer.KryoSerializer")
@@ -350,8 +350,10 @@ class KryoSerializerSuite extends SparkFunSuite with SharedSparkContext {
     val ser = new KryoSerializer(conf).newInstance()
     val denseBlockSizes = new Array[Long](5000)
     val sparseBlockSizes = Array[Long](0L, 1L, 0L, 2L)
+    val bmId = BlockManagerId("exec-1", "host", 1234)
     Seq(denseBlockSizes, sparseBlockSizes).foreach { blockSizes =>
-      ser.serialize(HighlyCompressedMapStatus(BlockManagerId("exec-1", "host", 1234), blockSizes))
+      ser.serialize(HighlyCompressedMapStatus(
+        bmId, DefaultMapShuffleLocations.get(bmId), blockSizes))
     }
   }
 
