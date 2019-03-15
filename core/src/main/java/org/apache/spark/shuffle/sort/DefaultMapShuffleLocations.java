@@ -29,48 +29,48 @@ import java.util.Objects;
 
 public class DefaultMapShuffleLocations implements MapShuffleLocations, ShuffleLocation {
 
-    /**
-     * We borrow the cache size from the BlockManagerId's cache - around 1MB, which should be
-     * feasible.
-     */
-    private static final LoadingCache<BlockManagerId, DefaultMapShuffleLocations>
-            DEFAULT_SHUFFLE_LOCATIONS_CACHE =
-                    CacheBuilder.newBuilder()
-                            .maximumSize(10000)
-                            .build(new CacheLoader<BlockManagerId, DefaultMapShuffleLocations>() {
-                                @Override
-                                public DefaultMapShuffleLocations load(BlockManagerId blockManagerId) {
-                                    return new DefaultMapShuffleLocations(blockManagerId);
-                                }
-                            });
+  /**
+   * We borrow the cache size from the BlockManagerId's cache - around 1MB, which should be
+   * feasible.
+   */
+  private static final LoadingCache<BlockManagerId, DefaultMapShuffleLocations>
+      DEFAULT_SHUFFLE_LOCATIONS_CACHE =
+          CacheBuilder.newBuilder()
+              .maximumSize(10000)
+              .build(new CacheLoader<BlockManagerId, DefaultMapShuffleLocations>() {
+                @Override
+                public DefaultMapShuffleLocations load(BlockManagerId blockManagerId) {
+                    return new DefaultMapShuffleLocations(blockManagerId);
+                }
+              });
 
-    private final BlockManagerId location;
+  private final BlockManagerId location;
 
-    public DefaultMapShuffleLocations(BlockManagerId blockManagerId) {
-        this.location = blockManagerId;
-    }
+  public DefaultMapShuffleLocations(BlockManagerId blockManagerId) {
+    this.location = blockManagerId;
+  }
 
-    public static DefaultMapShuffleLocations get(BlockManagerId blockManagerId) {
-        return DEFAULT_SHUFFLE_LOCATIONS_CACHE.getUnchecked(blockManagerId);
-    }
+  public static DefaultMapShuffleLocations get(BlockManagerId blockManagerId) {
+    return DEFAULT_SHUFFLE_LOCATIONS_CACHE.getUnchecked(blockManagerId);
+  }
 
-    @Override
-    public ShuffleLocation getLocationForBlock(int reduceId) {
-        return this;
-    }
+  @Override
+  public ShuffleLocation getLocationForBlock(int reduceId) {
+    return this;
+  }
 
-    public BlockManagerId getBlockManagerId() {
-        return location;
-    }
+  public BlockManagerId getBlockManagerId() {
+    return location;
+  }
 
-    @Override
-    public boolean equals(Object other) {
-        return other instanceof DefaultMapShuffleLocations
-                && Objects.equals(((DefaultMapShuffleLocations) other).location, location);
-    }
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof DefaultMapShuffleLocations
+        && Objects.equals(((DefaultMapShuffleLocations) other).location, location);
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(location);
-    }
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(location);
+  }
 }
