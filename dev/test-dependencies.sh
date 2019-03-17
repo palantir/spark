@@ -33,6 +33,8 @@ HADOOP2_MODULE_PROFILES=""
 MVN="build/mvn"
 HADOOP_PROFILES=(
     hadoop-palantir
+    hadoop-2.7
+    hadoop-3.2
 )
 
 # We'll switch the version to a temp. one, publish POMs using that new version, then switch back to
