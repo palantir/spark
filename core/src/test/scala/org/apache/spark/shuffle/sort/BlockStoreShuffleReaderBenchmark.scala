@@ -67,8 +67,6 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
 
   private var tempDir: File = _
 
-  private val SHUFFLE_ID: Int = 0
-  private val REDUCE_ID: Int = 0
   private val NUM_MAPS: Int = 5
   private val DEFAULT_DATA_STRING_SIZE = 5
   private val TEST_DATA_SIZE: Int = 10000000
@@ -181,7 +179,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     ))
 
     val shuffleHandle = new BaseShuffleHandle(
-      shuffleId = SHUFFLE_ID,
+      shuffleId = 0,
       numMaps = NUM_MAPS,
       dependency = dependency)
 
@@ -224,10 +222,10 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       dataBlockId = remoteBlockManagerId
     }
 
-    when(mapOutputTracker.getMapSizesByExecutorId(SHUFFLE_ID, REDUCE_ID, REDUCE_ID + 1))
+    when(mapOutputTracker.getMapSizesByExecutorId(0, 0, 1))
       .thenReturn {
         val shuffleBlockIdsAndSizes = (0 until NUM_MAPS).map { mapId =>
-          val shuffleBlockId = ShuffleBlockId(SHUFFLE_ID, mapId, REDUCE_ID)
+          val shuffleBlockId = ShuffleBlockId(0, mapId, 0)
           (shuffleBlockId, dataFileLength)
         }
         Seq((dataBlockId, shuffleBlockIdsAndSizes)).toIterator
@@ -254,8 +252,8 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     println("Generating test data with num records: " + size)
     val random = new Random(123)
     val dataOutput = new FileOutputStream(file)
-    val coutingOutput = new CountingOutputStream(dataOutput)
-    val serializedOutput = serializer.newInstance().serializeStream(coutingOutput)
+    val countingOutput = new CountingOutputStream(dataOutput)
+    val serializedOutput = serializer.newInstance().serializeStream(countingOutput)
     try {
       (1 to size).foreach { i => {
         if (i % 1000000 == 0) {
@@ -265,22 +263,20 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
         serializedOutput.writeKey(x)
         serializedOutput.writeValue(x)
       }}
-    }
-    finally {
+    } finally {
       serializedOutput.close()
     }
-    coutingOutput.getCount
+    countingOutput.getCount
     // scalastyle:off println
   }
 
   def runWithLargeDataset(): Unit = {
-    val size = TEST_DATA_SIZE
-    val tempDataFile: File = File.createTempFile("test-data", "", tempDir)
-    val dataFileLength = generateDataOnDisk(size, tempDataFile)
+    val tempDataFile = File.createTempFile("test-data", "", tempDir)
+    val dataFileLength = generateDataOnDisk(TEST_DATA_SIZE, tempDataFile)
     initializeServers(tempDataFile, dataFileLength)
     val baseBenchmark =
       new Benchmark("no aggregation or sorting",
-        size,
+        TEST_DATA_SIZE,
         minNumIters = MIN_NUM_ITERS,
         output = output,
         outputPerIteration = true)
@@ -289,14 +285,14 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       timer.startTiming()
       val numRead = reader.read().length
       timer.stopTiming()
-      assert(numRead == size * NUM_MAPS)
+      assert(numRead == TEST_DATA_SIZE * NUM_MAPS)
     }
     baseBenchmark.addTimerCase("remote rpc fetch") { timer =>
       val reader = setupReader(tempDataFile, dataFileLength, fetchLocal = false)
       timer.startTiming()
       val numRead = reader.read().length
       timer.stopTiming()
-      assert(numRead == size * NUM_MAPS)
+      assert(numRead == TEST_DATA_SIZE * NUM_MAPS)
     }
     baseBenchmark.run()
     tempDataFile.delete()
@@ -304,9 +300,8 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
   }
 
   def runWithSmallerDataset(): Unit = {
-    val size = SMALLER_DATA_SIZE
-    val smallerDataFile: File = File.createTempFile("test-data", "", tempDir)
-    val smallerFileLength = generateDataOnDisk(size, smallerDataFile)
+    val smallerDataFile = File.createTempFile("test-data", "", tempDir)
+    val smallerFileLength = generateDataOnDisk(SMALLER_DATA_SIZE, smallerDataFile)
     initializeServers(smallerDataFile, smallerFileLength)
 
     def createCombiner(i: String): String = i
@@ -317,7 +312,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       new Aggregator[String, String, String](createCombiner, mergeValue, mergeCombiners)
     val aggregationBenchmark =
       new Benchmark("with aggregation",
-        size,
+        SMALLER_DATA_SIZE,
         minNumIters = MIN_NUM_ITERS,
         output = output,
         outputPerIteration = true)
@@ -346,10 +341,9 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     aggregationBenchmark.run()
 
 
-    val sorter = Ordering.String
     val sortingBenchmark =
       new Benchmark("with sorting",
-        size,
+        SMALLER_DATA_SIZE,
         minNumIters = MIN_NUM_ITERS,
         output = output,
         outputPerIteration = true)
@@ -358,22 +352,22 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
         smallerDataFile,
         smallerFileLength,
         fetchLocal = true,
-        sorter = Some(sorter))
+        sorter = Some(Ordering.String))
       timer.startTiming()
       val numRead = reader.read().length
       timer.stopTiming()
-      assert(numRead == size * NUM_MAPS)
+      assert(numRead == SMALLER_DATA_SIZE * NUM_MAPS)
     }
     sortingBenchmark.addTimerCase("remote rpc fetch") { timer =>
       val reader = setupReader(
         smallerDataFile,
         smallerFileLength,
         fetchLocal = false,
-        sorter = Some(sorter))
+        sorter = Some(Ordering.String))
       timer.startTiming()
       val numRead = reader.read().length
       timer.stopTiming()
-      assert(numRead == size * NUM_MAPS)
+      assert(numRead == SMALLER_DATA_SIZE * NUM_MAPS)
     }
     sortingBenchmark.run()
     stopServers()
