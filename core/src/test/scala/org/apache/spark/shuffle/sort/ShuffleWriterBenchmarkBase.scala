@@ -121,9 +121,12 @@ abstract class ShuffleWriterBenchmarkBase extends BenchmarkBase {
       blockManager)
   }
 
-  def addBenchmarkCase(benchmark: Benchmark, name: String, size: Int,
-                       writerSupplier: () => ShuffleWriter[String, String],
-                       numSpillFiles: Option[Int] = Option.empty): Unit = {
+  def addBenchmarkCase(
+      benchmark: Benchmark,
+      name: String,
+      size: Int,
+      writerSupplier: () => ShuffleWriter[String, String],
+      numSpillFiles: Option[Int] = Option.empty): Unit = {
     benchmark.addTimerCase(name) { timer =>
       setup()
       val writer = writerSupplier()
