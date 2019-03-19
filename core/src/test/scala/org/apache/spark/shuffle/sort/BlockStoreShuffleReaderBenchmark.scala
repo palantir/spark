@@ -255,36 +255,39 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     )
   }
 
-  def generateDataOnDisk(size: Int, file: File, offset: Int = 0): (Long, Long) = {
+  def generateDataOnDisk(size: Int, file: File, recordOffset: Int = 0): (Long, Long) = {
     // scalastyle:off println
     println("Generating test data with num records: " + size)
-    class ManualCloseFileOutputStream(file: File) extends FileOutputStream(file) {
+    class ManualCloseFileOutputStream(file: File) extends FileOutputStream(file, true) {
       override def close(): Unit = {
         flush()
       }
 
       def manualClose(): Unit = {
+        flush()
         super.close()
       }
     }
 
-
     val dataOutput = new ManualCloseFileOutputStream(file)
     val random = new Random(123)
+    val serializerInstance = serializer.newInstance()
 
     var countingOutput = new CountingOutputStream(dataOutput)
-    var serializedOutput = serializer.newInstance().serializeStream(countingOutput)
-    var offset = 0L
+    var serializedOutput = serializerInstance.serializeStream(countingOutput)
+    var readOffset = 0L
     try {
       (1 to size).foreach { i => {
         if (i % 1000000 == 0) {
           println("Wrote " + i + " test data points")
         }
-        if (i == offset) {
-          offset = countingOutput.getCount
+        if (i == recordOffset) {
+          serializedOutput.flush()
+          countingOutput.flush()
           serializedOutput.close()
+          readOffset = countingOutput.getCount
           countingOutput = new CountingOutputStream(dataOutput)
-          serializedOutput = serializer.newInstance().serializeStream(countingOutput)
+          serializedOutput = serializerInstance.serializeStream(countingOutput)
         }
         val x = random.alphanumeric.take(DEFAULT_DATA_STRING_SIZE).mkString
         serializedOutput.writeKey(x)
@@ -294,9 +297,11 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       serializedOutput.close()
       dataOutput.manualClose()
     }
-    (countingOutput.getCount, offset)
+    (countingOutput.getCount, readOffset)
     // scalastyle:off println
   }
+
+//  def addBenchmarkCase(benchmark: Benchmark, name: String, )
 
   def runWithLargeDataset(): Unit = {
     val tempDataFile = File.createTempFile("test-data", "", tempDir)
@@ -407,7 +412,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     val smallerFileLengthAndOffset = generateDataOnDisk(
       SMALLER_DATA_SIZE,
       smallerDataFile,
-      SMALLER_DATA_SIZE - 1)
+      recordOffset = SMALLER_DATA_SIZE)
     initializeServers(smallerDataFile, smallerFileLengthAndOffset._1,
       smallerFileLengthAndOffset._2)
 
@@ -425,7 +430,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       timer.startTiming()
       val numRead = reader.read().length
       timer.stopTiming()
-      assert(numRead > 0)
+      assert(numRead == NUM_MAPS)
     }
     seekBenchmark.run()
     stopServers()
@@ -437,8 +442,8 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     tempDir = Utils.createTempDir(null, "shuffle")
 
     runBenchmark("BlockStoreShuffleReader reader") {
-      runWithLargeDataset()
-      runWithSmallerDataset()
+//      runWithLargeDataset()
+//      runWithSmallerDataset()
       runWithOffset()
     }
 
