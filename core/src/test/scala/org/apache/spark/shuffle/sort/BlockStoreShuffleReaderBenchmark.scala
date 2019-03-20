@@ -16,7 +16,7 @@
  */
 package org.apache.spark.shuffle.sort
 
-import java.io.{File, FileOutputStream, OutputStream}
+import java.io.{File, FileOutputStream}
 
 import com.google.common.io.CountingOutputStream
 import org.apache.commons.io.FileUtils
@@ -282,8 +282,6 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
           println("Wrote " + i + " test data points")
         }
         if (i == recordOffset) {
-          serializedOutput.flush()
-          countingOutput.flush()
           serializedOutput.close()
           readOffset = countingOutput.getCount
           countingOutput = new CountingOutputStream(dataOutput)
