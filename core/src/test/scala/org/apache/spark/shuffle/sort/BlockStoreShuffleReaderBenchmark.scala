@@ -221,16 +221,6 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
   def generateDataOnDisk(size: Int, file: File, recordOffset: Int): (Long, Long) = {
     // scalastyle:off println
     println("Generating test data with num records: " + size)
-    class ManualCloseFileOutputStream(file: File) extends FileOutputStream(file, true) {
-      override def close(): Unit = {
-        flush()
-      }
-
-      def manualClose(): Unit = {
-        flush()
-        super.close()
-      }
-    }
 
     val dataOutput = new ManualCloseFileOutputStream(file)
     val random = new Random(123)
@@ -434,5 +424,16 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     override private[spark] def markTaskCompleted(error: Option[Throwable]): Unit = {}
     override private[spark] def fetchFailed = None
     override private[spark] def getLocalProperties = { null }
+  }
+
+  class ManualCloseFileOutputStream(file: File) extends FileOutputStream(file, true) {
+    override def close(): Unit = {
+      flush()
+    }
+
+    def manualClose(): Unit = {
+      flush()
+      super.close()
+    }
   }
 }
