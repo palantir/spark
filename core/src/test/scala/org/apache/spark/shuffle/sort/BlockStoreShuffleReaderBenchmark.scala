@@ -189,39 +189,6 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       numMaps = NUM_MAPS,
       dependency = dependency)
 
-    // We cannot mock the TaskContext because it taskMetrics() gets called at every next()
-    // call on the reader, and Mockito will try to log all calls to taskMetrics(), thus OOM-ing
-    // the test
-    class TestTaskContext extends TaskContext {
-      private val metrics: TaskMetrics = new TaskMetrics
-      private val testMemManager = new TestMemoryManager(defaultConf)
-      private val taskMemManager = new TaskMemoryManager(testMemManager, 0)
-      testMemManager.limit(PackedRecordPointer.MAXIMUM_PAGE_SIZE_BYTES)
-      override def isCompleted(): Boolean = false
-      override def isInterrupted(): Boolean = false
-      override def addTaskCompletionListener(listener: TaskCompletionListener):
-      TaskContext = { null }
-      override def addTaskFailureListener(listener: TaskFailureListener): TaskContext = { null }
-      override def stageId(): Int = 0
-      override def stageAttemptNumber(): Int = 0
-      override def partitionId(): Int = 0
-      override def attemptNumber(): Int = 0
-      override def taskAttemptId(): Long = 0
-      override def getLocalProperty(key: String): String = ""
-      override def taskMetrics(): TaskMetrics = metrics
-      override def getMetricsSources(sourceName: String): Seq[Source] = Seq.empty
-      override private[spark] def killTaskIfInterrupted(): Unit = {}
-      override private[spark] def getKillReason() = None
-      override private[spark] def taskMemoryManager() = taskMemManager
-      override private[spark] def registerAccumulator(a: AccumulatorV2[_, _]): Unit = {}
-      override private[spark] def setFetchFailed(fetchFailed: FetchFailedException): Unit = {}
-      override private[spark] def markInterrupted(reason: String): Unit = {}
-      override private[spark] def markTaskFailed(error: Throwable): Unit = {}
-      override private[spark] def markTaskCompleted(error: Option[Throwable]): Unit = {}
-      override private[spark] def fetchFailed = None
-      override private[spark] def getLocalProperties = { null }
-    }
-
     val taskContext = new TestTaskContext
     TaskContext.setTaskContext(taskContext)
 
@@ -317,16 +284,14 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
   def addBenchmarkCase(
       benchmark: Benchmark,
       name: String,
-      func: () => BlockStoreShuffleReader[String, String],
-      assertSize: Option[Int] = Option.empty): Unit = {
+      shuffleReaderSupplier: => BlockStoreShuffleReader[String, String],
+      assertSize: Option[Int] = None): Unit = {
     benchmark.addTimerCase(name) { timer =>
-      val reader = func()
+      val reader = shuffleReaderSupplier
       timer.startTiming()
       val numRead = reader.read().length
       timer.stopTiming()
-      if (assertSize.isDefined) {
-        assert(numRead == assertSize.get)
-      }
+      assertSize.foreach(size => assert(numRead == size))
     }
   }
 
@@ -341,12 +306,12 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       addBenchmarkCase(
         baseBenchmark,
         "local fetch",
-        () => setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = true),
+        setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = true),
         assertSize = Option.apply(TEST_DATA_SIZE * NUM_MAPS))
       addBenchmarkCase(
         baseBenchmark,
         "remote rpc fetch",
-        () => setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = false),
+        setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = false),
         assertSize = Option.apply(TEST_DATA_SIZE * NUM_MAPS))
       baseBenchmark.run()
     }
@@ -369,7 +334,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       addBenchmarkCase(
         aggregationBenchmark,
         "local fetch",
-        () => setupReader(
+        setupReader(
           testDataFile.getFile(),
           testDataFile.getLength(),
           fetchLocal = true,
@@ -377,7 +342,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       addBenchmarkCase(
         aggregationBenchmark,
         "remote rpc fetch",
-        () => setupReader(
+        setupReader(
           testDataFile.getFile(),
           testDataFile.getLength(),
           fetchLocal = false,
@@ -394,7 +359,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       addBenchmarkCase(
         sortingBenchmark,
         "local fetch",
-        () => setupReader(
+        setupReader(
           testDataFile.getFile(),
           testDataFile.getLength(),
           fetchLocal = true,
@@ -403,7 +368,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       addBenchmarkCase(
         sortingBenchmark,
         "remote rpc fetch",
-        () => setupReader(
+        setupReader(
           testDataFile.getFile(),
           testDataFile.getLength(),
           fetchLocal = false,
@@ -424,7 +389,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       addBenchmarkCase(
         seekBenchmark,
         "seek to last record",
-        () => setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = false),
+        setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = false),
         Option.apply(NUM_MAPS))
       seekBenchmark.run()
     }
@@ -434,11 +399,44 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     tempDir = Utils.createTempDir(null, "shuffle")
 
     runBenchmark("BlockStoreShuffleReader reader") {
-      runLargeDatasetTests()
-      runSmallDatasetTests()
+//      runLargeDatasetTests()
+//      runSmallDatasetTests()
       runSeekTests()
     }
 
     FileUtils.deleteDirectory(tempDir)
+  }
+
+  // We cannot mock the TaskContext because it taskMetrics() gets called at every next()
+  // call on the reader, and Mockito will try to log all calls to taskMetrics(), thus OOM-ing
+  // the test
+  class TestTaskContext extends TaskContext {
+    private val metrics: TaskMetrics = new TaskMetrics
+    private val testMemManager = new TestMemoryManager(defaultConf)
+    private val taskMemManager = new TaskMemoryManager(testMemManager, 0)
+    testMemManager.limit(PackedRecordPointer.MAXIMUM_PAGE_SIZE_BYTES)
+    override def isCompleted(): Boolean = false
+    override def isInterrupted(): Boolean = false
+    override def addTaskCompletionListener(listener: TaskCompletionListener):
+    TaskContext = { null }
+    override def addTaskFailureListener(listener: TaskFailureListener): TaskContext = { null }
+    override def stageId(): Int = 0
+    override def stageAttemptNumber(): Int = 0
+    override def partitionId(): Int = 0
+    override def attemptNumber(): Int = 0
+    override def taskAttemptId(): Long = 0
+    override def getLocalProperty(key: String): String = ""
+    override def taskMetrics(): TaskMetrics = metrics
+    override def getMetricsSources(sourceName: String): Seq[Source] = Seq.empty
+    override private[spark] def killTaskIfInterrupted(): Unit = {}
+    override private[spark] def getKillReason() = None
+    override private[spark] def taskMemoryManager() = taskMemManager
+    override private[spark] def registerAccumulator(a: AccumulatorV2[_, _]): Unit = {}
+    override private[spark] def setFetchFailed(fetchFailed: FetchFailedException): Unit = {}
+    override private[spark] def markInterrupted(reason: String): Unit = {}
+    override private[spark] def markTaskFailed(error: Throwable): Unit = {}
+    override private[spark] def markTaskCompleted(error: Option[Throwable]): Unit = {}
+    override private[spark] def fetchFailed = None
+    override private[spark] def getLocalProperties = { null }
   }
 }
