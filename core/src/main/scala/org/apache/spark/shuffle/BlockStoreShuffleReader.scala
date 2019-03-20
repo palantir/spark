@@ -48,7 +48,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       context,
       blockManager.shuffleClient,
       blockManager,
-      mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition)
+      mapOutputTracker.getMapSizesByShuffleLocation(handle.shuffleId, startPartition, endPartition)
         .map { case (loc, blocks) =>
           require(
               loc.isInstanceOf[DefaultMapShuffleLocations],

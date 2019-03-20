@@ -22,6 +22,11 @@ import java.nio.ByteBuffer
 import java.util.Locale
 import javax.annotation.Nullable
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
+import scala.reflect.ClassTag
+import scala.util.control.NonFatal
+
 import com.esotericsoftware.kryo.{Kryo, KryoException, Serializer => KryoClassSerializer}
 import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
 import com.esotericsoftware.kryo.io.{UnsafeInput => KryoUnsafeInput, UnsafeOutput => KryoUnsafeOutput}
@@ -30,10 +35,6 @@ import com.esotericsoftware.kryo.serializers.{ExternalizableSerializer, JavaSeri
 import com.twitter.chill.{AllScalaRegistrar, EmptyScalaKryoInstantiator}
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.roaringbitmap.RoaringBitmap
-import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
-import scala.reflect.ClassTag
-import scala.util.control.NonFatal
 
 import org.apache.spark._
 import org.apache.spark.api.python.PythonBroadcast

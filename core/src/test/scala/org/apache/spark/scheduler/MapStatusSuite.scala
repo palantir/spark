@@ -19,9 +19,10 @@ package org.apache.spark.scheduler
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 
+import scala.util.Random
+
 import org.mockito.Mockito.mock
 import org.roaringbitmap.RoaringBitmap
-import scala.util.Random
 
 import org.apache.spark.{SparkConf, SparkContext, SparkEnv, SparkFunSuite}
 import org.apache.spark.LocalSparkContext._

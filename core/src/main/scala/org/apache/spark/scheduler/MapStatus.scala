@@ -19,8 +19,9 @@ package org.apache.spark.scheduler
 
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
 
-import org.roaringbitmap.RoaringBitmap
 import scala.collection.mutable
+
+import org.roaringbitmap.RoaringBitmap
 
 import org.apache.spark.SparkEnv
 import org.apache.spark.api.shuffle.MapShuffleLocations
@@ -163,7 +164,8 @@ private[spark] object MapStatus {
  * A [[MapStatus]] implementation that tracks the size of each block. Size for each block is
  * represented using a single byte.
  *
- * @param mapShuffleLocs location where the task is being executed.
+ * @param loc Location were the task is being executed.
+ * @param mapShuffleLocs locations where the task stored its shuffle blocks - may be null.
  * @param compressedSizes size of the blocks, indexed by reduce partition id.
  */
 private[spark] class CompressedMapStatus(
@@ -215,6 +217,7 @@ private[spark] class CompressedMapStatus(
  * plus a bitmap for tracking which blocks are empty.
  *
  * @param loc location where the task is being executed
+ * @param mapShuffleLocs location where the task stored shuffle blocks - may be null
  * @param numNonEmptyBlocks the number of non-empty blocks
  * @param emptyBlocks a bitmap tracking which blocks are empty
  * @param avgSize average size of the non-empty and non-huge blocks

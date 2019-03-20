@@ -17,9 +17,10 @@
 
 package org.apache.spark
 
+import scala.collection.mutable.ArrayBuffer
+
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
-import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.LocalSparkContext._
 import org.apache.spark.broadcast.BroadcastManager
@@ -67,7 +68,7 @@ class MapOutputTrackerSuite extends SparkFunSuite {
         Array(1000L, 10000L)))
     tracker.registerMapOutput(10, 1, MapStatus(BlockManagerId("b", "hostB", 1000),
         Array(10000L, 1000L)))
-    val statuses = tracker.getMapSizesByExecutorId(10, 0)
+    val statuses = tracker.getMapSizesByShuffleLocation(10, 0)
     assert(statuses.toSet ===
       Seq(
         (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
@@ -93,11 +94,11 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     tracker.registerMapOutput(10, 1, MapStatus(BlockManagerId("b", "hostB", 1000),
       Array(compressedSize10000, compressedSize1000)))
     assert(tracker.containsShuffle(10))
-    assert(tracker.getMapSizesByExecutorId(10, 0).nonEmpty)
+    assert(tracker.getMapSizesByShuffleLocation(10, 0).nonEmpty)
     assert(0 == tracker.getNumCachedSerializedBroadcast)
     tracker.unregisterShuffle(10)
     assert(!tracker.containsShuffle(10))
-    assert(tracker.getMapSizesByExecutorId(10, 0).isEmpty)
+    assert(tracker.getMapSizesByShuffleLocation(10, 0).isEmpty)
 
     tracker.stop()
     rpcEnv.shutdown()
@@ -124,7 +125,7 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     // The remaining reduce task might try to grab the output despite the shuffle failure;
     // this should cause it to fail, and the scheduler will ignore the failure due to the
     // stage already being aborted.
-    intercept[FetchFailedException] { tracker.getMapSizesByExecutorId(10, 1) }
+    intercept[FetchFailedException] { tracker.getMapSizesByShuffleLocation(10, 1) }
 
     tracker.stop()
     rpcEnv.shutdown()
@@ -146,13 +147,13 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     masterTracker.registerShuffle(10, 1)
     slaveTracker.updateEpoch(masterTracker.getEpoch)
     // This is expected to fail because no outputs have been registered for the shuffle.
-    intercept[FetchFailedException] { slaveTracker.getMapSizesByExecutorId(10, 0) }
+    intercept[FetchFailedException] { slaveTracker.getMapSizesByShuffleLocation(10, 0) }
 
     val size1000 = MapStatus.decompressSize(MapStatus.compressSize(1000L))
     masterTracker.registerMapOutput(10, 0, MapStatus(
       BlockManagerId("a", "hostA", 1000), Array(1000L)))
     slaveTracker.updateEpoch(masterTracker.getEpoch)
-    assert(slaveTracker.getMapSizesByExecutorId(10, 0).toSeq ===
+    assert(slaveTracker.getMapSizesByShuffleLocation(10, 0).toSeq ===
       Seq(
         (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
           ArrayBuffer((ShuffleBlockId(10, 0, 0), size1000)))))
@@ -162,10 +163,10 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     masterTracker.unregisterMapOutput(10, 0, BlockManagerId("a", "hostA", 1000))
     assert(masterTracker.getEpoch > masterTrackerEpochBeforeLossOfMapOutput)
     slaveTracker.updateEpoch(masterTracker.getEpoch)
-    intercept[FetchFailedException] { slaveTracker.getMapSizesByExecutorId(10, 0) }
+    intercept[FetchFailedException] { slaveTracker.getMapSizesByShuffleLocation(10, 0) }
 
     // failure should be cached
-    intercept[FetchFailedException] { slaveTracker.getMapSizesByExecutorId(10, 0) }
+    intercept[FetchFailedException] { slaveTracker.getMapSizesByShuffleLocation(10, 0) }
     assert(0 == masterTracker.getNumCachedSerializedBroadcast)
 
     masterTracker.stop()
@@ -323,7 +324,7 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     tracker.registerMapOutput(10, 1, MapStatus(BlockManagerId("b", "hostB", 1000),
       Array(size10000, size0, size1000, size0)))
     assert(tracker.containsShuffle(10))
-    assert(tracker.getMapSizesByExecutorId(10, 0, 4).toSeq ===
+    assert(tracker.getMapSizesByShuffleLocation(10, 0, 4).toSeq ===
         Seq(
           (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
               Seq((ShuffleBlockId(10, 0, 1), size1000), (ShuffleBlockId(10, 0, 3), size10000))),

@@ -282,9 +282,9 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
   }
 
   // For testing
-  def getMapSizesByExecutorId(shuffleId: Int, reduceId: Int)
+  def getMapSizesByShuffleLocation(shuffleId: Int, reduceId: Int)
       : Iterator[(MapShuffleLocations, Seq[(BlockId, Long)])] = {
-    getMapSizesByExecutorId(shuffleId, reduceId, reduceId + 1)
+    getMapSizesByShuffleLocation(shuffleId, reduceId, reduceId + 1)
   }
 
   /**
@@ -296,7 +296,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
    *         and the second item is a sequence of (shuffle block id, shuffle block size) tuples
    *         describing the shuffle blocks that are stored at that block manager.
    */
-  def getMapSizesByExecutorId(shuffleId: Int, startPartition: Int, endPartition: Int)
+  def getMapSizesByShuffleLocation(shuffleId: Int, startPartition: Int, endPartition: Int)
       : Iterator[(MapShuffleLocations, Seq[(BlockId, Long)])]
 
   /**
@@ -646,7 +646,7 @@ private[spark] class MapOutputTrackerMaster(
 
   // Get blocks sizes by executor Id. Note that zero-sized blocks are excluded in the result.
   // This method is only called in local-mode.
-  def getMapSizesByExecutorId(shuffleId: Int, startPartition: Int, endPartition: Int)
+  def getMapSizesByShuffleLocation(shuffleId: Int, startPartition: Int, endPartition: Int)
       : Iterator[(MapShuffleLocations, Seq[(BlockId, Long)])] = {
     logDebug(s"Fetching outputs for shuffle $shuffleId, partitions $startPartition-$endPartition")
     shuffleStatuses.get(shuffleId) match {
@@ -683,7 +683,7 @@ private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTr
   private val fetching = new HashSet[Int]
 
   // Get blocks sizes by executor Id. Note that zero-sized blocks are excluded in the result.
-  override def getMapSizesByExecutorId(shuffleId: Int, startPartition: Int, endPartition: Int)
+  override def getMapSizesByShuffleLocation(shuffleId: Int, startPartition: Int, endPartition: Int)
       : Iterator[(MapShuffleLocations, Seq[(BlockId, Long)])] = {
     logDebug(s"Fetching outputs for shuffle $shuffleId, partitions $startPartition-$endPartition")
     val statuses = getStatuses(shuffleId)

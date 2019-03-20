@@ -21,14 +21,15 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream, Fi
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
-import com.esotericsoftware.kryo.{Kryo, KryoException}
-import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
-import org.roaringbitmap.RoaringBitmap
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
+
+import com.esotericsoftware.kryo.{Kryo, KryoException}
+import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
+import org.roaringbitmap.RoaringBitmap
 
 import org.apache.spark.{SharedSparkContext, SparkConf, SparkFunSuite}
 import org.apache.spark.internal.config._
