@@ -255,7 +255,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     )
   }
 
-  def generateDataOnDisk(size: Int, file: File, recordOffset: Int = 0): (Long, Long) = {
+  def generateDataOnDisk(size: Int, file: File, recordOffset: Int): (Long, Long) = {
     // scalastyle:off println
     println("Generating test data with num records: " + size)
     class ManualCloseFileOutputStream(file: File) extends FileOutputStream(file, true) {
@@ -301,150 +301,144 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     // scalastyle:off println
   }
 
-//  def addBenchmarkCase(benchmark: Benchmark, name: String, )
+  class TestDataFile(file: File, length: Long, offset: Long) {
+    def getFile(): File = file
+    def getLength(): Long = length
+    def getOffset(): Long = offset
+  }
 
-  def runWithLargeDataset(): Unit = {
+  def runWithTestDataFile(size: Int, readOffset: Int = 0)(func: TestDataFile => Unit): Unit = {
     val tempDataFile = File.createTempFile("test-data", "", tempDir)
-    val dataFileLengthAndOffset = generateDataOnDisk(TEST_DATA_SIZE, tempDataFile)
+    val dataFileLengthAndOffset = generateDataOnDisk(size, tempDataFile, readOffset)
     initializeServers(tempDataFile, dataFileLengthAndOffset._1, dataFileLengthAndOffset._2)
-    val baseBenchmark =
-      new Benchmark("no aggregation or sorting",
-        TEST_DATA_SIZE,
-        minNumIters = MIN_NUM_ITERS,
-        output = output,
-        outputPerIteration = true)
-    baseBenchmark.addTimerCase("local fetch") { timer =>
-      val reader = setupReader(tempDataFile, dataFileLengthAndOffset._1, fetchLocal = true)
-      timer.startTiming()
-      val numRead = reader.read().length
-      timer.stopTiming()
-      assert(numRead == TEST_DATA_SIZE * NUM_MAPS)
-    }
-    baseBenchmark.addTimerCase("remote rpc fetch") { timer =>
-      val reader = setupReader(tempDataFile, dataFileLengthAndOffset._1, fetchLocal = false)
-      timer.startTiming()
-      val numRead = reader.read().length
-      timer.stopTiming()
-      assert(numRead == TEST_DATA_SIZE * NUM_MAPS)
-    }
-    baseBenchmark.run()
+    func(new TestDataFile(tempDataFile, dataFileLengthAndOffset._1, dataFileLengthAndOffset._2))
     tempDataFile.delete()
     stopServers()
   }
 
-  def runWithSmallerDataset(): Unit = {
-    val smallerDataFile = File.createTempFile("test-data", "", tempDir)
-    val smallerFileLengthAndOffset = generateDataOnDisk(SMALLER_DATA_SIZE, smallerDataFile)
-    initializeServers(smallerDataFile, smallerFileLengthAndOffset._1, smallerFileLengthAndOffset._2)
-
-    def createCombiner(i: String): String = i
-    def mergeValue(i: String, j: String): String = if (Ordering.String.compare(i, j) > 0) i else j
-    def mergeCombiners(i: String, j: String): String =
-      if (Ordering.String.compare(i, j) > 0) i else j
-    val aggregator =
-      new Aggregator[String, String, String](createCombiner, mergeValue, mergeCombiners)
-    val aggregationBenchmark =
-      new Benchmark("with aggregation",
-        SMALLER_DATA_SIZE,
-        minNumIters = MIN_NUM_ITERS,
-        output = output,
-        outputPerIteration = true)
-    aggregationBenchmark.addTimerCase("local fetch") { timer =>
-      val reader = setupReader(
-        smallerDataFile,
-        smallerFileLengthAndOffset._1,
-        fetchLocal = true,
-        aggregator = Some(aggregator))
+  def addBenchmarkCase(
+      benchmark: Benchmark,
+      name: String,
+      func: () => BlockStoreShuffleReader[String, String],
+      assertSize: Option[Int] = Option.empty): Unit = {
+    benchmark.addTimerCase(name) { timer =>
+      val reader = func()
       timer.startTiming()
       val numRead = reader.read().length
       timer.stopTiming()
-      assert(numRead > 0)
+      if (assertSize.isDefined) {
+        assert(numRead == assertSize.get)
+      }
     }
-    aggregationBenchmark.addTimerCase("remote rpc fetch") { timer =>
-      val reader = setupReader(
-        smallerDataFile,
-        smallerFileLengthAndOffset._1,
-        fetchLocal = false,
-        aggregator = Some(aggregator))
-      timer.startTiming()
-      val numRead = reader.read().length
-      timer.stopTiming()
-      assert(numRead > 0)
-    }
-    aggregationBenchmark.run()
-
-
-    val sortingBenchmark =
-      new Benchmark("with sorting",
-        SMALLER_DATA_SIZE,
-        minNumIters = MIN_NUM_ITERS,
-        output = output,
-        outputPerIteration = true)
-    sortingBenchmark.addTimerCase("local fetch") { timer =>
-      val reader = setupReader(
-        smallerDataFile,
-        smallerFileLengthAndOffset._1,
-        fetchLocal = true,
-        sorter = Some(Ordering.String))
-      timer.startTiming()
-      val numRead = reader.read().length
-      timer.stopTiming()
-      assert(numRead == SMALLER_DATA_SIZE * NUM_MAPS)
-    }
-    sortingBenchmark.addTimerCase("remote rpc fetch") { timer =>
-      val reader = setupReader(
-        smallerDataFile,
-        smallerFileLengthAndOffset._1,
-        fetchLocal = false,
-        sorter = Some(Ordering.String))
-      timer.startTiming()
-      val numRead = reader.read().length
-      timer.stopTiming()
-      assert(numRead == SMALLER_DATA_SIZE * NUM_MAPS)
-    }
-    sortingBenchmark.run()
-    stopServers()
-    smallerDataFile.delete()
   }
 
-  def runWithOffset(): Unit = {
-    val smallerDataFile = File.createTempFile("test-data", "", tempDir)
-    val smallerFileLengthAndOffset = generateDataOnDisk(
-      SMALLER_DATA_SIZE,
-      smallerDataFile,
-      recordOffset = SMALLER_DATA_SIZE)
-    initializeServers(smallerDataFile, smallerFileLengthAndOffset._1,
-      smallerFileLengthAndOffset._2)
-
-    val seekBenchmark =
-      new Benchmark("with seek",
-        SMALLER_DATA_SIZE,
-        minNumIters = MIN_NUM_ITERS,
-        output = output)
-
-    seekBenchmark.addTimerCase("seek to last record") { timer =>
-      val reader = setupReader(
-        smallerDataFile,
-        smallerFileLengthAndOffset._1,
-        fetchLocal = false)
-      timer.startTiming()
-      val numRead = reader.read().length
-      timer.stopTiming()
-      assert(numRead == NUM_MAPS)
+  def runLargeDatasetTests(): Unit = {
+    runWithTestDataFile(TEST_DATA_SIZE) { testDataFile =>
+      val baseBenchmark =
+        new Benchmark("no aggregation or sorting",
+          TEST_DATA_SIZE,
+          minNumIters = MIN_NUM_ITERS,
+          output = output,
+          outputPerIteration = true)
+      addBenchmarkCase(
+        baseBenchmark,
+        "local fetch",
+        () => setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = true),
+        assertSize = Option.apply(TEST_DATA_SIZE * NUM_MAPS))
+      addBenchmarkCase(
+        baseBenchmark,
+        "remote rpc fetch",
+        () => setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = false),
+        assertSize = Option.apply(TEST_DATA_SIZE * NUM_MAPS))
+      baseBenchmark.run()
     }
-    seekBenchmark.run()
-    stopServers()
-    smallerDataFile.delete()
+  }
 
+  def runSmallDatasetTests(): Unit = {
+    runWithTestDataFile(SMALLER_DATA_SIZE) { testDataFile =>
+      def createCombiner(i: String): String = i
+      def mergeValue(i: String, j: String): String = if (Ordering.String.compare(i, j) > 0) i else j
+      def mergeCombiners(i: String, j: String): String =
+        if (Ordering.String.compare(i, j) > 0) i else j
+      val aggregator =
+        new Aggregator[String, String, String](createCombiner, mergeValue, mergeCombiners)
+      val aggregationBenchmark =
+        new Benchmark("with aggregation",
+          SMALLER_DATA_SIZE,
+          minNumIters = MIN_NUM_ITERS,
+          output = output,
+          outputPerIteration = true)
+      addBenchmarkCase(
+        aggregationBenchmark,
+        "local fetch",
+        () => setupReader(
+          testDataFile.getFile(),
+          testDataFile.getLength(),
+          fetchLocal = true,
+          aggregator = Some(aggregator)))
+      addBenchmarkCase(
+        aggregationBenchmark,
+        "remote rpc fetch",
+        () => setupReader(
+          testDataFile.getFile(),
+          testDataFile.getLength(),
+          fetchLocal = false,
+          aggregator = Some(aggregator)))
+      aggregationBenchmark.run()
+
+
+      val sortingBenchmark =
+        new Benchmark("with sorting",
+          SMALLER_DATA_SIZE,
+          minNumIters = MIN_NUM_ITERS,
+          output = output,
+          outputPerIteration = true)
+      addBenchmarkCase(
+        sortingBenchmark,
+        "local fetch",
+        () => setupReader(
+          testDataFile.getFile(),
+          testDataFile.getLength(),
+          fetchLocal = true,
+          sorter = Some(Ordering.String)),
+        assertSize = Option.apply(SMALLER_DATA_SIZE * NUM_MAPS))
+      addBenchmarkCase(
+        sortingBenchmark,
+        "remote rpc fetch",
+        () => setupReader(
+          testDataFile.getFile(),
+          testDataFile.getLength(),
+          fetchLocal = false,
+          sorter = Some(Ordering.String)),
+        assertSize = Option.apply(SMALLER_DATA_SIZE * NUM_MAPS))
+      sortingBenchmark.run()
+    }
+  }
+
+  def runSeekTests(): Unit = {
+    runWithTestDataFile(SMALLER_DATA_SIZE, readOffset = SMALLER_DATA_SIZE) { testDataFile =>
+      val seekBenchmark =
+        new Benchmark("with seek",
+          SMALLER_DATA_SIZE,
+          minNumIters = MIN_NUM_ITERS,
+          output = output)
+
+      addBenchmarkCase(
+        seekBenchmark,
+        "seek to last record",
+        () => setupReader(testDataFile.getFile(), testDataFile.getLength(), fetchLocal = false),
+        Option.apply(NUM_MAPS))
+      seekBenchmark.run()
+    }
   }
 
   override def runBenchmarkSuite(mainArgs: Array[String]): Unit = {
     tempDir = Utils.createTempDir(null, "shuffle")
 
     runBenchmark("BlockStoreShuffleReader reader") {
-//      runWithLargeDataset()
-//      runWithSmallerDataset()
-      runWithOffset()
+      runLargeDatasetTests()
+      runSmallDatasetTests()
+      runSeekTests()
     }
 
     FileUtils.deleteDirectory(tempDir)
