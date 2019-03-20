@@ -67,32 +67,28 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
 
   private var tempDir: File = _
 
-  private val NUM_MAPS: Int = 5
+  private val NUM_MAPS = 5
   private val DEFAULT_DATA_STRING_SIZE = 5
-  private val TEST_DATA_SIZE: Int = 10000000
-  private val SMALLER_DATA_SIZE: Int = 2000000
-  private val MIN_NUM_ITERS: Int = 10
+  private val TEST_DATA_SIZE = 10000000
+  private val SMALLER_DATA_SIZE = 2000000
+  private val MIN_NUM_ITERS = 10
 
-  private val executorId: String = "0"
-  private val localPort: Int = 17000
-  private val remotePort: Int = 17002
+  private val executorId = "0"
+  private val localPort = 17000
+  private val remotePort = 17002
 
-  private val defaultConf: SparkConf = new SparkConf()
+  private val defaultConf = new SparkConf()
     .set("spark.shuffle.compress", "false")
     .set("spark.shuffle.spill.compress", "false")
     .set("spark.authenticate", "false")
     .set("spark.app.id", "test-app")
-  private val serializer: KryoSerializer = new KryoSerializer(defaultConf)
-  private val serializerManager: SerializerManager = new SerializerManager(serializer, defaultConf)
-  private val execBlockManagerId: BlockManagerId =
-    BlockManagerId(executorId, "localhost", localPort)
-  private val remoteBlockManagerId: BlockManagerId =
-    BlockManagerId(executorId, "localhost", remotePort)
-  private val transportConf: TransportConf =
-    SparkTransportConf.fromSparkConf(defaultConf, "shuffle")
-  private val securityManager: org.apache.spark.SecurityManager =
-    new org.apache.spark.SecurityManager(defaultConf)
-  protected val memoryManager: TestMemoryManager = new TestMemoryManager(defaultConf)
+  private val serializer = new KryoSerializer(defaultConf)
+  private val serializerManager = new SerializerManager(serializer, defaultConf)
+  private val execBlockManagerId = BlockManagerId(executorId, "localhost", localPort)
+  private val remoteBlockManagerId = BlockManagerId(executorId, "localhost", remotePort)
+  private val transportConf = SparkTransportConf.fromSparkConf(defaultConf, "shuffle")
+  private val securityManager = new org.apache.spark.SecurityManager(defaultConf)
+  protected val memoryManager = new TestMemoryManager(defaultConf)
 
   class TestBlockManager(transferService: BlockTransferService,
       blockManagerMaster: BlockManagerMaster,
@@ -192,7 +188,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     val taskContext = new TestTaskContext
     TaskContext.setTaskContext(taskContext)
 
-    var dataBlockId: BlockManagerId = execBlockManagerId
+    var dataBlockId = execBlockManagerId
     if (!fetchLocal) {
       dataBlockId = remoteBlockManagerId
     }
@@ -399,8 +395,8 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     tempDir = Utils.createTempDir(null, "shuffle")
 
     runBenchmark("BlockStoreShuffleReader reader") {
-//      runLargeDatasetTests()
-//      runSmallDatasetTests()
+      runLargeDatasetTests()
+      runSmallDatasetTests()
       runSeekTests()
     }
 
