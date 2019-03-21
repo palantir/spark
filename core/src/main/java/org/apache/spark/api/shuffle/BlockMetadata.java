@@ -22,7 +22,6 @@ import org.apache.spark.storage.BlockManagerId;
 import java.util.Optional;
 
 public final class BlockMetadata {
-  private final String appId;
   private final int shuffleId;
   private final int mapId;
   private final int reduceId;
@@ -30,13 +29,11 @@ public final class BlockMetadata {
   private final Optional<BlockManagerId> shuffleLocation;
 
   private BlockMetadata(
-      String appId,
       int shuffleId,
       int mapId,
       int reduceId,
       long length,
       Optional<BlockManagerId> shuffleLocation) {
-    this.appId = appId;
     this.shuffleId = shuffleId;
     this.mapId = mapId;
     this.reduceId = reduceId;
@@ -44,22 +41,17 @@ public final class BlockMetadata {
     this.shuffleLocation = shuffleLocation;
   }
 
-  public static BlockMetadata create(String appId, int shuffleId, int mapId, int reduceId, long length) {
-    return new BlockMetadata(appId, shuffleId, mapId, reduceId, length, Optional.empty());
+  public static BlockMetadata create(int shuffleId, int mapId, int reduceId, long length) {
+    return new BlockMetadata(shuffleId, mapId, reduceId, length, Optional.empty());
   }
 
   public static BlockMetadata create(
-      String appId,
       int shuffleId,
       int mapId,
       int reduceId,
       long length,
       BlockManagerId blockManagerId) {
-    return new BlockMetadata(appId, shuffleId, mapId, reduceId, length, Optional.of(blockManagerId));
-  }
-
-  public String getAppId() {
-    return appId;
+    return new BlockMetadata(shuffleId, mapId, reduceId, length, Optional.of(blockManagerId));
   }
 
   public int getShuffleId() {

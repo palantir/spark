@@ -44,7 +44,6 @@ import org.apache.spark.util.io.ChunkedByteBufferOutputStream
  * The implementation throttles the remote fetches so they don't exceed maxBytesInFlight to avoid
  * using too much memory.
  *
- * @param context [[TaskContext]], used for metrics update
  * @param shuffleClient [[ShuffleClient]] for fetching remote blocks
  * @param blockManager [[BlockManager]] for reading local blocks
  * @param blocksByAddress list of blocks to fetch grouped by the [[BlockManagerId]].
@@ -59,11 +58,9 @@ import org.apache.spark.util.io.ChunkedByteBufferOutputStream
  *                                    for a given remote host:port.
  * @param maxReqSizeShuffleToMem max size (in bytes) of a request that can be shuffled to memory.
  * @param detectCorrupt whether to detect any corruption in fetched blocks.
- * @param shuffleMetrics used to report shuffle metrics.
  */
 private[spark]
 final class ShuffleBlockFetcherIterator(
-    context: TaskContext,
     shuffleClient: ShuffleClient,
     blockManager: BlockManager,
     blocksByAddress: Iterator[(BlockManagerId, Seq[(BlockId, Long)])],
@@ -72,8 +69,7 @@ final class ShuffleBlockFetcherIterator(
     maxReqsInFlight: Int,
     maxBlocksInFlightPerAddress: Int,
     maxReqSizeShuffleToMem: Long,
-    detectCorrupt: Boolean,
-    shuffleMetrics: ShuffleReadMetricsReporter)
+    detectCorrupt: Boolean)
   extends Iterator[(BlockId, InputStream)] with DownloadFileManager with Logging {
 
   import ShuffleBlockFetcherIterator._
@@ -161,6 +157,10 @@ final class ShuffleBlockFetcherIterator(
   private[this] val shuffleFilesSet = mutable.HashSet[DownloadFile]()
 
   private[this] val onCompleteCallback = new ShuffleFetchCompletionListener(this)
+
+  private[this] val context = TaskContext.get()
+
+  private[this] val shuffleMetrics = context.taskMetrics().createTempShuffleReadMetrics()
 
   initialize()
 
