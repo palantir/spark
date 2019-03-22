@@ -66,7 +66,6 @@ private[spark] abstract class KubernetesConf(val sparkConf: SparkConf) {
   def get(conf: String, defaultValue: String): String = sparkConf.get(conf, defaultValue)
 
   def getOption(key: String): Option[String] = sparkConf.getOption(key)
-
 }
 
 private[spark] class KubernetesDriverConf(
