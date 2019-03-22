@@ -17,22 +17,23 @@
 
 package org.apache.spark.storage
 
-import java.io.{InputStream, IOException}
+import java.io.{IOException, InputStream}
 import java.nio.ByteBuffer
 import java.util.concurrent.LinkedBlockingQueue
-import javax.annotation.concurrent.GuardedBy
 
+import javax.annotation.concurrent.GuardedBy
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
-import org.apache.spark.{SparkException, TaskContext}
+import org.apache.spark.api.shuffle.ShuffleLocationBlocks
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle._
 import org.apache.spark.network.util.TransportConf
 import org.apache.spark.shuffle.{FetchFailedException, ShuffleReadMetricsReporter}
-import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
 import org.apache.spark.util.io.ChunkedByteBufferOutputStream
+import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
+import org.apache.spark.{SparkException, TaskContext}
 
 /**
  * An iterator that fetches multiple blocks. For local blocks, it fetches from the local block
@@ -44,6 +45,7 @@ import org.apache.spark.util.io.ChunkedByteBufferOutputStream
  * The implementation throttles the remote fetches so they don't exceed maxBytesInFlight to avoid
  * using too much memory.
  *
+ * @param context [[TaskContext]], used for metrics update
  * @param shuffleClient [[ShuffleClient]] for fetching remote blocks
  * @param blockManager [[BlockManager]] for reading local blocks
  * @param blocksByAddress list of blocks to fetch grouped by the [[BlockManagerId]].
@@ -58,18 +60,21 @@ import org.apache.spark.util.io.ChunkedByteBufferOutputStream
  *                                    for a given remote host:port.
  * @param maxReqSizeShuffleToMem max size (in bytes) of a request that can be shuffled to memory.
  * @param detectCorrupt whether to detect any corruption in fetched blocks.
+ * @param shuffleMetrics used to report shuffle metrics.
  */
 private[spark]
 final class ShuffleBlockFetcherIterator(
+    context: TaskContext,
     shuffleClient: ShuffleClient,
     blockManager: BlockManager,
-    blocksByAddress: Iterator[(BlockManagerId, Seq[(BlockId, Long)])],
+    blocksByAddress: Iterator[ShuffleLocationBlocks],
     streamWrapper: (BlockId, InputStream) => InputStream,
     maxBytesInFlight: Long,
     maxReqsInFlight: Int,
     maxBlocksInFlightPerAddress: Int,
     maxReqSizeShuffleToMem: Long,
-    detectCorrupt: Boolean)
+    detectCorrupt: Boolean,
+    shuffleMetrics: ShuffleReadMetricsReporter)
   extends Iterator[(BlockId, InputStream)] with DownloadFileManager with Logging {
 
   import ShuffleBlockFetcherIterator._
@@ -157,10 +162,6 @@ final class ShuffleBlockFetcherIterator(
   private[this] val shuffleFilesSet = mutable.HashSet[DownloadFile]()
 
   private[this] val onCompleteCallback = new ShuffleFetchCompletionListener(this)
-
-  private[this] val context = TaskContext.get()
-
-  private[this] val shuffleMetrics = context.taskMetrics().createTempShuffleReadMetrics()
 
   initialize()
 
@@ -285,7 +286,13 @@ final class ShuffleBlockFetcherIterator(
     var localBlockBytes = 0L
     var remoteBlockBytes = 0L
 
-    for ((address, blockInfos) <- blocksByAddress) {
+    for (shuffleLocationBlocks <- blocksByAddress) {
+      assert(shuffleLocationBlocks.getShuffleLocation.isPresent,
+        "expected shuffleLocationBlock to contain a valid shuffleLocation")
+      val address = shuffleLocationBlocks.getShuffleLocation.get()
+      val blockInfos = shuffleLocationBlocks.getShuffleBlocks
+        .map(block =>
+          (ShuffleBlockId(block.getShuffleId, block.getMapId, block.getReduceId), block.getLength))
       if (address.executorId == blockManager.blockManagerId.executorId) {
         blockInfos.find(_._2 <= 0) match {
           case Some((blockId, size)) if size < 0 =>

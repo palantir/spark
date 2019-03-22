@@ -20,8 +20,10 @@ package org.apache.spark.shuffle.io
 import java.io.InputStream
 import java.lang
 
+import scala.collection.JavaConverters
+
 import org.apache.spark.{MapOutputTracker, SparkEnv}
-import org.apache.spark.api.shuffle.{BlockMetadata, ShuffleReadSupport}
+import org.apache.spark.api.shuffle.{ShuffleLocationBlocks, ShuffleReadSupport}
 import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
@@ -39,11 +41,17 @@ class DefaultShuffleReadSupport(
   val detectCorrupt = SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   override def getPartitionReaders(
-      blockMetadata: lang.Iterable[BlockMetadata]): lang.Iterable[InputStream] = {
+      blockMetadata: lang.Iterable[ShuffleLocationBlocks]): lang.Iterable[InputStream] = {
     val shuffleBlockFetcherIterator = new ShuffleBlockFetcherIterator(
       blockManager.shuffleClient,
       blockManager,
-      mapOutputTracker.getMapSizesByExecutorId()
+      JavaConverters.iterableAsScalaIterable(blockMetadata).iterator,
+      serializerManager.wrapStream,
+      maxBytesInFlight,
+      maxReqsInFlight,
+      maxBlocksInFlightPerAddress,
+      maxReqSizeShuffleToMem,
+      detectCorrupt
     )
   }
 }
