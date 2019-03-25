@@ -265,6 +265,77 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
         result = df.select(array_f(col('array')))
         self.assertEquals(df.collect(), result.collect())
 
+    def test_vectorized_udf_struct_type(self):
+        import pandas as pd
+        import pyarrow as pa
+
+        df = self.spark.range(10)
+        return_type = StructType([
+            StructField('id', LongType()),
+            StructField('str', StringType())])
+
+        def func(id):
+            return pd.DataFrame({'id': id, 'str': id.apply(unicode)})
+
+        f = pandas_udf(func, returnType=return_type)
+
+        expected = df.select(struct(col('id'), col('id').cast('string').alias('str'))
+                             .alias('struct')).collect()
+
+        actual = df.select(f(col('id')).alias('struct')).collect()
+        self.assertEqual(expected, actual)
+
+        g = pandas_udf(func, 'id: long, str: string')
+        actual = df.select(g(col('id')).alias('struct')).collect()
+        self.assertEqual(expected, actual)
+
+        struct_f = pandas_udf(lambda x: x, return_type)
+        actual = df.select(struct_f(struct(col('id'), col('id').cast('string').alias('str'))))
+        if LooseVersion(pa.__version__) < LooseVersion("0.10.0"):
+            with QuietTest(self.sc):
+                from py4j.protocol import Py4JJavaError
+                with self.assertRaisesRegexp(
+                        Py4JJavaError,
+                        'Unsupported type in conversion from Arrow'):
+                    self.assertEqual(expected, actual.collect())
+        else:
+            self.assertEqual(expected, actual.collect())
+
+    def test_vectorized_udf_struct_complex(self):
+        import pandas as pd
+
+        df = self.spark.range(10)
+        return_type = StructType([
+            StructField('ts', TimestampType()),
+            StructField('arr', ArrayType(LongType()))])
+
+        @pandas_udf(returnType=return_type)
+        def f(id):
+            return pd.DataFrame({'ts': id.apply(lambda i: pd.Timestamp(i)),
+                                 'arr': id.apply(lambda i: [i, i + 1])})
+
+        actual = df.withColumn('f', f(col('id'))).collect()
+        for i, row in enumerate(actual):
+            id, f = row
+            self.assertEqual(i, id)
+            self.assertEqual(pd.Timestamp(i).to_pydatetime(), f[0])
+            self.assertListEqual([i, i + 1], f[1])
+
+    def test_vectorized_udf_nested_struct(self):
+        nested_type = StructType([
+            StructField('id', IntegerType()),
+            StructField('nested', StructType([
+                StructField('foo', StringType()),
+                StructField('bar', FloatType())
+            ]))
+        ])
+
+        with QuietTest(self.sc):
+            with self.assertRaisesRegexp(
+                    Exception,
+                    'Invalid returnType with scalar Pandas UDFs'):
+                pandas_udf(lambda x: x, returnType=nested_type)
+
     def test_vectorized_udf_complex(self):
         df = self.spark.range(10).select(
             col('id').cast('int').alias('a'),
@@ -301,6 +372,26 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
         g = pandas_udf(lambda x: x - 1, LongType())
         res = df.select(g(f(col('id'))))
         self.assertEquals(df.collect(), res.collect())
+
+    def test_vectorized_udf_chained_struct_type(self):
+        import pandas as pd
+
+        df = self.spark.range(10)
+        return_type = StructType([
+            StructField('id', LongType()),
+            StructField('str', StringType())])
+
+        @pandas_udf(return_type)
+        def f(id):
+            return pd.DataFrame({'id': id, 'str': id.apply(unicode)})
+
+        g = pandas_udf(lambda x: x, return_type)
+
+        expected = df.select(struct(col('id'), col('id').cast('string').alias('str'))
+                             .alias('struct')).collect()
+
+        actual = df.select(g(f(col('id'))).alias('struct')).collect()
+        self.assertEqual(expected, actual)
 
     def test_vectorized_udf_wrong_return_type(self):
         with QuietTest(self.sc):

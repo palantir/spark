@@ -310,12 +310,10 @@ class ArrowStreamPandasSerializer(Serializer):
         self._timezone = timezone
         self._safecheck = safecheck
 
-    def arrow_to_pandas(self, arrow_column):
-        from pyspark.sql.types import from_arrow_type, \
-            _check_series_convert_date, _check_series_localize_timestamps
+    def arrow_to_pandas(self, arrow_column, data_type):
+        from pyspark.sql.types import _arrow_column_to_pandas, _check_series_localize_timestamps
 
-        s = arrow_column.to_pandas()
-        s = _check_series_convert_date(s, from_arrow_type(arrow_column.type))
+        s = _arrow_column_to_pandas(arrow_column, data_type)
         s = _check_series_localize_timestamps(s, self._timezone)
         return s
 
@@ -342,13 +340,59 @@ class ArrowStreamPandasSerializer(Serializer):
         Deserialize ArrowRecordBatches to an Arrow table and return as a list of pandas.Series.
         """
         import pyarrow as pa
-        reader = pa.ipc.open_stream(stream)
 
-        for batch in reader:
-            yield [self.arrow_to_pandas(c) for c in pa.Table.from_batches([batch]).itercolumns()]
+        from pyspark.sql.types import from_arrow_type
+        for batch in batches:
+            yield [self.arrow_to_pandas(c, from_arrow_type(c.type))
+                   for c in pa.Table.from_batches([batch]).itercolumns()]
 
     def __repr__(self):
         return "ArrowStreamPandasSerializer"
+
+
+class ArrowStreamPandasUDFSerializer(ArrowStreamPandasSerializer):
+    """
+    Serializer used by Python worker to evaluate Pandas UDFs
+    """
+
+    def __init__(self, timezone, safecheck, assign_cols_by_name, df_for_struct=False):
+        super(ArrowStreamPandasUDFSerializer, self) \
+            .__init__(timezone, safecheck, assign_cols_by_name)
+        self._df_for_struct = df_for_struct
+
+    def arrow_to_pandas(self, arrow_column, data_type):
+        from pyspark.sql.types import StructType, \
+            _arrow_column_to_pandas, _check_dataframe_localize_timestamps
+
+        if self._df_for_struct and type(data_type) == StructType:
+            import pandas as pd
+            series = [_arrow_column_to_pandas(column, field.dataType).rename(field.name)
+                      for column, field in zip(arrow_column.flatten(), data_type)]
+            s = _check_dataframe_localize_timestamps(pd.concat(series, axis=1), self._timezone)
+        else:
+            s = super(ArrowStreamPandasUDFSerializer, self).arrow_to_pandas(arrow_column, data_type)
+        return s
+
+    def dump_stream(self, iterator, stream):
+        """
+        Override because Pandas UDFs require a START_ARROW_STREAM before the Arrow stream is sent.
+        This should be sent after creating the first record batch so in case of an error, it can
+        be sent back to the JVM before the Arrow stream starts.
+        """
+
+        def init_stream_yield_batches():
+            should_write_start_length = True
+            for series in iterator:
+                batch = self._create_batch(series)
+                if should_write_start_length:
+                    write_int(SpecialLengths.START_ARROW_STREAM, stream)
+                    should_write_start_length = False
+                yield batch
+
+        return ArrowStreamSerializer.dump_stream(self, init_stream_yield_batches(), stream)
+
+    def __repr__(self):
+        return "ArrowStreamPandasUDFSerializer"
 
 
 class BatchedSerializer(Serializer):
