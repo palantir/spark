@@ -92,41 +92,26 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       size,
       minNumIters = MIN_NUM_ITERS,
       output = output)
-    addBenchmarkCase(benchmark, "small dataset without spills") { timer =>
-      val shuffleWriter = getWriter(Option.empty, Option.empty)
-      val dataIterator = createDataIterator(size)
-      try {
-        timer.startTiming()
-        shuffleWriter.write(dataIterator)
-        timer.stopTiming()
-        assert(tempFilesCreated.isEmpty)
-      } finally {
-        shuffleWriter.stop(true)
-      }
-    }
+    addBenchmarkCase(benchmark,
+      "small dataset without spills",
+      size,
+      () => getWriter(Option.empty, Option.empty),
+      Some(0))
     benchmark.run()
   }
 
   def writeBenchmarkWithSpill(): Unit = {
     val size = DATA_SIZE_LARGE
-
     val benchmark = new Benchmark("SortShuffleWriter with spills",
       size,
       minNumIters = MIN_NUM_ITERS,
       output = output,
       outputPerIteration = true)
-    addBenchmarkCase(benchmark, "no map side combine") { timer =>
-      val shuffleWriter = getWriter(Option.empty, Option.empty)
-      val dataIterator = createDataIterator(size)
-      try {
-        timer.startTiming()
-        shuffleWriter.write(dataIterator)
-        timer.stopTiming()
-        assert(tempFilesCreated.length == 7)
-      } finally {
-        shuffleWriter.stop(true)
-      }
-    }
+    addBenchmarkCase(benchmark,
+      "no map side combine",
+      size,
+      () => getWriter(Option.empty, Option.empty),
+      Some(7))
 
     def createCombiner(i: String): String = i
     def mergeValue(i: String, j: String): String = if (Ordering.String.compare(i, j) > 0) i else j
@@ -134,32 +119,18 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       if (Ordering.String.compare(i, j) > 0) i else j
     val aggregator =
       new Aggregator[String, String, String](createCombiner, mergeValue, mergeCombiners)
-    addBenchmarkCase(benchmark, "with map side aggregation") { timer =>
-      val shuffleWriter = getWriter(Some(aggregator), Option.empty)
-      val dataIterator = createDataIterator(size)
-      try {
-        timer.startTiming()
-        shuffleWriter.write(dataIterator)
-        timer.stopTiming()
-        assert(tempFilesCreated.length == 7)
-      } finally {
-        shuffleWriter.stop(true)
-      }
-    }
+    addBenchmarkCase(benchmark,
+      "with map side aggregation",
+      size,
+      () => getWriter(Some(aggregator), Option.empty),
+      Some(7))
 
     val sorter = Ordering.String
-    addBenchmarkCase(benchmark, "with map side sort") { timer =>
-      val shuffleWriter = getWriter(Option.empty, Some(sorter))
-      val dataIterator = createDataIterator(size)
-      try {
-        timer.startTiming()
-        shuffleWriter.write(dataIterator)
-        timer.stopTiming()
-        assert(tempFilesCreated.length == 7)
-      } finally {
-        shuffleWriter.stop(true)
-      }
-    }
+    addBenchmarkCase(benchmark,
+      "with map side sort",
+      size,
+      () => getWriter(Option.empty, Some(sorter)),
+      Some(7))
     benchmark.run()
   }
 
