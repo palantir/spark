@@ -46,8 +46,4 @@ public final class ShuffleBlockInfo {
     return length;
   }
 
-  public String getBlockName() {
-    return String.format("shuffle_%d_%d_%d", shuffleId, mapId, reduceId);
-  }
-
 }

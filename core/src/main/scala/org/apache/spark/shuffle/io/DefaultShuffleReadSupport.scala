@@ -18,7 +18,6 @@
 package org.apache.spark.shuffle.io
 
 import java.io.InputStream
-import java.lang
 
 import scala.collection.JavaConverters._
 
@@ -41,7 +40,7 @@ class DefaultShuffleReadSupport(
   val detectCorrupt = SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   override def getPartitionReaders(
-      blockMetadata: lang.Iterable[ShuffleBlockInfo]): lang.Iterable[InputStream] = {
+      blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): java.lang.Iterable[InputStream] = {
 
     val minReduceId = blockMetadata.asScala.map(block => block.getReduceId).min
     val maxReduceId = blockMetadata.asScala.map(block => block.getReduceId).max
