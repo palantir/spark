@@ -22,8 +22,7 @@ import java.util.Optional
 import scala.collection.JavaConverters._
 
 import org.apache.spark._
-import org.apache.spark.api.shuffle.{ShuffleLocationBlocks, ShuffleReadSupport}
-import org.apache.spark.api.shuffle.ShuffleLocationBlocks.ShuffleBlockInfo
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.Logging
 import org.apache.spark.storage.ShuffleBlockId
 import org.apache.spark.util.CompletionIterator
@@ -48,19 +47,17 @@ private[spark] class BlockStoreShuffleReader[K, C](
   /** Read the combined key-values for this reduce task */
   val blocksIterator =
     mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition)
-    .map(blockManagerIdInfo => {
-      val shuffleBlockInfo = blockManagerIdInfo._2.map(
+    .flatMap(blockManagerIdInfo => {
+      blockManagerIdInfo._2.map(
         blockInfo => {
           val block = blockInfo._1.asInstanceOf[ShuffleBlockId]
           new ShuffleBlockInfo(block.shuffleId, block.mapId, block.reduceId, blockInfo._2)
         }
       )
-      new ShuffleLocationBlocks(Optional.of(blockManagerIdInfo._1), shuffleBlockInfo.toArray)
     })
   override def read(): Iterator[Product2[K, C]] = {
     val wrappedStreams =
       shuffleReadSupport.getPartitionReaders(blocksIterator.toIterable.asJava).asScala
-
 
     val serializerInstance = dep.serializer.newInstance()
 

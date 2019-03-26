@@ -17,13 +17,37 @@
 
 package org.apache.spark.api.shuffle;
 
-import java.io.IOException;
-import java.io.InputStream;
+public final class ShuffleBlockInfo {
+  private final int shuffleId;
+  private final int mapId;
+  private final int reduceId;
+  private final long length;
 
-/**
- * :: Experimental ::
- * An interface for reading shuffle records
- */
-public interface ShuffleReadSupport {
-  Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata) throws IOException;
+  public ShuffleBlockInfo(int shuffleId, int mapId, int reduceId, long length) {
+    this.shuffleId = shuffleId;
+    this.mapId = mapId;
+    this.reduceId = reduceId;
+    this.length = length;
+  }
+
+  public int getShuffleId() {
+    return shuffleId;
+  }
+
+  public int getMapId() {
+    return mapId;
+  }
+
+  public int getReduceId() {
+    return reduceId;
+  }
+
+  public long getLength() {
+    return length;
+  }
+
+  public String getBlockName() {
+    return String.format("shuffle_%d_%d_%d", shuffleId, mapId, reduceId);
+  }
+
 }
