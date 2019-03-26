@@ -25,13 +25,13 @@ public final class ShuffleLocationBlocks {
   private final ShuffleBlockInfo[] shuffleBlocks;
   private final Optional<BlockManagerId> shuffleLocation;
 
-  private final class ShuffleBlockInfo {
+  public static final class ShuffleBlockInfo {
     private final int shuffleId;
     private final int mapId;
     private final int reduceId;
     private final long length;
 
-    ShuffleBlockInfo(int shuffleId, int mapId, int reduceId, long length) {
+    public ShuffleBlockInfo(int shuffleId, int mapId, int reduceId, long length) {
       this.shuffleId = shuffleId;
       this.mapId = mapId;
       this.reduceId = reduceId;
@@ -59,9 +59,9 @@ public final class ShuffleLocationBlocks {
     }
   }
 
-  private ShuffleLocationBlocks(
-      ShuffleBlockInfo[] shuffleBlocks,
-      Optional<BlockManagerId> shuffleLocation) {
+  public ShuffleLocationBlocks(
+      Optional<BlockManagerId> shuffleLocation,
+      ShuffleBlockInfo[] shuffleBlocks) {
     this.shuffleBlocks = shuffleBlocks;
     this.shuffleLocation = shuffleLocation;
   }

@@ -17,23 +17,22 @@
 
 package org.apache.spark.storage
 
-import java.io.{IOException, InputStream}
+import java.io.{InputStream, IOException}
 import java.nio.ByteBuffer
 import java.util.concurrent.LinkedBlockingQueue
-
 import javax.annotation.concurrent.GuardedBy
+
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
-import org.apache.spark.api.shuffle.ShuffleLocationBlocks
+import org.apache.spark.{SparkException, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle._
 import org.apache.spark.network.util.TransportConf
 import org.apache.spark.shuffle.{FetchFailedException, ShuffleReadMetricsReporter}
-import org.apache.spark.util.io.ChunkedByteBufferOutputStream
 import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
-import org.apache.spark.{SparkException, TaskContext}
+import org.apache.spark.util.io.ChunkedByteBufferOutputStream
 
 /**
  * An iterator that fetches multiple blocks. For local blocks, it fetches from the local block
@@ -67,7 +66,7 @@ final class ShuffleBlockFetcherIterator(
     context: TaskContext,
     shuffleClient: ShuffleClient,
     blockManager: BlockManager,
-    blocksByAddress: Iterator[ShuffleLocationBlocks],
+    blocksByAddress: Iterator[(BlockManagerId, Seq[(BlockId, Long)])],
     streamWrapper: (BlockId, InputStream) => InputStream,
     maxBytesInFlight: Long,
     maxReqsInFlight: Int,
@@ -286,13 +285,7 @@ final class ShuffleBlockFetcherIterator(
     var localBlockBytes = 0L
     var remoteBlockBytes = 0L
 
-    for (shuffleLocationBlocks <- blocksByAddress) {
-      assert(shuffleLocationBlocks.getShuffleLocation.isPresent,
-        "expected shuffleLocationBlock to contain a valid shuffleLocation")
-      val address = shuffleLocationBlocks.getShuffleLocation.get()
-      val blockInfos = shuffleLocationBlocks.getShuffleBlocks
-        .map(block =>
-          (ShuffleBlockId(block.getShuffleId, block.getMapId, block.getReduceId), block.getLength))
+    for ((address, blockInfos) <- blocksByAddress) {
       if (address.executorId == blockManager.blockManagerId.executorId) {
         blockInfos.find(_._2 <= 0) match {
           case Some((blockId, size)) if size < 0 =>

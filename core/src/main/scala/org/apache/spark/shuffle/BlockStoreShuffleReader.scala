@@ -17,10 +17,15 @@
 
 package org.apache.spark.shuffle
 
+import java.util.Optional
+
+import scala.collection.JavaConverters._
+
 import org.apache.spark._
-import org.apache.spark.internal.{config, Logging}
-import org.apache.spark.serializer.SerializerManager
-import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
+import org.apache.spark.api.shuffle.{ShuffleLocationBlocks, ShuffleReadSupport}
+import org.apache.spark.api.shuffle.ShuffleLocationBlocks.ShuffleBlockInfo
+import org.apache.spark.internal.Logging
+import org.apache.spark.storage.ShuffleBlockId
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
@@ -34,31 +39,33 @@ private[spark] class BlockStoreShuffleReader[K, C](
     endPartition: Int,
     context: TaskContext,
     readMetrics: ShuffleReadMetricsReporter,
-    serializerManager: SerializerManager = SparkEnv.get.serializerManager,
-    blockManager: BlockManager = SparkEnv.get.blockManager,
+    shuffleReadSupport: ShuffleReadSupport,
     mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
   extends ShuffleReader[K, C] with Logging {
 
   private val dep = handle.dependency
 
   /** Read the combined key-values for this reduce task */
+  val blocksIterator =
+    mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition)
+    .map(blockManagerIdInfo => {
+      val shuffleBlockInfo = blockManagerIdInfo._2.map(
+        blockInfo => {
+          val block = blockInfo._1.asInstanceOf[ShuffleBlockId]
+          new ShuffleBlockInfo(block.shuffleId, block.mapId, block.reduceId, blockInfo._2)
+        }
+      )
+      new ShuffleLocationBlocks(Optional.of(blockManagerIdInfo._1), shuffleBlockInfo.toArray)
+    })
   override def read(): Iterator[Product2[K, C]] = {
-    val wrappedStreams = new ShuffleBlockFetcherIterator(
-      blockManager.shuffleClient,
-      blockManager,
-      mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition),
-      serializerManager.wrapStream,
-      // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
-      SparkEnv.get.conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024,
-      SparkEnv.get.conf.get(config.REDUCER_MAX_REQS_IN_FLIGHT),
-      SparkEnv.get.conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS),
-      SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM),
-      SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT)).toCompletionIterator
+    val wrappedStreams =
+      shuffleReadSupport.getPartitionReaders(blocksIterator.toIterable.asJava).asScala
+
 
     val serializerInstance = dep.serializer.newInstance()
 
     // Create a key/value iterator for each stream
-    val recordIter = wrappedStreams.flatMap { case (blockId, wrappedStream) =>
+    val recordIter = wrappedStreams.flatMap { case wrappedStream =>
       // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
       // NextIterator. The NextIterator makes sure that close() is called on the
       // underlying InputStream when all records have been read.
@@ -70,7 +77,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       recordIter.map { record =>
         readMetrics.incRecordsRead(1)
         record
-      },
+      }.toIterator,
       context.taskMetrics().mergeShuffleReadMetrics())
 
     // An interruptible iterator must be used here in order to support task cancellation

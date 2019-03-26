@@ -26,6 +26,7 @@ import org.apache.spark._
 import org.apache.spark.internal.config
 import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
 import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
+import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
 import org.apache.spark.storage.{BlockManager, BlockManagerId, ShuffleBlockId}
 
 /**
@@ -128,15 +129,18 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
         .set(config.SHUFFLE_SPILL_COMPRESS, false))
 
     val taskContext = TaskContext.empty()
+    TaskContext.setTaskContext(taskContext)
     val metrics = taskContext.taskMetrics.createTempShuffleReadMetrics()
+
+    val shuffleReadSupport =
+      new DefaultShuffleReadSupport(blockManager, serializerManager)
     val shuffleReader = new BlockStoreShuffleReader(
       shuffleHandle,
       reduceId,
       reduceId + 1,
       taskContext,
       metrics,
-      serializerManager,
-      blockManager,
+      shuffleReadSupport,
       mapOutputTracker)
 
     assert(shuffleReader.read().length === keyValuePairsPerMap * numMaps)
