@@ -31,7 +31,7 @@ import org.apache.spark.scheduler.{MapStatus, MyRDD, SparkListener, SparkListene
 import org.apache.spark.serializer.KryoSerializer
 import org.apache.spark.shuffle.ShuffleWriter
 import org.apache.spark.storage.{ShuffleBlockId, ShuffleDataBlockId, ShuffleIndexBlockId}
-import org.apache.spark.util.{MutablePair, Utils}
+import org.apache.spark.util.MutablePair
 
 abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkContext {
 
@@ -366,17 +366,21 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     // first attempt -- its successful
     val context1 =
       new TaskContextImpl(0, 0, 0, 0L, 0, taskMemoryManager, new Properties, metricsSystem)
+    TaskContext.setTaskContext(context1)
     val writer1 = manager.getWriter[Int, Int](
       shuffleHandle, 0, context1, context1.taskMetrics.shuffleWriteMetrics)
-    val data1 = (1 to 10).map { x => x -> x}
+    TaskContext.unset()
+    val data1 = (1 to 10).map { x => x -> x }
 
     // second attempt -- also successful.  We'll write out different data,
     // just to simulate the fact that the records may get written differently
     // depending on what gets spilled, what gets combined, etc.
     val context2 =
       new TaskContextImpl(0, 0, 0, 1L, 0, taskMemoryManager, new Properties, metricsSystem)
+    TaskContext.setTaskContext(context2)
     val writer2 = manager.getWriter[Int, Int](
       shuffleHandle, 0, context2, context2.taskMetrics.shuffleWriteMetrics)
+    TaskContext.unset()
     val data2 = (11 to 20).map { x => x -> x}
 
     // interleave writes of both attempts -- we want to test that both attempts can occur
