@@ -44,25 +44,29 @@ class DefaultShuffleReadSupport(
   override def getPartitionReaders(
       blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): java.lang.Iterable[InputStream] = {
 
-    val minReduceId = blockMetadata.asScala.map(block => block.getReduceId).min
-    val maxReduceId = blockMetadata.asScala.map(block => block.getReduceId).max
-    val shuffleId = blockMetadata.asScala.head.getShuffleId
+    if (blockMetadata.asScala.isEmpty) {
+      new ShuffleBlockInputStreamIterator(Iterator.empty).toIterable.asJava
+    } else {
+      val minReduceId = blockMetadata.asScala.map(block => block.getReduceId).min
+      val maxReduceId = blockMetadata.asScala.map(block => block.getReduceId).max
+      val shuffleId = blockMetadata.asScala.head.getShuffleId
 
-    val shuffleBlockFetchIterator = new ShuffleBlockFetcherIterator(
-      TaskContext.get(),
-      blockManager.shuffleClient,
-      blockManager,
-      mapOutputTracker.getMapSizesByExecutorId(shuffleId, minReduceId, maxReduceId + 1),
-      serializerManager.wrapStream,
-      maxBytesInFlight,
-      maxReqsInFlight,
-      maxBlocksInFlightPerAddress,
-      maxReqSizeShuffleToMem,
-      detectCorrupt,
-      shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics()
-    ).toCompletionIterator
+      val shuffleBlockFetchIterator = new ShuffleBlockFetcherIterator(
+        TaskContext.get(),
+        blockManager.shuffleClient,
+        blockManager,
+        mapOutputTracker.getMapSizesByExecutorId(shuffleId, minReduceId, maxReduceId + 1),
+        serializerManager.wrapStream,
+        maxBytesInFlight,
+        maxReqsInFlight,
+        maxBlocksInFlightPerAddress,
+        maxReqSizeShuffleToMem,
+        detectCorrupt,
+        shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics()
+      ).toCompletionIterator
 
-    new ShuffleBlockInputStreamIterator(shuffleBlockFetchIterator).toIterable.asJava
+      new ShuffleBlockInputStreamIterator(shuffleBlockFetchIterator).toIterable.asJava
+    }
   }
 
   private class ShuffleBlockInputStreamIterator(
