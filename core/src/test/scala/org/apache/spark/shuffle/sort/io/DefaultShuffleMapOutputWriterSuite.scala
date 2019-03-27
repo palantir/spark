@@ -17,10 +17,9 @@
 
 package org.apache.spark.shuffle.sort.io
 
-import java.io._
+import java.io.{ByteArrayInputStream, File, FileInputStream, FileOutputStream}
 import java.math.BigInteger
 import java.nio.ByteBuffer
-import java.nio.channels.ClosedChannelException
 
 import org.mockito.Answers.RETURNS_SMART_NULLS
 import org.mockito.ArgumentMatchers.{any, anyInt, anyLong}
@@ -30,6 +29,7 @@ import org.mockito.MockitoAnnotations
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfterEach
+
 import org.apache.spark.{SparkConf, SparkFunSuite}
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.network.util.LimitedInputStream
@@ -177,7 +177,7 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
       val byteBuffer = ByteBuffer.allocate(D_LEN * 4)
       val intBuffer = byteBuffer.asIntBuffer()
       intBuffer.put(data(p))
-      val in: InputStream = new ByteArrayInputStream(byteBuffer.array())
+      val in = new ByteArrayInputStream(byteBuffer.array())
       Utils.copyStream(in, stream, false, false)
       in.close()
       stream.close()

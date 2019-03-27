@@ -17,7 +17,11 @@
 
 package org.apache.spark.shuffle.sort.io;
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 
 import org.slf4j.Logger;
@@ -93,13 +97,8 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     } catch (Exception e) {
       log.error("Unable to close appropriate underlying file stream", e);
     }
-    if (outputTempFile != null) {
-      if (!outputTempFile.delete() && outputTempFile.exists()) {
-        log.warn("Failed to delete temporary shuffle file at {}", outputTempFile.getAbsolutePath());
-      }
-      if (!outputFile.delete() && outputFile.exists()) {
-        log.warn("Failed to delete output shuffle file at {}", outputFile.getAbsolutePath());
-      }
+    if (outputTempFile != null && outputTempFile.exists() && !outputTempFile.delete()) {
+      log.warn("Failed to delete temporary shuffle file at {}", outputTempFile.getAbsolutePath());
     }
   }
 
