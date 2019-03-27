@@ -25,5 +25,6 @@ import java.io.InputStream;
  * An interface for reading shuffle records
  */
 public interface ShuffleReadSupport {
-  Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata) throws IOException;
+  Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
+      throws IOException;
 }
