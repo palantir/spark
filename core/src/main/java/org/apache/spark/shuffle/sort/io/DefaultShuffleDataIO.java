@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.spark.api.shuffle;
+package org.apache.spark.shuffle.sort.io;
 
-import java.io.IOException;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.shuffle.ShuffleExecutorComponents;
+import org.apache.spark.api.shuffle.ShuffleDataIO;
 
-import org.apache.http.annotation.Experimental;
+public class DefaultShuffleDataIO implements ShuffleDataIO {
 
-/**
- * :: Experimental ::
- * An interface for deploying a shuffle map output writer
- *
- * @since 3.0.0
- */
-@Experimental
-public interface ShuffleWriteSupport {
-  ShuffleMapOutputWriter createMapOutputWriter(
-    int shuffleId,
-    int mapId,
-    int numPartitions) throws IOException;
+  private final SparkConf sparkConf;
+
+  public DefaultShuffleDataIO(SparkConf sparkConf) {
+    this.sparkConf = sparkConf;
+  }
+
+
+  @Override
+  public ShuffleExecutorComponents executor() {
+    return new DefaultShuffleExecutorComponents(sparkConf);
+  }
 }

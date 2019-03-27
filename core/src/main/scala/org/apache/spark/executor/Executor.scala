@@ -121,6 +121,8 @@ private[spark] class Executor(
     env.blockManager.initialize(conf.getAppId)
     env.metricsSystem.registerSource(executorSource)
     env.metricsSystem.registerSource(env.blockManager.shuffleMetricsSource)
+    // Initialize the ShuffleDataIO
+    env.shuffleDataIO.executor().intitializeExecutor(conf.getAppId, executorId)
   }
 
   // Whether to load classes in user jars before those in Spark jars

@@ -31,6 +31,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.api.python.PythonWorkerFactory
+import org.apache.spark.api.shuffle.ShuffleDataIO
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.internal.config._
@@ -69,6 +70,7 @@ class SparkEnv (
     val blockManager: BlockManager,
     val securityManager: SecurityManager,
     val metricsSystem: MetricsSystem,
+    val shuffleDataIO: ShuffleDataIO,
     val memoryManager: MemoryManager,
     val outputCommitCoordinator: OutputCommitCoordinator,
     val conf: SparkConf) extends Logging {
@@ -405,6 +407,11 @@ object SparkEnv extends Logging {
       new OutputCommitCoordinatorEndpoint(rpcEnv, outputCommitCoordinator))
     outputCommitCoordinator.coordinatorRef = Some(outputCommitCoordinatorRef)
 
+    val shuffleDataIO = Utils.loadExtensions(
+      classOf[ShuffleDataIO], Seq(conf.get(config.SHUFFLE_IO_PLUGIN_CLASS)), conf)
+    require(shuffleDataIO.size == 1, s"Exactly 1 shuffle plugin must be loaded. Got: " +
+      conf.get(config.SHUFFLE_IO_PLUGIN_CLASS))
+
     val envInstance = new SparkEnv(
       executorId,
       rpcEnv,
@@ -417,6 +424,7 @@ object SparkEnv extends Logging {
       blockManager,
       securityManager,
       metricsSystem,
+      shuffleDataIO.head,
       memoryManager,
       outputCommitCoordinator,
       conf)

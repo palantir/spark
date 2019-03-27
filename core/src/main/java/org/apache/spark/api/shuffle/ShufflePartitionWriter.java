@@ -17,6 +17,7 @@
 
 package org.apache.spark.api.shuffle;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
@@ -31,12 +32,43 @@ import org.apache.http.annotation.Experimental;
  * @since 3.0.0
  */
 @Experimental
-public interface ShufflePartitionWriter {
-  OutputStream openStream() throws IOException;
+public interface ShufflePartitionWriter extends Closeable {
 
-  long getLength();
+  /**
+   * Returns an underlying {@link OutputStream} that can write bytes to the underlying data store.
+   * <p>
+   * Note that this stream itself is not closed by the caller; close the stream in
+   * the implementation of this class's {@link #close()}..
+   */
+  OutputStream toStream() throws IOException;
 
-  default WritableByteChannel openChannel() throws IOException {
-    return Channels.newChannel(openStream());
+  /**
+   * Returns an underlying {@link WritableByteChannel} that can write bytes to the underlying data
+   * store.
+   * <p>
+   * Note that this channel itself is not closed by the caller; close the stream in
+   * the implementation of this class's {@link #close()}..
+   */
+  default WritableByteChannel toChannel() throws IOException {
+    return Channels.newChannel(toStream());
   }
+
+  /**
+   * Get the number of bytes written by this writer's stream returned by {@link #toStream()} or
+   * the channel returned by {@link #toChannel()}.
+   */
+  long getNumBytesWritten();
+
+  /**
+   * Close all resources created by this ShufflePartitionWriter, via calls to {@link #toStream()}
+   * or {@link #toChannel()}.
+   * <p>
+   * This must always close any stream returned by {@link #toStream()}.
+   * <p>
+   * Note that the default version of {@link #toChannel()} returns a {@link WritableByteChannel}
+   * that does not itself need to be closed up front; only the underlying output stream given by
+   * {@link #toStream()} must be closed.
+   */
+  @Override
+  void close() throws IOException;
 }

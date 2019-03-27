@@ -91,6 +91,6 @@ case class InputFileBlockLength() extends LeafExpression with Nondeterministic {
   override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
     val className = InputFileBlockHolder.getClass.getName.stripSuffix("$")
     val typeDef = s"final ${CodeGenerator.javaType(dataType)}"
-    ev.copy(code = code"$typeDef ${ev.value} = $className.getLength();", isNull = FalseLiteral)
+    ev.copy(code = code"$typeDef ${ev.value} = $className.getNumBytesWritten();", isNull = FalseLiteral)
   }
 }
