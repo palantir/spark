@@ -366,10 +366,8 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     // first attempt -- its successful
     val context1 =
       new TaskContextImpl(0, 0, 0, 0L, 0, taskMemoryManager, new Properties, metricsSystem)
-    TaskContext.setTaskContext(context1)
     val writer1 = manager.getWriter[Int, Int](
       shuffleHandle, 0, context1, context1.taskMetrics.shuffleWriteMetrics)
-    TaskContext.unset()
     val data1 = (1 to 10).map { x => x -> x }
 
     // second attempt -- also successful.  We'll write out different data,
@@ -377,23 +375,25 @@ abstract class ShuffleSuite extends SparkFunSuite with Matchers with LocalSparkC
     // depending on what gets spilled, what gets combined, etc.
     val context2 =
       new TaskContextImpl(0, 0, 0, 1L, 0, taskMemoryManager, new Properties, metricsSystem)
-    TaskContext.setTaskContext(context2)
     val writer2 = manager.getWriter[Int, Int](
       shuffleHandle, 0, context2, context2.taskMetrics.shuffleWriteMetrics)
-    TaskContext.unset()
     val data2 = (11 to 20).map { x => x -> x}
 
     // interleave writes of both attempts -- we want to test that both attempts can occur
     // simultaneously, and everything is still OK
 
     def writeAndClose(
-      writer: ShuffleWriter[Int, Int])(
+      writer: ShuffleWriter[Int, Int],
+      taskContext: TaskContext)(
       iter: Iterator[(Int, Int)]): Option[MapStatus] = {
+      TaskContext.setTaskContext(taskContext)
       val files = writer.write(iter)
-      writer.stop(true)
+      val status = writer.stop(true)
+      TaskContext.unset
+      status
     }
     val interleaver = new InterleaveIterators(
-      data1, writeAndClose(writer1), data2, writeAndClose(writer2))
+      data1, writeAndClose(writer1, context1), data2, writeAndClose(writer2, context2))
     val (mapOutput1, mapOutput2) = interleaver.run()
 
     // check that we can read the map output and it has the right data
