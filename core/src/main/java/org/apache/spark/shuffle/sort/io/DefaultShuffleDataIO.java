@@ -29,7 +29,6 @@ public class DefaultShuffleDataIO implements ShuffleDataIO {
     this.sparkConf = sparkConf;
   }
 
-
   @Override
   public ShuffleExecutorComponents executor() {
     return new DefaultShuffleExecutorComponents(sparkConf);

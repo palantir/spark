@@ -77,9 +77,14 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   }
 
   @Override
-  public ShufflePartitionWriter getNextPartitionWriter() {
+  public ShufflePartitionWriter getNextPartitionWriter() throws IOException {
     if (outputTempFile == null) {
       outputTempFile = Utils.tempFileWith(outputFile);
+    }
+    if (outputFileChannel != null) {
+      currChannelPosition = outputFileChannel.position();
+    } else {
+      currChannelPosition = 0L;
     }
     return new DefaultShufflePartitionWriter(currPartitionId++);
   }
@@ -154,7 +159,6 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     @Override
     public FileChannel toChannel() throws IOException {
       initChannel();
-      currChannelPosition = outputFileChannel.position();
       return outputFileChannel;
     }
 

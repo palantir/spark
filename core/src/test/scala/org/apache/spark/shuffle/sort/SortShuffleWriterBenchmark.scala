@@ -62,7 +62,6 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
       blockManager,
       null,
       null,
-      new DefaultShuffleDataIO(defaultConf),
       null,
       null,
       defaultConf

@@ -35,7 +35,7 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
   }
 
   @Override
-  public void intitializeExecutor(String appId, String execId) {
+  public void initializeExecutor(String appId, String execId) {
     blockManager = SparkEnv.get().blockManager();
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
   }

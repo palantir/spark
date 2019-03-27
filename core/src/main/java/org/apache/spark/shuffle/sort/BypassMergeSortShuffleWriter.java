@@ -25,7 +25,6 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import javax.annotation.Nullable;
 
-import org.apache.spark.api.shuffle.ShufflePartitionWriter;
 import scala.None$;
 import scala.Option;
 import scala.Product2;
@@ -38,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.spark.api.shuffle.ShuffleMapOutputWriter;
+import org.apache.spark.api.shuffle.ShufflePartitionWriter;
 import org.apache.spark.api.shuffle.ShuffleWriteSupport;
 import org.apache.spark.internal.config.package$;
 import org.apache.spark.Partitioner;
@@ -201,32 +201,35 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     try {
       for (int i = 0; i < numPartitions; i++) {
         final File file = partitionWriterSegments[i].file();
-        if (!file.exists()) continue;
         boolean copyThrewException = true;
         ShufflePartitionWriter writer = null;
         try {
           writer = mapOutputWriter.getNextPartitionWriter();
-          if (transferToEnabled) {
-            WritableByteChannel outputChannel = writer.toChannel();
-            FileInputStream in = new FileInputStream(file);
-            try (FileChannel inputChannel = in.getChannel()) {
-              Utils.copyFileStreamNIO(inputChannel, outputChannel, 0, inputChannel.size());
-              copyThrewException = false;
-            } finally {
-              Closeables.close(in, copyThrewException);
-            }
+          if (!file.exists()) {
+            copyThrewException = false;
           } else {
-            OutputStream tempOutputStream = writer.toStream();
-            FileInputStream in = new FileInputStream(file);
-            try {
-              Utils.copyStream(in, tempOutputStream, false, false);
-              copyThrewException = false;
-            } finally {
-              Closeables.close(in, copyThrewException);
+            if (transferToEnabled) {
+              WritableByteChannel outputChannel = writer.toChannel();
+              FileInputStream in = new FileInputStream(file);
+              try (FileChannel inputChannel = in.getChannel()) {
+                Utils.copyFileStreamNIO(inputChannel, outputChannel, 0, inputChannel.size());
+                copyThrewException = false;
+              } finally {
+                Closeables.close(in, copyThrewException);
+              }
+            } else {
+              OutputStream tempOutputStream = writer.toStream();
+              FileInputStream in = new FileInputStream(file);
+              try {
+                Utils.copyStream(in, tempOutputStream, false, false);
+                copyThrewException = false;
+              } finally {
+                Closeables.close(in, copyThrewException);
+              }
             }
-          }
-          if (!file.delete()) {
-            logger.error("Unable to delete file for partition {}", i);
+            if (!file.delete()) {
+              logger.error("Unable to delete file for partition {}", i);
+            }
           }
         } finally {
           Closeables.close(writer, copyThrewException);
