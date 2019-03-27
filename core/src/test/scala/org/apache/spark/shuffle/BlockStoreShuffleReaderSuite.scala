@@ -113,7 +113,7 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
     when(mapOutputTracker.getMapSizesByExecutorId(shuffleId, reduceId, reduceId + 1))
       .thenAnswer(new Answer[Iterator[(BlockManagerId, Seq[(BlockId, Long)])]] {
         def answer(invocationOnMock: InvocationOnMock):
-        Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
+            Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
           blocksToRetrieve.iterator
         }
       })
@@ -156,5 +156,6 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
       assert(buffer.callsToRetain === 1)
       assert(buffer.callsToRelease === 1)
     }
+    TaskContext.unset()
   }
 }

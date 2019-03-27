@@ -17,7 +17,7 @@
 
 package org.apache.spark.api.shuffle;
 
-public final class ShuffleBlockInfo {
+public class ShuffleBlockInfo {
   private final int shuffleId;
   private final int mapId;
   private final int reduceId;
