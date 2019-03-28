@@ -31,7 +31,6 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.api.python.PythonWorkerFactory
-import org.apache.spark.api.shuffle.ShuffleDataIO
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.internal.config._

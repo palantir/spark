@@ -151,6 +151,11 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
 
     @Override
     public OutputStream toStream() throws IOException {
+      if (outputFileChannel != null) {
+        throw new IllegalStateException("Requested an output channel for a previous write but" +
+            " now an output stream has been requested. Should not be using both channels" +
+            " and streams to write.");
+      }
       initStream();
       stream = new PartitionWriterStream();
       return stream;
@@ -158,6 +163,11 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
 
     @Override
     public FileChannel toChannel() throws IOException {
+      if (stream != null) {
+        throw new IllegalStateException("Requested an output stream for a previous write but" +
+            " now an output channel has been requested. Should not be using both channels" +
+            " and streams to write.");
+      }
       initChannel();
       return outputFileChannel;
     }

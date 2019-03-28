@@ -27,7 +27,7 @@ import org.apache.http.annotation.Experimental;
 
 /**
  * :: Experimental ::
- * An interface for giving streams / channels for shuffle writes
+ * An interface for giving streams / channels for shuffle writes.
  *
  * @since 3.0.0
  */
@@ -37,8 +37,8 @@ public interface ShufflePartitionWriter extends Closeable {
   /**
    * Returns an underlying {@link OutputStream} that can write bytes to the underlying data store.
    * <p>
-   * Note that this stream itself is not closed by the caller; close the stream in
-   * the implementation of this class's {@link #close()}..
+   * Note that this stream itself is not closed by the caller; close the stream in the
+   * implementation of this interface's {@link #close()}.
    */
   OutputStream toStream() throws IOException;
 
@@ -46,8 +46,8 @@ public interface ShufflePartitionWriter extends Closeable {
    * Returns an underlying {@link WritableByteChannel} that can write bytes to the underlying data
    * store.
    * <p>
-   * Note that this channel itself is not closed by the caller; close the stream in
-   * the implementation of this class's {@link #close()}..
+   * Note that this channel itself is not closed by the caller; close the channel in the
+   * implementation of this interface's {@link #close()}.
    */
   default WritableByteChannel toChannel() throws IOException {
     return Channels.newChannel(toStream());
