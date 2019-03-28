@@ -17,13 +17,17 @@
 
 package org.apache.spark.api.shuffle;
 
+import org.apache.spark.annotation.Experimental;
+
 import java.io.IOException;
 import java.io.InputStream;
 
 /**
  * :: Experimental ::
  * An interface for reading shuffle records
+ * @since 3.0.0
  */
+@Experimental
 public interface ShuffleReadSupport {
   Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;

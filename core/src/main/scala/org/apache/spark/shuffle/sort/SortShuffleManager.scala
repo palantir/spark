@@ -121,7 +121,8 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
     val readSupport = new DefaultShuffleReadSupport(
       blockManager = SparkEnv.get.blockManager,
       serializerManager = SparkEnv.get.serializerManager,
-      mapOutputTracker = SparkEnv.get.mapOutputTracker)
+      mapOutputTracker = SparkEnv.get.mapOutputTracker,
+      conf = SparkEnv.get.conf)
     new BlockStoreShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
       startPartition, endPartition, context, metrics, readSupport)

@@ -21,7 +21,7 @@ import java.io.InputStream
 
 import scala.collection.JavaConverters._
 
-import org.apache.spark.{MapOutputTracker, SparkEnv, TaskContext}
+import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
@@ -30,25 +30,28 @@ import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherItera
 class DefaultShuffleReadSupport(
     blockManager: BlockManager,
     serializerManager: SerializerManager,
-    mapOutputTracker: MapOutputTracker) extends ShuffleReadSupport {
+    mapOutputTracker: MapOutputTracker,
+    conf: SparkConf) extends ShuffleReadSupport {
 
-  private val maxBytesInFlight =
-    SparkEnv.get.conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024
-  private val maxReqsInFlight = SparkEnv.get.conf.get(config.REDUCER_MAX_REQS_IN_FLIGHT)
+  private val maxBytesInFlight = conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024
+  private val maxReqsInFlight = conf.get(config.REDUCER_MAX_REQS_IN_FLIGHT)
   private val maxBlocksInFlightPerAddress =
-    SparkEnv.get.conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS)
-  private val maxReqSizeShuffleToMem =
-    SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
-  private val detectCorrupt = SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT)
+    conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS)
+  private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
+  private val detectCorrupt = conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   override def getPartitionReaders(
       blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): java.lang.Iterable[InputStream] = {
 
     if (blockMetadata.asScala.isEmpty) {
-      new ShuffleBlockInputStreamIterator(Iterator.empty).toIterable.asJava
+      Iterable.empty.asJava
     } else {
-      val minReduceId = blockMetadata.asScala.map(block => block.getReduceId).min
-      val maxReduceId = blockMetadata.asScala.map(block => block.getReduceId).max
+      val minMaxReduceIds = blockMetadata.asScala.map(block => block.getReduceId)
+        .foldLeft(0, Int.MaxValue) {
+          case ((min, max), elem) => (math.min(min, elem), math.max(max, elem))
+        }
+      val minReduceId = minMaxReduceIds._1
+      val maxReduceId = minMaxReduceIds._2
       val shuffleId = blockMetadata.asScala.head.getShuffleId
 
       val shuffleBlockFetchIterator = new ShuffleBlockFetcherIterator(
@@ -65,17 +68,7 @@ class DefaultShuffleReadSupport(
         shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics()
       ).toCompletionIterator
 
-      new ShuffleBlockInputStreamIterator(shuffleBlockFetchIterator).toIterable.asJava
-    }
-  }
-
-  private class ShuffleBlockInputStreamIterator(
-      blockFetchIterator: Iterator[(BlockId, InputStream)])
-    extends Iterator[InputStream] {
-    override def hasNext: Boolean = blockFetchIterator.hasNext
-
-    override def next(): InputStream = {
-      blockFetchIterator.next()._2
+      shuffleBlockFetchIterator.map(_._2).toIterable.asJava
     }
   }
 
