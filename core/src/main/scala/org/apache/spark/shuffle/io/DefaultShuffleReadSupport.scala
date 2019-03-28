@@ -25,7 +25,8 @@ import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
-import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator, ShuffleBlockId}
+import org.apache.spark.shuffle.ShuffleReadMetricsReporter
+import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator}
 
 class DefaultShuffleReadSupport(
     blockManager: BlockManager,
@@ -54,33 +55,51 @@ class DefaultShuffleReadSupport(
       val maxReduceId = minMaxReduceIds._2
       val shuffleId = blockMetadata.asScala.head.getShuffleId
 
-      val shuffleBlockFetchIterator = new ShuffleBlockFetcherIterator(
+      new ShuffleBlockFetcherIterable(
         TaskContext.get(),
-        blockManager.shuffleClient,
         blockManager,
-        mapOutputTracker.getMapSizesByExecutorId(shuffleId, minReduceId, maxReduceId + 1),
         serializerManager.wrapStream,
         maxBytesInFlight,
         maxReqsInFlight,
         maxBlocksInFlightPerAddress,
         maxReqSizeShuffleToMem,
         detectCorrupt,
-        shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics()
-      ).toCompletionIterator
-
-      shuffleBlockFetchIterator.map(_._2).toIterable.asJava
+        shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics(),
+        minReduceId,
+        maxReduceId,
+        shuffleId,
+        mapOutputTracker
+      ).asJava
     }
   }
+}
 
-  private[spark] object DefaultShuffleReadSupport {
-    def toShuffleBlockInfo(blockId: BlockId, length: Long): ShuffleBlockInfo = {
-      assert(blockId.isInstanceOf[ShuffleBlockId])
-      val shuffleBlockId = blockId.asInstanceOf[ShuffleBlockId]
-      new ShuffleBlockInfo(
-        shuffleBlockId.shuffleId,
-        shuffleBlockId.mapId,
-        shuffleBlockId.reduceId,
-        length)
-    }
-  }
+private class ShuffleBlockFetcherIterable(
+    context: TaskContext,
+    blockManager: BlockManager,
+    streamWrapper: (BlockId, InputStream) => InputStream,
+    maxBytesInFlight: Long,
+    maxReqsInFlight: Int,
+    maxBlocksInFlightPerAddress: Int,
+    maxReqSizeShuffleToMem: Long,
+    detectCorrupt: Boolean,
+    shuffleMetrics: ShuffleReadMetricsReporter,
+    minReduceId: Int,
+    maxReduceId: Int,
+    shuffleId: Int,
+    mapOutputTracker: MapOutputTracker) extends Iterable[InputStream] {
+
+  override def iterator: Iterator[InputStream] =
+    new ShuffleBlockFetcherIterator(
+      context,
+      blockManager.shuffleClient,
+      blockManager,
+      mapOutputTracker.getMapSizesByExecutorId(shuffleId, minReduceId, maxReduceId + 1),
+      streamWrapper,
+      maxBytesInFlight,
+      maxReqsInFlight,
+      maxBlocksInFlightPerAddress,
+      maxReqSizeShuffleToMem,
+      detectCorrupt,
+      shuffleMetrics).toCompletionIterator.map(_._2)
 }

@@ -57,7 +57,8 @@ private[spark] class BlockStoreShuffleReader[K, C](
     })
   override def read(): Iterator[Product2[K, C]] = {
     val wrappedStreams =
-      shuffleReadSupport.getPartitionReaders(blocksIterator.toIterable.asJava).asScala
+      shuffleReadSupport.getPartitionReaders(blocksIterator.toIterable.asJava)
+        .iterator().asScala
 
     val serializerInstance = dep.serializer.newInstance()
 
