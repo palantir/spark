@@ -47,7 +47,7 @@ class DefaultShuffleReadSupport(
       Iterable.empty.asJava
     } else {
       val minMaxReduceIds = blockMetadata.asScala.map(block => block.getReduceId)
-        .foldLeft(0, Int.MaxValue) {
+        .foldLeft(Int.MaxValue, 0) {
           case ((min, max), elem) => (math.min(min, elem), math.max(max, elem))
         }
       val minReduceId = minMaxReduceIds._1
