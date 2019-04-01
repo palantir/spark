@@ -56,6 +56,8 @@ class TaskMetrics private[spark] () extends Serializable {
   private val _diskBytesSpilled = new LongAccumulator
   private val _peakExecutionMemory = new LongAccumulator
   private val _updatedBlockStatuses = new CollectionAccumulator[(BlockId, BlockStatus)]
+  private var _decorFunc: TempShuffleReadMetrics => TempShuffleReadMetrics =
+    Predef.identity[TempShuffleReadMetrics]
 
   /**
    * Time taken on the executor to deserialize this task.
@@ -187,9 +189,14 @@ class TaskMetrics private[spark] () extends Serializable {
    * be lost.
    */
   private[spark] def createTempShuffleReadMetrics(): TempShuffleReadMetrics = synchronized {
-    val readMetrics = new TempShuffleReadMetrics
+    val readMetrics = _decorFunc(new TempShuffleReadMetrics)
     tempShuffleReadMetrics += readMetrics
     readMetrics
+  }
+
+  private[spark] def decorateTempShuffleReadMetrics(
+      decorFunc: TempShuffleReadMetrics => TempShuffleReadMetrics): Unit = synchronized {
+    _decorFunc = decorFunc
   }
 
   /**
