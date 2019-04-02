@@ -189,8 +189,9 @@ class TaskMetrics private[spark] () extends Serializable {
    * be lost.
    */
   private[spark] def createTempShuffleReadMetrics(): TempShuffleReadMetrics = synchronized {
-    val readMetrics = _decorFunc(new TempShuffleReadMetrics)
-    tempShuffleReadMetrics += readMetrics
+    val tempShuffleMetrics = new TempShuffleReadMetrics
+    val readMetrics = _decorFunc(tempShuffleMetrics)
+    tempShuffleReadMetrics += tempShuffleMetrics
     readMetrics
   }
 
