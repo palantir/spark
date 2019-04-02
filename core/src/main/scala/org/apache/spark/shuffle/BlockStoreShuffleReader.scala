@@ -61,12 +61,18 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
     val serializerInstance = dep.serializer.newInstance()
 
+    val serializerManager = SparkEnv.get.serializerManager
     // Create a key/value iterator for each stream
-    val recordIter = wrappedStreams.flatMap { case wrappedStream =>
+    val recordIter = wrappedStreams.flatMap { case (shuffleStreamId, wrappedStream) =>
+      val blockId = ShuffleBlockId(
+        shuffleStreamId.getShuffleId,
+        shuffleStreamId.getMapId,
+        shuffleStreamId.getReduceId)
+      val decompressedStream = serializerManager.wrapStream(blockId, wrappedStream)
       // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
       // NextIterator. The NextIterator makes sure that close() is called on the
       // underlying InputStream when all records have been read.
-      serializerInstance.deserializeStream(wrappedStream).asKeyValueIterator
+      serializerInstance.deserializeStream(decompressedStream).asKeyValueIterator
     }
 
     // Update the context task metrics for each record read.

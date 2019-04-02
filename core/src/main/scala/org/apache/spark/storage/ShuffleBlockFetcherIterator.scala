@@ -406,6 +406,7 @@ final class ShuffleBlockFetcherIterator(
 
     var result: FetchResult = null
     var input: InputStream = null
+    var resultInputStream: InputStream = null
     // Take the next fetched result and try to decompress it to detect data corruption,
     // then fetch it one more time if it's corrupt, throw FailureFetchResult if the second fetch
     // is also corrupt, so the previous stage could be retried.
@@ -463,6 +464,7 @@ final class ShuffleBlockFetcherIterator(
               buf.release()
               throwFetchFailedException(blockId, address, e)
           }
+          resultInputStream = buf.createInputStream()
           var isStreamCopied: Boolean = false
           try {
             input = streamWrapper(blockId, in)
@@ -508,7 +510,8 @@ final class ShuffleBlockFetcherIterator(
       throw new NoSuchElementException()
     }
     currentResult = result.asInstanceOf[SuccessFetchResult]
-    (currentResult.blockId, new BufferReleasingInputStream(input, this))
+    input.close()
+    (currentResult.blockId, new BufferReleasingInputStream(resultInputStream, this))
   }
 
   def toCompletionIterator: Iterator[(BlockId, InputStream)] = {
