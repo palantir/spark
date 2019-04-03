@@ -18,11 +18,10 @@
 package org.apache.spark.shuffle
 
 import org.apache.spark._
-
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
-import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerId, ShuffleBlockFetcherIterator}
+import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
