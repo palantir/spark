@@ -209,11 +209,16 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
 
     @Override
     public void write(int b) throws IOException {
-      if (isClosed) {
-        throw new IllegalStateException("Attempting to write to a closed block output stream.");
-      }
+      verifyNotClosed();
       outputBufferedFileStream.write(b);
       count++;
+    }
+
+    @Override
+    public void write(byte[] buf, int pos, int length) throws IOException {
+      verifyNotClosed();
+      outputBufferedFileStream.write(buf, pos, length);
+      count += length;
     }
 
     @Override
@@ -226,6 +231,12 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     public void flush() throws IOException {
       if (!isClosed) {
         outputBufferedFileStream.flush();
+      }
+    }
+
+    private void verifyNotClosed() {
+      if (isClosed) {
+        throw new IllegalStateException("Attempting to write to a closed block output stream.");
       }
     }
   }
