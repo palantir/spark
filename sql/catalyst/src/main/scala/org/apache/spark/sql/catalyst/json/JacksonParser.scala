@@ -26,7 +26,7 @@ import scala.util.control.NonFatal
 
 import com.fasterxml.jackson.core._
 
-import org.apache.spark.internal.Logging
+import org.apache.spark.internal.SafeLogging
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.util._
@@ -40,7 +40,7 @@ import org.apache.spark.util.Utils
 class JacksonParser(
     schema: DataType,
     val options: JSONOptions,
-    allowArrayAsStructs: Boolean) extends Logging {
+    allowArrayAsStructs: Boolean) extends SafeLogging {
 
   import JacksonUtils._
   import com.fasterxml.jackson.core.JsonToken._
@@ -326,6 +326,8 @@ class JacksonParser(
       parser: JsonParser,
       dataType: DataType): PartialFunction[JsonToken, R] = {
     case VALUE_STRING if parser.getTextLength < 1 =>
+      safeLogInfo("Would have dropped empty record. " +
+        "Likely you have empty strings for nested values")
       // If conversion is failed, this produces `null` rather than throwing exception.
       // This will protect the mismatch of types.
       null
