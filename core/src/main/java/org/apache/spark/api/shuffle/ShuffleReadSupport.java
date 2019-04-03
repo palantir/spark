@@ -18,7 +18,6 @@
 package org.apache.spark.api.shuffle;
 
 import org.apache.spark.annotation.Experimental;
-import scala.Tuple2;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +29,6 @@ import java.io.InputStream;
  */
 @Experimental
 public interface ShuffleReadSupport {
-  Iterable<Tuple2<ShuffleBlockInputStreamId, InputStream>> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
+  Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
 }

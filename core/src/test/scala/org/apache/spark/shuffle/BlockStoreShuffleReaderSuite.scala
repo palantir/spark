@@ -26,7 +26,6 @@ import org.mockito.stubbing.{Answer, Stubber}
 
 import org.apache.spark._
 import org.apache.spark.internal.config
-import org.apache.spark.io.{CompressionCodec, CompressionCodec$}
 import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
 import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
 import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
@@ -82,14 +81,11 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
     // Create a buffer with some randomly generated key-value pairs to use as the shuffle data
     // from each mappers (all mappers return the same shuffle data).
     val byteOutputStream = new ByteArrayOutputStream()
-    val compressionCodec = CompressionCodec.createCodec(testConf)
-    val compressionOutputStream = compressionCodec.compressedOutputStream(byteOutputStream)
-    val serializationStream = serializer.newInstance().serializeStream(compressionOutputStream)
+    val serializationStream = serializer.newInstance().serializeStream(byteOutputStream)
     (0 until keyValuePairsPerMap).foreach { i =>
       serializationStream.writeKey(i)
       serializationStream.writeValue(2*i)
     }
-    compressionOutputStream.close()
 
     // Setup the mocked BlockManager to return RecordingManagedBuffers.
     val localBlockManagerId = BlockManagerId("test-client", "test-client", 1)
@@ -134,7 +130,7 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
     val serializerManager = new SerializerManager(
       serializer,
       new SparkConf()
-        .set(config.SHUFFLE_COMPRESS, true)
+        .set(config.SHUFFLE_COMPRESS, false)
         .set(config.SHUFFLE_SPILL_COMPRESS, false))
 
     val taskContext = TaskContext.empty()

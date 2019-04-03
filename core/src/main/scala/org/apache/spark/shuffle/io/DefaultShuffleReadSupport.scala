@@ -18,16 +18,15 @@
 package org.apache.spark.shuffle.io
 
 import java.io.InputStream
-import java.lang
 
 import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
-import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleBlockInputStreamId, ShuffleReadSupport}
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
-import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator, ShuffleBlockId}
+import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator}
 
 class DefaultShuffleReadSupport(
     blockManager: BlockManager,
@@ -42,8 +41,8 @@ class DefaultShuffleReadSupport(
   private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
   private val detectCorrupt = conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
-  override def getPartitionReaders(blockMetadata: lang.Iterable[ShuffleBlockInfo]):
-      lang.Iterable[(ShuffleBlockInputStreamId, InputStream)] = {
+  override def getPartitionReaders(
+      blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): java.lang.Iterable[InputStream] = {
 
     if (blockMetadata.asScala.isEmpty) {
       Iterable.empty.asJava
@@ -88,9 +87,9 @@ private class ShuffleBlockFetcherIterable(
     minReduceId: Int,
     maxReduceId: Int,
     shuffleId: Int,
-    mapOutputTracker: MapOutputTracker) extends Iterable[(ShuffleBlockInputStreamId, InputStream)] {
+    mapOutputTracker: MapOutputTracker) extends Iterable[InputStream] {
 
-  override def iterator: Iterator[(ShuffleBlockInputStreamId, InputStream)] =
+  override def iterator: Iterator[InputStream] =
     new ShuffleBlockFetcherIterator(
       context,
       blockManager.shuffleClient,
@@ -102,11 +101,5 @@ private class ShuffleBlockFetcherIterable(
       maxBlocksInFlightPerAddress,
       maxReqSizeShuffleToMem,
       detectCorrupt,
-      shuffleMetrics)
-      .toCompletionIterator
-      .map(stream => {
-        val blockId = stream._1.asInstanceOf[ShuffleBlockId]
-        (new ShuffleBlockInputStreamId(blockId.shuffleId, blockId.mapId, blockId.reduceId),
-          stream._2)
-      })
+      shuffleMetrics).toCompletionIterator.map(_._2)
 }
