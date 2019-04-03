@@ -36,7 +36,7 @@ public class DefaultMapShuffleLocations implements MapShuffleLocations, ShuffleL
   private static final LoadingCache<BlockManagerId, DefaultMapShuffleLocations>
       DEFAULT_SHUFFLE_LOCATIONS_CACHE =
           CacheBuilder.newBuilder()
-              .maximumSize(10000)
+              .maximumSize(BlockManagerId.blockManagerIdCacheSize())
               .build(new CacheLoader<BlockManagerId, DefaultMapShuffleLocations>() {
                 @Override
                 public DefaultMapShuffleLocations load(BlockManagerId blockManagerId) {

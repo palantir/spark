@@ -18,10 +18,11 @@
 package org.apache.spark.shuffle
 
 import org.apache.spark._
+
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
-import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
+import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerId, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
@@ -49,11 +50,12 @@ private[spark] class BlockStoreShuffleReader[K, C](
       blockManager.shuffleClient,
       blockManager,
       mapOutputTracker.getMapSizesByShuffleLocation(handle.shuffleId, startPartition, endPartition)
-        .map { case (loc, blocks) =>
-          require(
-              loc.isInstanceOf[DefaultMapShuffleLocations],
-              "Non-default shuffle location types are currently non supported.")
-          (loc.asInstanceOf[DefaultMapShuffleLocations].getBlockManagerId, blocks)
+        .map {
+          case (loc: DefaultMapShuffleLocations, blocks: Seq[(BlockId, Long)]) =>
+            (loc.getBlockManagerId, blocks)
+          case _ =>
+            throw new UnsupportedOperationException("Not allowed to using non-default map shuffle" +
+              " locations yet.")
         },
       serializerManager.wrapStream,
       // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
