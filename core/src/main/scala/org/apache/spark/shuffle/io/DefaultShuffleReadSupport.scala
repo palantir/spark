@@ -117,10 +117,7 @@ private class ShuffleBlockFetcherIterable(
 
       override def next(): (ShuffleBlockInfo, InputStream) = completionIterator.next()
 
-      override def retryLastBlock(): Unit = innerIterator.retryLast()
-
-      override def throwCurrentBlockFailedException(e: Exception): Unit =
-        innerIterator.throwCurrentBlockFailedException(e)
+      override def retryLastBlock(t: Throwable): Unit = innerIterator.retryLast(t)
     }
   }
 

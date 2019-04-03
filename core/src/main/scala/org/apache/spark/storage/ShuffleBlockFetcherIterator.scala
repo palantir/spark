@@ -17,23 +17,21 @@
 
 package org.apache.spark.storage
 
-import java.io.{IOException, InputStream}
-import java.nio.ByteBuffer
+import java.io.{InputStream, IOException}
 import java.util.concurrent.LinkedBlockingQueue
-
 import javax.annotation.concurrent.GuardedBy
+
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
-import org.apache.spark.api.shuffle.ShuffleBlockInfo
 import org.apache.spark.{SparkException, TaskContext}
+import org.apache.spark.api.shuffle.ShuffleBlockInfo
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle._
 import org.apache.spark.network.util.TransportConf
 import org.apache.spark.shuffle.{FetchFailedException, ShuffleReadMetricsReporter}
 import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
-import org.apache.spark.util.io.ChunkedByteBufferOutputStream
 
 /**
  * An iterator that fetches multiple blocks. For local blocks, it fetches from the local block
@@ -464,40 +462,7 @@ final class ShuffleBlockFetcherIterator(
               buf.release()
               throwFetchFailedException(blockId, address, e)
           }
-          var isStreamCopied: Boolean = false
           input = in
-//          try {
-//            input = streamWrapper(blockId, in)
-//            // Only copy the stream if it's wrapped by compression or encryption, also the size of
-//            // block is small (the decompressed block is smaller than maxBytesInFlight)
-//            if (detectCorrupt && !input.eq(in) && size < maxBytesInFlight / 3) {
-//              isStreamCopied = true
-//              val out = new ChunkedByteBufferOutputStream(64 * 1024, ByteBuffer.allocate)
-//              // Decompress the whole block at once to detect any corruption, which could increase
-//              // the memory usage tne potential increase the chance of OOM.
-//              // TODO: manage the memory used here, and spill it into disk in case of OOM.
-//              Utils.copyStream(input, out, closeStreams = true)
-//              input = out.toChunkedByteBuffer.toInputStream(dispose = true)
-//            }
-//          } catch {
-//            case e: IOException =>
-//              buf.release()
-//              if (buf.isInstanceOf[FileSegmentManagedBuffer]
-//                || corruptedBlocks.contains(blockId)) {
-//                throwFetchFailedException(blockId, address, e)
-//              } else {
-//                logWarning(s"got an corrupted block $blockId from $address, fetch again", e)
-//                corruptedBlocks += blockId
-//                fetchRequests += FetchRequest(address, Array((blockId, size)))
-//                result = null
-//              }
-//          } finally {
-//            // TODO: release the buf here to free memory earlier
-//            if (isStreamCopied) {
-//              in.close()
-//            }
-//          }
-
         case FailureFetchResult(blockId, address, e) =>
           throwFetchFailedException(blockId, address, e)
       }
@@ -515,9 +480,21 @@ final class ShuffleBlockFetcherIterator(
       new BufferReleasingInputStream(input, this))
   }
 
-  def retryLast(): Unit = {
-    fetchRequests += FetchRequest(currentResult.address,
-      Array((currentResult.blockId, currentResult.size)))
+  def retryLast(t: Throwable): Unit = {
+    val blockId = currentResult.blockId
+    if (detectCorrupt && currentResult.size < maxBytesInFlight) {
+      if (corruptedBlocks.contains(blockId)) {
+        throwFetchFailedException(blockId, currentResult.address, t)
+      }
+      else {
+        logWarning(s"got an corrupted block $blockId from $currentResult.address, fetch again", t)
+        corruptedBlocks += blockId
+        fetchRequests += FetchRequest(currentResult.address,
+          Array((currentResult.blockId, currentResult.size)))
+      }
+    } else {
+      throwFetchFailedException(blockId, currentResult.address, t)
+    }
   }
 
   def toCompletionIterator: Iterator[(ShuffleBlockInfo, InputStream)] = {
@@ -588,15 +565,6 @@ final class ShuffleBlockFetcherIterator(
         throw new SparkException(
           "Failed to get block " + blockId + ", which is not a shuffle block", e)
     }
-  }
-
-  def throwCurrentBlockFailedException(e: Throwable): Unit = {
-    val blockId = currentResult.blockId.asInstanceOf[ShuffleBlockId]
-    throw new FetchFailedException(currentResult.address,
-      blockId.shuffleId,
-      blockId.mapId,
-      blockId.reduceId,
-      e)
   }
 }
 

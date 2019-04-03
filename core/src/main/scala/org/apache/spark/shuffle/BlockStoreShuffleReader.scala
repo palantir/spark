@@ -20,13 +20,12 @@ package org.apache.spark.shuffle
 import java.io.IOException
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 import org.apache.spark._
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
-import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.internal.Logging
 import org.apache.spark.serializer.SerializerManager
-import org.apache.spark.storage.{BlockId, ShuffleBlockId}
+import org.apache.spark.storage.ShuffleBlockId
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
@@ -44,11 +43,6 @@ private[spark] class BlockStoreShuffleReader[K, C](
     shuffleReadSupport: ShuffleReadSupport,
     mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
   extends ShuffleReader[K, C] with Logging {
-
-  private val detectCorrupt = SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT)
-  private val maxBytesInFlight =
-    SparkEnv.get.conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024
-  private val corruptedBlocks = mutable.HashSet[BlockId]()
 
   private val dep = handle.dependency
 
@@ -85,14 +79,8 @@ private[spark] class BlockStoreShuffleReader[K, C](
         serializerInstance.deserializeStream(decryptedDecompressedStream).asKeyValueIterator
       } catch {
         case e: IOException =>
-          if (detectCorrupt && blockInfo.getLength < maxBytesInFlight &&
-            !corruptedBlocks.contains(blockId)) {
-            logWarning(s"got an corrupted block $blockId, fetch again", e)
-            corruptedBlocks += blockId
-            wrappedStreams.retryLastBlock()
-          }
-          wrappedStreams.throwCurrentBlockFailedException(e)
-          throw new RuntimeException("Expected shuffle reader iterator to throw exception")
+          wrappedStreams.retryLastBlock(e)
+          None
       }
     }
 
