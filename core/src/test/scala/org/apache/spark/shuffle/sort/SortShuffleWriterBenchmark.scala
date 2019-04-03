@@ -22,7 +22,7 @@ import org.mockito.Mockito.when
 import org.apache.spark.{Aggregator, SparkEnv}
 import org.apache.spark.benchmark.Benchmark
 import org.apache.spark.shuffle.BaseShuffleHandle
-import org.apache.spark.util.Utils
+import org.apache.spark.shuffle.sort.io.DefaultShuffleDataIO
 
 /**
  * Benchmark to measure performance for aggregate primitives.

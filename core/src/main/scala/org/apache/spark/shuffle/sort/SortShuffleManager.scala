@@ -20,9 +20,11 @@ package org.apache.spark.shuffle.sort
 import java.util.concurrent.ConcurrentHashMap
 
 import org.apache.spark._
-import org.apache.spark.internal.Logging
+import org.apache.spark.api.shuffle.{ShuffleDataIO, ShuffleExecutorComponents}
+import org.apache.spark.internal.{Logging, config}
 import org.apache.spark.shuffle._
 import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
+import org.apache.spark.util.Utils
 
 /**
  * In sort-based shuffle, incoming records are sorted according to their target partition ids, then
@@ -69,6 +71,8 @@ import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
  */
 private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager with Logging {
 
+  import SortShuffleManager._
+
   if (!conf.getBoolean("spark.shuffle.spill", true)) {
     logWarning(
       "spark.shuffle.spill was set to false, but this configuration is ignored as of Spark 1.6+." +
@@ -79,6 +83,8 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
    * A mapping from shuffle ids to the number of mappers producing output for those shuffles.
    */
   private[this] val numMapsForShuffle = new ConcurrentHashMap[Int, Int]()
+
+  private lazy val shuffleExecutorComponents = loadShuffleExecutorComponents(conf)
 
   override val shuffleBlockResolver = new IndexShuffleBlockResolver(conf)
 
@@ -155,7 +161,8 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           bypassMergeSortHandle,
           mapId,
           env.conf,
-          metrics)
+          metrics,
+          shuffleExecutorComponents.writes())
       case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
         new SortShuffleWriter(shuffleBlockResolver, other, mapId, context)
     }
@@ -211,6 +218,16 @@ private[spark] object SortShuffleManager extends Logging {
       log.debug(s"Can use serialized shuffle for shuffle $shufId")
       true
     }
+  }
+
+  private def loadShuffleExecutorComponents(conf: SparkConf): ShuffleExecutorComponents = {
+    val configuredPluginClasses = conf.get(config.SHUFFLE_IO_PLUGIN_CLASS)
+    val maybeIO = Utils.loadExtensions(
+      classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
+    require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
+    val executorComponents = maybeIO.head.executor()
+    executorComponents.initializeExecutor(conf.getAppId, SparkEnv.get.executorId)
+    executorComponents
   }
 }
 
