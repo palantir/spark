@@ -17,12 +17,15 @@
 
 package org.apache.spark.shuffle
 
+import java.io.IOException
+
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 import org.apache.spark._
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
-import org.apache.spark.internal.Logging
-import org.apache.spark.storage.ShuffleBlockId
+import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.storage.{BlockId, ShuffleBlockId}
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
@@ -39,6 +42,11 @@ private[spark] class BlockStoreShuffleReader[K, C](
     shuffleReadSupport: ShuffleReadSupport,
     mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
   extends ShuffleReader[K, C] with Logging {
+
+  private val detectCorrupt = SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT)
+  private val maxBytesInFlight =
+    SparkEnv.get.conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024
+  private val corruptedBlocks = mutable.HashSet[BlockId]()
 
   private val dep = handle.dependency
 
@@ -57,16 +65,34 @@ private[spark] class BlockStoreShuffleReader[K, C](
               )
             })
         }
-      }.asJava).iterator().asScala
+      }.asJava).iterator()
 
     val serializerInstance = dep.serializer.newInstance()
+    val serializerManager = SparkEnv.get.serializerManager
 
     // Create a key/value iterator for each stream
-    val recordIter = wrappedStreams.flatMap { case wrappedStream =>
-      // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
-      // NextIterator. The NextIterator makes sure that close() is called on the
-      // underlying InputStream when all records have been read.
-      serializerInstance.deserializeStream(wrappedStream).asKeyValueIterator
+    val recordIter = wrappedStreams.asScala.flatMap { case (blockInfo, wrappedStream) =>
+      val blockId = ShuffleBlockId(
+        blockInfo.getShuffleId,
+        blockInfo.getMapId,
+        blockInfo.getReduceId)
+      try {
+        val decryptedDecompressedStream = serializerManager.wrapStream(blockId, wrappedStream)
+        // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
+        // NextIterator. The NextIterator makes sure that close() is called on the
+        // underlying InputStream when all records have been read.
+        serializerInstance.deserializeStream(decryptedDecompressedStream).asKeyValueIterator
+      } catch {
+        case e: IOException =>
+          if (detectCorrupt && blockInfo.getLength < maxBytesInFlight &&
+            !corruptedBlocks.contains(blockId)) {
+            logWarning(s"got an corrupted block $blockId, fetch again", e)
+            corruptedBlocks += blockId
+            wrappedStreams.retryLastBlock()
+          }
+          wrappedStreams.throwCurrentBlockFailedException(e)
+          throw new RuntimeException("Expected shuffle reader iterator to throw exception")
+      }
     }
 
     // Update the context task metrics for each record read.

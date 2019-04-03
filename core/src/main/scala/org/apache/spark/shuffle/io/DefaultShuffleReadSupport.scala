@@ -23,6 +23,7 @@ import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
+import org.apache.spark.api.shuffle.ShuffleReadSupport.{ShuffleReaderIterable, ShuffleReaderIterator}
 import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
@@ -39,13 +40,21 @@ class DefaultShuffleReadSupport(
   private val maxBlocksInFlightPerAddress =
     conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS)
   private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
+  // todo remove:
   private val detectCorrupt = conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   override def getPartitionReaders(
-      blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): java.lang.Iterable[InputStream] = {
+      blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): ShuffleReaderIterable = {
 
     if (blockMetadata.asScala.isEmpty) {
-      Iterable.empty.asJava
+      val emptyIterator = new ShuffleReaderIterator {
+        override def hasNext: Boolean = Iterator.empty.hasNext
+
+        override def next(): (ShuffleBlockInfo, InputStream) = Iterator.empty.next()
+      }
+      return new ShuffleReaderIterable {
+        override def iterator(): ShuffleReaderIterator = emptyIterator
+      }
     } else {
       val minMaxReduceIds = blockMetadata.asScala.map(block => block.getReduceId)
         .foldLeft(Int.MaxValue, 0) {
@@ -69,7 +78,7 @@ class DefaultShuffleReadSupport(
         maxReduceId,
         shuffleId,
         mapOutputTracker
-      ).asJava
+      )
     }
   }
 }
@@ -87,10 +96,10 @@ private class ShuffleBlockFetcherIterable(
     minReduceId: Int,
     maxReduceId: Int,
     shuffleId: Int,
-    mapOutputTracker: MapOutputTracker) extends Iterable[InputStream] {
+    mapOutputTracker: MapOutputTracker) extends ShuffleReaderIterable {
 
-  override def iterator: Iterator[InputStream] =
-    new ShuffleBlockFetcherIterator(
+  override def iterator: ShuffleReaderIterator = {
+    val innerIterator = new ShuffleBlockFetcherIterator(
       context,
       blockManager.shuffleClient,
       blockManager,
@@ -101,5 +110,18 @@ private class ShuffleBlockFetcherIterable(
       maxBlocksInFlightPerAddress,
       maxReqSizeShuffleToMem,
       detectCorrupt,
-      shuffleMetrics).toCompletionIterator.map(_._2)
+      shuffleMetrics)
+    val completionIterator = innerIterator.toCompletionIterator
+    new ShuffleReaderIterator {
+      override def hasNext: Boolean = innerIterator.hasNext
+
+      override def next(): (ShuffleBlockInfo, InputStream) = completionIterator.next()
+
+      override def retryLastBlock(): Unit = innerIterator.retryLast()
+
+      override def throwCurrentBlockFailedException(e: Exception): Unit =
+        innerIterator.throwCurrentBlockFailedException(e)
+    }
+  }
+
 }

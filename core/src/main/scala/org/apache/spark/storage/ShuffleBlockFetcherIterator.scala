@@ -17,14 +17,15 @@
 
 package org.apache.spark.storage
 
-import java.io.{InputStream, IOException}
+import java.io.{IOException, InputStream}
 import java.nio.ByteBuffer
 import java.util.concurrent.LinkedBlockingQueue
-import javax.annotation.concurrent.GuardedBy
 
+import javax.annotation.concurrent.GuardedBy
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
+import org.apache.spark.api.shuffle.ShuffleBlockInfo
 import org.apache.spark.{SparkException, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
@@ -74,7 +75,7 @@ final class ShuffleBlockFetcherIterator(
     maxReqSizeShuffleToMem: Long,
     detectCorrupt: Boolean,
     shuffleMetrics: ShuffleReadMetricsReporter)
-  extends Iterator[(BlockId, InputStream)] with DownloadFileManager with Logging {
+  extends Iterator[(ShuffleBlockInfo, InputStream)] with DownloadFileManager with Logging {
 
   import ShuffleBlockFetcherIterator._
 
@@ -397,7 +398,7 @@ final class ShuffleBlockFetcherIterator(
    *
    * Throws a FetchFailedException if the next block could not be fetched.
    */
-  override def next(): (BlockId, InputStream) = {
+  override def next(): (ShuffleBlockInfo, InputStream) = {
     if (!hasNext) {
       throw new NoSuchElementException()
     }
@@ -508,11 +509,18 @@ final class ShuffleBlockFetcherIterator(
       throw new NoSuchElementException()
     }
     currentResult = result.asInstanceOf[SuccessFetchResult]
-    (currentResult.blockId, new BufferReleasingInputStream(input, this))
+    val blockId = currentResult.blockId.asInstanceOf[ShuffleBlockId]
+    (new ShuffleBlockInfo(blockId.shuffleId, blockId.mapId, blockId.reduceId, currentResult.size),
+      new BufferReleasingInputStream(input, this))
   }
 
-  def toCompletionIterator: Iterator[(BlockId, InputStream)] = {
-    CompletionIterator[(BlockId, InputStream), this.type](this,
+  def retryLast(): Unit = {
+    fetchRequests += FetchRequest(currentResult.address,
+      Array((currentResult.blockId, currentResult.size)))
+  }
+
+  def toCompletionIterator: Iterator[(ShuffleBlockInfo, InputStream)] = {
+    CompletionIterator[(ShuffleBlockInfo, InputStream), this.type](this,
       onCompleteCallback.onComplete(context))
   }
 
@@ -579,6 +587,15 @@ final class ShuffleBlockFetcherIterator(
         throw new SparkException(
           "Failed to get block " + blockId + ", which is not a shuffle block", e)
     }
+  }
+
+  def throwCurrentBlockFailedException(e: Throwable): Unit = {
+    val blockId = currentResult.blockId.asInstanceOf[ShuffleBlockId]
+    throw new FetchFailedException(currentResult.address,
+      blockId.shuffleId,
+      blockId.mapId,
+      blockId.reduceId,
+      e)
   }
 }
 

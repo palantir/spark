@@ -18,9 +18,11 @@
 package org.apache.spark.api.shuffle;
 
 import org.apache.spark.annotation.Experimental;
+import scala.Tuple2;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 
 /**
  * :: Experimental ::
@@ -29,6 +31,22 @@ import java.io.InputStream;
  */
 @Experimental
 public interface ShuffleReadSupport {
-  Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
+  ShuffleReaderIterable getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
+
+
+  interface ShuffleReaderIterable extends Iterable<Tuple2<ShuffleBlockInfo, InputStream>> {
+    @Override
+    ShuffleReaderIterator iterator();
+  }
+
+  interface ShuffleReaderIterator extends Iterator<Tuple2<ShuffleBlockInfo, InputStream>> {
+    default void retryLastBlock() {
+      throw new UnsupportedOperationException();
+    }
+
+    default void throwCurrentBlockFailedException(Exception e) throws Exception {
+      throw e;
+    }
+  }
 }
