@@ -20,9 +20,9 @@ package org.apache.spark.shuffle
 import java.io.{ByteArrayOutputStream, InputStream}
 import java.nio.ByteBuffer
 
-import org.mockito.Mockito.{doReturn, mock, when}
+import org.mockito.Mockito.{mock, when}
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.{Answer, Stubber}
+import org.mockito.stubbing.{Answer}
 
 import org.apache.spark._
 import org.apache.spark.internal.config

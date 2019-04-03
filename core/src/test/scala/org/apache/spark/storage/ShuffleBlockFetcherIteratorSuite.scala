@@ -442,7 +442,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     sem.acquire()
 
-    // The next call should fail - local blocks failure
+    // The next call should fail - local block failure
     intercept[FetchFailedException] {
       iterator.next()
     }
