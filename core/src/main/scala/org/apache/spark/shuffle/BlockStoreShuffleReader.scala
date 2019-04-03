@@ -25,6 +25,7 @@ import scala.collection.mutable
 import org.apache.spark._
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.storage.{BlockId, ShuffleBlockId}
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
@@ -39,6 +40,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
     endPartition: Int,
     context: TaskContext,
     readMetrics: ShuffleReadMetricsReporter,
+    serializerManager: SerializerManager,
     shuffleReadSupport: ShuffleReadSupport,
     mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
   extends ShuffleReader[K, C] with Logging {
@@ -68,7 +70,6 @@ private[spark] class BlockStoreShuffleReader[K, C](
       }.asJava).iterator()
 
     val serializerInstance = dep.serializer.newInstance()
-    val serializerManager = SparkEnv.get.serializerManager
 
     // Create a key/value iterator for each stream
     val recordIter = wrappedStreams.asScala.flatMap { case (blockInfo, wrappedStream) =>

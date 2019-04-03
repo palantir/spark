@@ -125,9 +125,13 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     for (i <- 0 until 5) {
       assert(iterator.hasNext, s"iterator should have 5 elements but actually has $i elements")
-      val (blockId, inputStream) = iterator.next()
+      val (shuffleBlockInfo, inputStream) = iterator.next()
 
       // Make sure we release buffers when a wrapped input stream is closed.
+      val blockId = ShuffleBlockId(
+        shuffleBlockInfo.getShuffleId,
+        shuffleBlockInfo.getMapId,
+        shuffleBlockInfo.getReduceId)
       val mockBuf = localBlocks.getOrElse(blockId, remoteBlocks(blockId))
       // Note: ShuffleBlockFetcherIterator wraps input streams in a BufferReleasingInputStream
       val wrappedInputStream = inputStream.asInstanceOf[BufferReleasingInputStream]
