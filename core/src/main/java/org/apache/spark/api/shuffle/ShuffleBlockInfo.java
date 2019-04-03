@@ -17,6 +17,8 @@
 
 package org.apache.spark.api.shuffle;
 
+import java.util.Objects;
+
 public class ShuffleBlockInfo {
   private final int shuffleId;
   private final int mapId;
@@ -46,4 +48,17 @@ public class ShuffleBlockInfo {
     return length;
   }
 
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof ShuffleBlockInfo
+        && shuffleId == ((ShuffleBlockInfo) other).shuffleId
+        && mapId == ((ShuffleBlockInfo) other).mapId
+        && reduceId == ((ShuffleBlockInfo) other).reduceId
+        && length == ((ShuffleBlockInfo) other).length;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(shuffleId, mapId, reduceId, length);
+  }
 }

@@ -31,6 +31,7 @@ import org.mockito.stubbing.Answer
 import org.scalatest.PrivateMethodTester
 
 import org.apache.spark.{SparkFunSuite, TaskContext}
+import org.apache.spark.api.shuffle.ShuffleBlockInfo
 import org.apache.spark.network._
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle.{BlockFetchingListener, DownloadFileManager}
@@ -407,7 +408,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     // The first block should be returned without an exception
     val (id1, _) = iterator.next()
-    assert(id1 === ShuffleBlockId(0, 0, 0))
+    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1))
 
     when(transfer.fetchBlocks(any(), any(), any(), any(), any(), any()))
       .thenAnswer(new Answer[Unit] {
@@ -422,15 +423,38 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       }
     })
 
-    // The next block is corrupt local block (the second one is corrupt and retried)
-    intercept[FetchFailedException] { iterator.next() }
+    val readNextStreamAndRetryIfCant = () => {
+      try {
+        val stream = iterator.next()
+        val readByte = Array[Byte](1)
+        stream._2.read(readByte, 0, 1)
+        readByte
+      } catch {
+        case e: IOException =>
+          iterator.retryLast(e)
+      }
+      None
+    }
+
+    // This should fail to read the bytes and call for a retry
+    val readByte = readNextStreamAndRetryIfCant()
+    assert(readByte === None)
 
     sem.acquire()
-    intercept[FetchFailedException] { iterator.next() }
+
+    // The next call should fail - local blocks failure
+    intercept[FetchFailedException] {
+      iterator.next()
+    }
+    // The next call is the retry of the second block
+    intercept[FetchFailedException] {
+      readNextStreamAndRetryIfCant()
+    }
   }
 
   test("big blocks are not checked for corruption") {
-    val corruptBuffer = mockCorruptBuffer(10000L)
+    val size = 10000L
+    val corruptBuffer = mockCorruptBuffer(size)
 
     val blockManager = mock(classOf[BlockManager])
     val localBmId = BlockManagerId("test-client", "test-client", 1)
@@ -468,7 +492,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       taskContext.taskMetrics.createTempShuffleReadMetrics())
     // Blocks should be returned without exceptions.
     assert(Set(iterator.next()._1, iterator.next()._1) ===
-        Set(ShuffleBlockId(0, 0, 0), ShuffleBlockId(0, 1, 0)))
+        Set(new ShuffleBlockInfo(0, 0, 0, size), new ShuffleBlockInfo(0, 1, 0, size)))
   }
 
   test("retry corrupt blocks (disabled)") {
@@ -527,11 +551,11 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     // The first block should be returned without an exception
     val (id1, _) = iterator.next()
-    assert(id1 === ShuffleBlockId(0, 0, 0))
+    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1))
     val (id2, _) = iterator.next()
-    assert(id2 === ShuffleBlockId(0, 1, 0))
+    assert(id2 === new ShuffleBlockInfo(0, 1, 0, 1))
     val (id3, _) = iterator.next()
-    assert(id3 === ShuffleBlockId(0, 2, 0))
+    assert(id3 === new ShuffleBlockInfo(0, 2, 0, 1))
   }
 
   test("Blocks should be shuffled to disk when size of the request is above the" +
@@ -634,5 +658,11 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     // All blocks fetched return zero length and should trigger a receive-side error:
     val e = intercept[FetchFailedException] { iterator.next() }
     assert(e.getMessage.contains("Received a zero-size buffer"))
+  }
+
+  def toShuffleBlockId(shuffleBlockInfo: ShuffleBlockInfo): ShuffleBlockId = {
+    ShuffleBlockId(shuffleBlockInfo.getShuffleId,
+      shuffleBlockInfo.getMapId,
+      shuffleBlockInfo.getReduceId)
   }
 }

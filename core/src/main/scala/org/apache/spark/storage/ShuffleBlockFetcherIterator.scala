@@ -491,6 +491,9 @@ final class ShuffleBlockFetcherIterator(
         corruptedBlocks += blockId
         fetchRequests += FetchRequest(currentResult.address,
           Array((currentResult.blockId, currentResult.size)))
+        // Send fetch requests up to maxBytesInFlight
+        numBlocksToFetch += 1
+        fetchUpToMaxBytes()
       }
     } else {
       throwFetchFailedException(blockId, currentResult.address, t)
