@@ -38,6 +38,7 @@ import org.apache.spark.network.util.TransportConf
 import org.apache.spark.rpc.{RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.serializer.{KryoSerializer, SerializerManager}
 import org.apache.spark.shuffle.{BaseShuffleHandle, BlockStoreShuffleReader, FetchFailedException}
+import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
 import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerId, BlockManagerMaster, ShuffleBlockId}
 import org.apache.spark.util.{AccumulatorV2, TaskCompletionListener, TaskFailureListener, Utils}
 
@@ -206,6 +207,9 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     when(dependency.aggregator).thenReturn(aggregator)
     when(dependency.keyOrdering).thenReturn(sorter)
 
+    val readSupport = new DefaultShuffleReadSupport(
+      blockManager, serializerManager, mapOutputTracker, defaultConf)
+
     new BlockStoreShuffleReader[String, String](
       shuffleHandle,
       0,
@@ -213,7 +217,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       taskContext,
       taskContext.taskMetrics().createTempShuffleReadMetrics(),
       serializerManager,
-      blockManager,
+      readSupport,
       mapOutputTracker
     )
   }
