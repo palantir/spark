@@ -34,7 +34,6 @@ import org.apache.spark.metrics.source.Source
 import org.apache.spark.network.BlockTransferService
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.netty.{NettyBlockTransferService, SparkTransportConf}
-import org.apache.spark.network.util.TransportConf
 import org.apache.spark.rpc.{RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.serializer.{KryoSerializer, SerializerManager}
 import org.apache.spark.shuffle.{BaseShuffleHandle, BlockStoreShuffleReader, FetchFailedException}
@@ -207,8 +206,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     when(dependency.aggregator).thenReturn(aggregator)
     when(dependency.keyOrdering).thenReturn(sorter)
 
-    val readSupport = new DefaultShuffleReadSupport(
-      blockManager, serializerManager, mapOutputTracker, defaultConf)
+    val readSupport = new DefaultShuffleReadSupport(blockManager, mapOutputTracker, defaultConf)
 
     new BlockStoreShuffleReader[String, String](
       shuffleHandle,

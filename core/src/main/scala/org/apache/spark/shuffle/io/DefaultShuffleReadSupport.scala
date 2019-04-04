@@ -31,7 +31,6 @@ import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherItera
 
 class DefaultShuffleReadSupport(
     blockManager: BlockManager,
-    serializerManager: SerializerManager,
     mapOutputTracker: MapOutputTracker,
     conf: SparkConf) extends ShuffleReadSupport {
 
@@ -66,7 +65,6 @@ class DefaultShuffleReadSupport(
       new ShuffleBlockFetcherIterable(
         TaskContext.get(),
         blockManager,
-        serializerManager.wrapStream,
         maxBytesInFlight,
         maxReqsInFlight,
         maxBlocksInFlightPerAddress,
@@ -85,7 +83,6 @@ class DefaultShuffleReadSupport(
 private class ShuffleBlockFetcherIterable(
     context: TaskContext,
     blockManager: BlockManager,
-    streamWrapper: (BlockId, InputStream) => InputStream,
     maxBytesInFlight: Long,
     maxReqsInFlight: Int,
     maxBlocksInFlightPerAddress: Int,
@@ -103,7 +100,6 @@ private class ShuffleBlockFetcherIterable(
       blockManager.shuffleClient,
       blockManager,
       mapOutputTracker.getMapSizesByExecutorId(shuffleId, minReduceId, maxReduceId + 1),
-      streamWrapper,
       maxBytesInFlight,
       maxReqsInFlight,
       maxBlocksInFlightPerAddress,

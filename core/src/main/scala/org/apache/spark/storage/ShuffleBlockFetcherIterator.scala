@@ -51,7 +51,6 @@ import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
  *                        order to throttle the memory usage. Note that zero-sized blocks are
  *                        already excluded, which happened in
  *                        [[org.apache.spark.MapOutputTracker.convertMapStatuses]].
- * @param streamWrapper A function to wrap the returned input stream.
  * @param maxBytesInFlight max size (in bytes) of remote blocks to fetch at any given point.
  * @param maxReqsInFlight max number of remote requests to fetch blocks at any given point.
  * @param maxBlocksInFlightPerAddress max number of shuffle blocks being fetched at any given point
@@ -66,7 +65,6 @@ final class ShuffleBlockFetcherIterator(
     shuffleClient: ShuffleClient,
     blockManager: BlockManager,
     blocksByAddress: Iterator[(BlockManagerId, Seq[(BlockId, Long)])],
-    streamWrapper: (BlockId, InputStream) => InputStream,
     maxBytesInFlight: Long,
     maxReqsInFlight: Int,
     maxBlocksInFlightPerAddress: Int,
