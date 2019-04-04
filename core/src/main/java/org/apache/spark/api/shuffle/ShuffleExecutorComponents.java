@@ -30,4 +30,6 @@ public interface ShuffleExecutorComponents {
   void initializeExecutor(String appId, String execId);
 
   ShuffleWriteSupport writes();
+
+  ShuffleReadSupport reads();
 }

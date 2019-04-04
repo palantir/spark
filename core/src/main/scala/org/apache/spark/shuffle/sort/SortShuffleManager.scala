@@ -123,15 +123,14 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       endPartition: Int,
       context: TaskContext,
       metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
-    // TODO: remove this from here once ShuffleExecutorComponents is introduced
-    val readSupport = new DefaultShuffleReadSupport(
-      blockManager = SparkEnv.get.blockManager,
-      serializerManager = SparkEnv.get.serializerManager,
-      mapOutputTracker = SparkEnv.get.mapOutputTracker,
-      conf = SparkEnv.get.conf)
     new BlockStoreShuffleReader(
       handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
-      startPartition, endPartition, context, metrics, SparkEnv.get.serializerManager, readSupport)
+      startPartition,
+      endPartition,
+      context,
+      metrics,
+      SparkEnv.get.serializerManager,
+      shuffleExecutorComponents.reads())
   }
 
   /** Get a writer for a given partition. Called on executors by map tasks. */

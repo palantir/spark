@@ -40,7 +40,6 @@ class DefaultShuffleReadSupport(
   private val maxBlocksInFlightPerAddress =
     conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS)
   private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
-  // todo remove:
   private val detectCorrupt = conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   override def getPartitionReaders(
