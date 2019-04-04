@@ -17,7 +17,7 @@
 
 package org.apache.spark.shuffle
 
-import java.io.IOException
+import java.io.{InputStream, IOException}
 
 import scala.collection.JavaConverters._
 
@@ -63,25 +63,38 @@ private[spark] class BlockStoreShuffleReader[K, C](
         }
       }.asJava).iterator()
 
-    val serializerInstance = dep.serializer.newInstance()
+    val retryingWrappedStreams = new Iterator[InputStream] {
+      override def hasNext: Boolean = wrappedStreams.hasNext
 
-    // Create a key/value iterator for each stream
-    val recordIter = wrappedStreams.asScala.flatMap { case (blockInfo, wrappedStream) =>
-      val blockId = ShuffleBlockId(
-        blockInfo.getShuffleId,
-        blockInfo.getMapId,
-        blockInfo.getReduceId)
-      try {
-        val decryptedDecompressedStream = serializerManager.wrapStream(blockId, wrappedStream)
-        // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
-        // NextIterator. The NextIterator makes sure that close() is called on the
-        // underlying InputStream when all records have been read.
-        serializerInstance.deserializeStream(decryptedDecompressedStream).asKeyValueIterator
-      } catch {
-        case e: IOException =>
-          wrappedStreams.retryLastBlock(e)
-          None
+      override def next(): InputStream = {
+        var returnStream: InputStream = null
+        while (wrappedStreams.hasNext && returnStream == null) {
+          val nextStream = wrappedStreams.next()
+          val blockInfo = nextStream._1
+          val blockId = ShuffleBlockId(
+            blockInfo.getShuffleId,
+            blockInfo.getMapId,
+            blockInfo.getReduceId)
+          try {
+            returnStream = serializerManager.wrapStream(blockId, nextStream._2)
+            // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
+            // NextIterator. The NextIterator makes sure that close() is called on the
+            // underlying InputStream when all records have been read.
+          } catch {
+            case e: IOException =>
+              wrappedStreams.retryLastBlock(e)
+          }
+        }
+        returnStream
       }
+    }
+
+    val serializerInstance = dep.serializer.newInstance()
+    val recordIter = retryingWrappedStreams.flatMap { wrappedStream =>
+      // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
+      // NextIterator. The NextIterator makes sure that close() is called on the
+      // underlying InputStream when all records have been read.
+      serializerInstance.deserializeStream(wrappedStream).asKeyValueIterator
     }
 
     // Update the context task metrics for each record read.
