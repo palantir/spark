@@ -23,7 +23,6 @@ import org.apache.spark.SparkEnv;
 import org.apache.spark.api.shuffle.ShuffleExecutorComponents;
 import org.apache.spark.api.shuffle.ShuffleReadSupport;
 import org.apache.spark.api.shuffle.ShuffleWriteSupport;
-import org.apache.spark.serializer.SerializerManager;
 import org.apache.spark.shuffle.IndexShuffleBlockResolver;
 import org.apache.spark.shuffle.io.DefaultShuffleReadSupport;
 import org.apache.spark.storage.BlockManager;
