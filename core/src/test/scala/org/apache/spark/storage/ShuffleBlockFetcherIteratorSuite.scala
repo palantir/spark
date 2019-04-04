@@ -650,10 +650,4 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     val e = intercept[FetchFailedException] { iterator.next() }
     assert(e.getMessage.contains("Received a zero-size buffer"))
   }
-
-  def toShuffleBlockId(shuffleBlockInfo: ShuffleBlockInfo): ShuffleBlockId = {
-    ShuffleBlockId(shuffleBlockInfo.getShuffleId,
-      shuffleBlockInfo.getMapId,
-      shuffleBlockInfo.getReduceId)
-  }
 }
