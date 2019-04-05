@@ -18,11 +18,8 @@
 package org.apache.spark.api.shuffle;
 
 import org.apache.spark.annotation.Experimental;
-import scala.Tuple2;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Iterator;
 
 /**
  * :: Experimental ::
