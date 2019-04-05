@@ -85,6 +85,9 @@ private[spark] class BlockStoreShuffleReader[K, C](
               wrappedStreams.retryLastBlock(e)
           }
         }
+        if (returnStream == null) {
+          throw new IllegalStateException("Expected shuffle reader iterator to return a stream")
+        }
         returnStream
       }
     }
