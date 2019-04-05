@@ -111,6 +111,7 @@ abstract class ShuffleWriterBenchmarkBase extends BenchmarkBase {
   when(rpcEnv.setupEndpoint(any[String], any[RpcEndpoint])).thenReturn(rpcEndpointRef)
 
   def setup(): Unit = {
+    TaskContext.setTaskContext(taskContext)
     memoryManager = new TestMemoryManager(defaultConf)
     memoryManager.limit(PackedRecordPointer.MAXIMUM_PAGE_SIZE_BYTES)
     taskMemoryManager = new TaskMemoryManager(memoryManager, 0)
