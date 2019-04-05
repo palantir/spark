@@ -33,16 +33,4 @@ import java.util.Iterator;
 public interface ShuffleReadSupport {
   ShuffleReaderIterable getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
-
-
-  interface ShuffleReaderIterable extends Iterable<Tuple2<ShuffleBlockInfo, InputStream>> {
-    @Override
-    ShuffleReaderIterator iterator();
-  }
-
-  interface ShuffleReaderIterator extends Iterator<Tuple2<ShuffleBlockInfo, InputStream>> {
-    default void retryLastBlock(Throwable t) {
-      throw new UnsupportedOperationException("Cannot retry fetching bad blocks", t);
-    }
-  }
 }

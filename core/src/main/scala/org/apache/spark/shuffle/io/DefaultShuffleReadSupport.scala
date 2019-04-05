@@ -22,12 +22,11 @@ import java.io.InputStream
 import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
-import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
-import org.apache.spark.api.shuffle.ShuffleReadSupport.{ShuffleReaderIterable, ShuffleReaderIterator}
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderIterable, ShuffleReadSupport}
+import org.apache.spark.api.shuffle.ShuffleReaderIterable.ShuffleReaderIterator
 import org.apache.spark.internal.config
-import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
-import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator}
+import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 
 class DefaultShuffleReadSupport(
     blockManager: BlockManager,
