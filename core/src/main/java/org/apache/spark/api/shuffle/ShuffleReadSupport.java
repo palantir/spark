@@ -42,7 +42,7 @@ public interface ShuffleReadSupport {
 
   interface ShuffleReaderIterator extends Iterator<Tuple2<ShuffleBlockInfo, InputStream>> {
     default void retryLastBlock(Throwable t) {
-      throw new UnsupportedOperationException();
+      throw new UnsupportedOperationException("Cannot retry fetching bad blocks", t);
     }
   }
 }

@@ -450,7 +450,7 @@ final class ShuffleBlockFetcherIterator(
             throwFetchFailedException(blockId, address, new IOException(msg))
           }
 
-          val in = try {
+          input = try {
             buf.createInputStream()
           } catch {
             // The exception could only be throwed by local shuffle block
@@ -460,7 +460,6 @@ final class ShuffleBlockFetcherIterator(
               buf.release()
               throwFetchFailedException(blockId, address, e)
           }
-          input = in
         case FailureFetchResult(blockId, address, e) =>
           throwFetchFailedException(blockId, address, e)
       }
@@ -483,9 +482,8 @@ final class ShuffleBlockFetcherIterator(
     if (detectCorrupt && currentResult.size < maxBytesInFlight) {
       if (corruptedBlocks.contains(blockId)) {
         throwFetchFailedException(blockId, currentResult.address, t)
-      }
-      else {
-        logWarning(s"got an corrupted block $blockId from $currentResult.address, fetch again", t)
+      } else {
+        logWarning(s"got a corrupted block $blockId from $currentResult.address, fetch again", t)
         corruptedBlocks += blockId
         fetchRequests += FetchRequest(currentResult.address,
           Array((currentResult.blockId, currentResult.size)))

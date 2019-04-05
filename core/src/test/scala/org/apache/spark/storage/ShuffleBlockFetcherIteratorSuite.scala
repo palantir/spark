@@ -35,7 +35,6 @@ import org.apache.spark.api.shuffle.ShuffleBlockInfo
 import org.apache.spark.network._
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle.{BlockFetchingListener, DownloadFileManager}
-import org.apache.spark.network.util.LimitedInputStream
 import org.apache.spark.shuffle.FetchFailedException
 import org.apache.spark.util.Utils
 
@@ -418,33 +417,34 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       }
     })
 
-    val readNextStreamAndRetryIfCant = () => {
-      try {
-        val stream = iterator.next()
-        val readByte = Array[Byte](1)
-        stream._2.read(readByte, 0, 1)
-        readByte
-      } catch {
-        case e: IOException =>
-          iterator.retryLast(e)
-      }
-      None
-    }
-
     // This should fail to read the bytes and call for a retry
-    val readByte = readNextStreamAndRetryIfCant()
+    val readByte = readNextStreamAndRetryOnError(iterator)
     assert(readByte === None)
 
     sem.acquire()
 
-    // The next call should fail - local block failure
+    // The next call should fail and not call for a retry because the stream wasn't
+    // corrupt, but the fetch itself failed
     intercept[FetchFailedException] {
-      iterator.next()
+      readNextStreamAndRetryOnError(iterator)
     }
-    // The next call is the retry of the second block
+    // The next call is the retry of the second block, which fails
     intercept[FetchFailedException] {
-      readNextStreamAndRetryIfCant()
+      readNextStreamAndRetryOnError(iterator)
     }
+  }
+
+  def readNextStreamAndRetryOnError(iterator: ShuffleBlockFetcherIterator): Option[Byte] = {
+    try {
+      val stream = iterator.next()
+      val readByte = Array[Byte](1)
+      stream._2.read(readByte, 0, 1)
+      Some(readByte)
+    } catch {
+      case e: IOException =>
+        iterator.retryLast(e)
+    }
+    None
   }
 
   test("big blocks are not checked for corruption") {
