@@ -26,11 +26,15 @@ import java.util.Iterator;
 
 /**
  * :: Experimental ::
- * An interface for reading shuffle records
+ * An interface for reading shuffle records.
  * @since 3.0.0
  */
 @Experimental
 public interface ShuffleReadSupport {
+  /**
+   * Returns an underlying {@link ShuffleReaderIterable} that will iterate through shuffle data,
+   * given an iterable for the shuffle blocks to fetch.
+   */
   ShuffleReaderIterable getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
 }

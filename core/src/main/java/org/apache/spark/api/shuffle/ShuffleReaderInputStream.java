@@ -1,7 +1,15 @@
 package org.apache.spark.api.shuffle;
 
+import org.apache.spark.annotation.Experimental;
+
 import java.io.InputStream;
 
+/**
+ * :: Experimental ::
+ * An interface for reading shuffle records.
+ * @since 3.0.0
+ */
+@Experimental
 public class ShuffleReaderInputStream {
 
   private final ShuffleBlockInfo shuffleBlockInfo;
