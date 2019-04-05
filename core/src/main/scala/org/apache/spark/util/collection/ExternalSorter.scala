@@ -762,7 +762,6 @@ private[spark] class ExternalSorter[K, V, C](
       }
     } else {
       // We must perform merge-sort; get an iterator by partition and write everything directly.
-      var nextPartId = 0
       for ((id, elements) <- this.partitionedIterator) {
         val blockId = ShuffleBlockId(shuffleId, mapId, id)
         var partitionWriter: ShufflePartitionWriter = null
