@@ -17,8 +17,6 @@
 
 package org.apache.spark.shuffle.io
 
-import java.io.InputStream
-
 import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
