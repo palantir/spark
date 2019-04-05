@@ -17,7 +17,7 @@
 
 package org.apache.spark.shuffle
 
-import java.io.{IOException, InputStream}
+import java.io.{InputStream, IOException}
 import java.nio.ByteBuffer
 
 import scala.collection.JavaConverters._
