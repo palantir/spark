@@ -17,15 +17,15 @@
 
 package org.apache.spark.storage
 
-import java.io.{InputStream, IOException}
+import java.io.{IOException, InputStream}
 import java.util.concurrent.LinkedBlockingQueue
-import javax.annotation.concurrent.GuardedBy
 
+import javax.annotation.concurrent.GuardedBy
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
 import org.apache.spark.{SparkException, TaskContext}
-import org.apache.spark.api.shuffle.ShuffleBlockInfo
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderInputStream}
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle._
@@ -71,7 +71,7 @@ final class ShuffleBlockFetcherIterator(
     maxReqSizeShuffleToMem: Long,
     detectCorrupt: Boolean,
     shuffleMetrics: ShuffleReadMetricsReporter)
-  extends Iterator[(ShuffleBlockInfo, InputStream)] with DownloadFileManager with Logging {
+  extends Iterator[ShuffleReaderInputStream] with DownloadFileManager with Logging {
 
   import ShuffleBlockFetcherIterator._
 
@@ -394,7 +394,7 @@ final class ShuffleBlockFetcherIterator(
    *
    * Throws a FetchFailedException if the next block could not be fetched.
    */
-  override def next(): (ShuffleBlockInfo, InputStream) = {
+  override def next(): ShuffleReaderInputStream = {
     if (!hasNext) {
       throw new NoSuchElementException()
     }
@@ -473,7 +473,8 @@ final class ShuffleBlockFetcherIterator(
     }
     currentResult = result.asInstanceOf[SuccessFetchResult]
     val blockId = currentResult.blockId.asInstanceOf[ShuffleBlockId]
-    (new ShuffleBlockInfo(blockId.shuffleId, blockId.mapId, blockId.reduceId, currentResult.size),
+    new ShuffleReaderInputStream(
+      new ShuffleBlockInfo(blockId.shuffleId, blockId.mapId, blockId.reduceId, currentResult.size),
       new BufferReleasingInputStream(input, this))
   }
 
@@ -496,8 +497,8 @@ final class ShuffleBlockFetcherIterator(
     }
   }
 
-  def toCompletionIterator: Iterator[(ShuffleBlockInfo, InputStream)] = {
-    CompletionIterator[(ShuffleBlockInfo, InputStream), this.type](this,
+  def toCompletionIterator: Iterator[ShuffleReaderInputStream] = {
+    CompletionIterator[ShuffleReaderInputStream, this.type](this,
       onCompleteCallback.onComplete(context))
   }
 

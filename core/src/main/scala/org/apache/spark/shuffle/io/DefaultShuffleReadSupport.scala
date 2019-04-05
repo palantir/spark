@@ -22,7 +22,7 @@ import java.io.InputStream
 import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
-import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderIterable, ShuffleReadSupport}
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderInputStream, ShuffleReaderIterable, ShuffleReadSupport}
 import org.apache.spark.api.shuffle.ShuffleReaderIterable.ShuffleReaderIterator
 import org.apache.spark.internal.config
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
@@ -47,7 +47,7 @@ class DefaultShuffleReadSupport(
       val emptyIterator = new ShuffleReaderIterator {
         override def hasNext: Boolean = Iterator.empty.hasNext
 
-        override def next(): (ShuffleBlockInfo, InputStream) = Iterator.empty.next()
+        override def next(): ShuffleReaderInputStream = Iterator.empty.next()
       }
       return new ShuffleReaderIterable {
         override def iterator(): ShuffleReaderIterator = emptyIterator
@@ -109,7 +109,7 @@ private class ShuffleBlockFetcherIterable(
     new ShuffleReaderIterator {
       override def hasNext: Boolean = innerIterator.hasNext
 
-      override def next(): (ShuffleBlockInfo, InputStream) = completionIterator.next()
+      override def next(): ShuffleReaderInputStream = completionIterator.next()
 
       override def retryLastBlock(t: Throwable): Unit = innerIterator.retryLast(t)
     }

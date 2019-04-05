@@ -70,13 +70,13 @@ private[spark] class BlockStoreShuffleReader[K, C](
         var returnStream: InputStream = null
         while (wrappedStreams.hasNext && returnStream == null) {
           val nextStream = wrappedStreams.next()
-          val blockInfo = nextStream._1
+          val blockInfo = nextStream.getShuffleBlockInfo
           val blockId = ShuffleBlockId(
             blockInfo.getShuffleId,
             blockInfo.getMapId,
             blockInfo.getReduceId)
           try {
-            returnStream = serializerManager.wrapStream(blockId, nextStream._2)
+            returnStream = serializerManager.wrapStream(blockId, nextStream.getInputStream)
             // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
             // NextIterator. The NextIterator makes sure that close() is called on the
             // underlying InputStream when all records have been read.

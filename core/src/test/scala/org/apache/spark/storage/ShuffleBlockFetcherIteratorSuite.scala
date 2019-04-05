@@ -124,7 +124,9 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     for (i <- 0 until 5) {
       assert(iterator.hasNext, s"iterator should have 5 elements but actually has $i elements")
-      val (shuffleBlockInfo, inputStream) = iterator.next()
+      val shuffleInputStream = iterator.next()
+      val shuffleBlockInfo = shuffleInputStream.getShuffleBlockInfo
+      val inputStream = shuffleInputStream.getInputStream
 
       // Make sure we release buffers when a wrapped input stream is closed.
       val blockId = ShuffleBlockId(
@@ -202,11 +204,11 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
     verify(blocks(ShuffleBlockId(0, 0, 0)), times(0)).release()
-    iterator.next()._2.close() // close() first block's input stream
+    iterator.next().getInputStream.close() // close() first block's input stream
     verify(blocks(ShuffleBlockId(0, 0, 0)), times(1)).release()
 
     // Get the 2nd block but do not exhaust the iterator
-    val subIter = iterator.next()._2
+    val subIter = iterator.next().getInputStream
 
     // Complete the task; then the 2nd block buffer should be exhausted
     verify(blocks(ShuffleBlockId(0, 1, 0)), times(0)).release()
@@ -401,7 +403,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     sem.acquire()
 
     // The first block should be returned without an exception
-    val (id1, _) = iterator.next()
+    val id1 = iterator.next().getShuffleBlockInfo
     assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1))
 
     when(transfer.fetchBlocks(any(), any(), any(), any(), any(), any()))
@@ -438,7 +440,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     try {
       val stream = iterator.next()
       val readByte = Array[Byte](1)
-      stream._2.read(readByte, 0, 1)
+      stream.getInputStream.read(readByte, 0, 1)
       Some(readByte)
     } catch {
       case e: IOException =>
@@ -485,7 +487,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
     // Blocks should be returned without exceptions.
-    assert(Set(iterator.next()._1, iterator.next()._1) ===
+    assert(Set(iterator.next().getShuffleBlockInfo, iterator.next().getShuffleBlockInfo) ===
         Set(new ShuffleBlockInfo(0, 0, 0, size), new ShuffleBlockInfo(0, 1, 0, size)))
   }
 
@@ -543,11 +545,11 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     sem.acquire()
 
     // The first block should be returned without an exception
-    val (id1, _) = iterator.next()
+    val id1 = iterator.next().getShuffleBlockInfo
     assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1))
-    val (id2, _) = iterator.next()
+    val id2 = iterator.next().getShuffleBlockInfo
     assert(id2 === new ShuffleBlockInfo(0, 1, 0, 1))
-    val (id3, _) = iterator.next()
+    val id3 = iterator.next().getShuffleBlockInfo
     assert(id3 === new ShuffleBlockInfo(0, 2, 0, 1))
   }
 
