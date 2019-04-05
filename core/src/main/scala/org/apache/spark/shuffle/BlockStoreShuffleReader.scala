@@ -17,7 +17,8 @@
 
 package org.apache.spark.shuffle
 
-import java.io.{InputStream, IOException}
+import java.io.{IOException, InputStream}
+import java.nio.ByteBuffer
 
 import scala.collection.JavaConverters._
 
@@ -26,8 +27,9 @@ import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.Logging
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.storage.ShuffleBlockId
-import org.apache.spark.util.CompletionIterator
+import org.apache.spark.util.{CompletionIterator, Utils}
 import org.apache.spark.util.collection.ExternalSorter
+import org.apache.spark.util.io.ChunkedByteBufferOutputStream
 
 /**
  * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
@@ -76,10 +78,13 @@ private[spark] class BlockStoreShuffleReader[K, C](
             blockInfo.getMapId,
             blockInfo.getReduceId)
           try {
-            returnStream = serializerManager.wrapStream(blockId, nextStream.getInputStream)
-            // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
-            // NextIterator. The NextIterator makes sure that close() is called on the
-            // underlying InputStream when all records have been read.
+            val in = serializerManager.wrapStream(blockId, nextStream.getInputStream)
+            val out = new ChunkedByteBufferOutputStream(64 * 1024, ByteBuffer.allocate)
+            // Decompress the whole block at once to detect any corruption, which could increase
+            // the memory usage tne potential increase the chance of OOM.
+            // TODO: manage the memory used here, and spill it into disk in case of OOM.
+            Utils.copyStream(in, out, closeStreams = true)
+            returnStream = out.toChunkedByteBuffer.toInputStream(dispose = true)
           } catch {
             case e: IOException =>
               wrappedStreams.retryLastBlock(e)
