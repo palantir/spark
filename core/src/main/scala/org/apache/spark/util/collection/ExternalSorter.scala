@@ -721,7 +721,7 @@ private[spark] class ExternalSorter[K, V, C](
     lengths
   }
 
-  private def writeEmptyPartition(mapOutputWriter: ShuffleMapOutputWriter) = {
+  private def writeEmptyPartition(mapOutputWriter: ShuffleMapOutputWriter): Unit = {
     var partitionWriter: ShufflePartitionWriter = null
     try {
       partitionWriter = mapOutputWriter.getNextPartitionWriter
@@ -731,6 +731,7 @@ private[spark] class ExternalSorter[K, V, C](
       }
     }
   }
+
   /**
    * Write all the data added into this ExternalSorter into a map output writer that pushes bytes
    * to some arbitrary backing store. This is called by the SortShuffleWriter.
