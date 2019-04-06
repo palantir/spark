@@ -43,6 +43,7 @@ import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFor
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
+import org.apache.spark.api.shuffle.ShuffleDataIO
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.deploy.{CondaRunner, LocalSparkCluster, SparkHadoopUtil}
 import org.apache.spark.input.{FixedLengthBinaryInputFormat, PortableDataStream, StreamInputFormat, WholeTextFileInputFormat}
@@ -558,9 +559,16 @@ class SparkContext(config: SparkConf) extends SafeLogging {
       }
     _executorAllocationManager.foreach(_.start())
 
+    val configuredPluginClasses = conf.get(SHUFFLE_IO_PLUGIN_CLASS)
+    val maybeIO = Utils.loadExtensions(
+      classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
+    require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
+    val shuffleDriverComponents = maybeIO.head.driver
+    shuffleDriverComponents.initializeApplication()
+
     _cleaner =
       if (_conf.get(CLEANER_REFERENCE_TRACKING)) {
-        Some(new ContextCleaner(this))
+        Some(new ContextCleaner(this, shuffleDriverComponents.dataCleaner()))
       } else {
         None
       }

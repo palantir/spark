@@ -23,6 +23,7 @@ import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Scheduled
 
 import scala.collection.JavaConverters._
 
+import org.apache.spark.api.shuffle.ShuffleDataCleaner
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
@@ -58,7 +59,9 @@ private class CleanupTaskWeakReference(
  * to be processed when the associated object goes out of scope of the application. Actual
  * cleanup is performed in a separate daemon thread.
  */
-private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
+private[spark] class ContextCleaner(
+    sc: SparkContext,
+    shuffleDataCleaner: ShuffleDataCleaner) extends Logging {
 
   /**
    * A buffer to ensure that `CleanupTaskWeakReference`s are not garbage collected as long as they
@@ -97,19 +100,6 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
    * longer in scope.
    */
   private val blockOnCleanupTasks = sc.conf.get(CLEANER_REFERENCE_TRACKING_BLOCKING)
-
-  /**
-   * Whether the cleaning thread will block on shuffle cleanup tasks.
-   *
-   * When context cleaner is configured to block on every delete request, it can throw timeout
-   * exceptions on cleanup of shuffle blocks, as reported in SPARK-3139. To avoid that, this
-   * parameter by default disables blocking on shuffle cleanups. Note that this does not affect
-   * the cleanup of RDDs and broadcasts. This is intended to be a temporary workaround,
-   * until the real RPC issue (referred to in the comment above `blockOnCleanupTasks`) is
-   * resolved.
-   */
-  private val blockOnShuffleCleanupTasks =
-    sc.conf.get(CLEANER_REFERENCE_TRACKING_BLOCKING_SHUFFLE)
 
   @volatile private var stopped = false
 
@@ -188,7 +178,7 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
               case CleanRDD(rddId) =>
                 doCleanupRDD(rddId, blocking = blockOnCleanupTasks)
               case CleanShuffle(shuffleId) =>
-                doCleanupShuffle(shuffleId, blocking = blockOnShuffleCleanupTasks)
+                doCleanupShuffle(shuffleId)
               case CleanBroadcast(broadcastId) =>
                 doCleanupBroadcast(broadcastId, blocking = blockOnCleanupTasks)
               case CleanAccum(accId) =>
@@ -218,11 +208,11 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
   }
 
   /** Perform shuffle cleanup. */
-  def doCleanupShuffle(shuffleId: Int, blocking: Boolean): Unit = {
+  def doCleanupShuffle(shuffleId: Int): Unit = {
     try {
       logDebug("Cleaning shuffle " + shuffleId)
       mapOutputTrackerMaster.unregisterShuffle(shuffleId)
-      blockManagerMaster.removeShuffle(shuffleId, blocking)
+      shuffleDataCleaner.removeShuffleData(shuffleId)
       listeners.asScala.foreach(_.shuffleCleaned(shuffleId))
       logInfo("Cleaned shuffle " + shuffleId)
     } catch {
@@ -270,7 +260,6 @@ private[spark] class ContextCleaner(sc: SparkContext) extends Logging {
     }
   }
 
-  private def blockManagerMaster = sc.env.blockManager.master
   private def broadcastManager = sc.env.broadcastManager
   private def mapOutputTrackerMaster = sc.env.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]
 }

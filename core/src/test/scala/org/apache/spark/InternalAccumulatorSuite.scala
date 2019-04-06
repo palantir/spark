@@ -22,6 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.shuffle.FetchFailedException
+import org.apache.spark.shuffle.sort.lifecycle.DefaultShuffleDataCleaner
 import org.apache.spark.util.{AccumulatorContext, AccumulatorV2}
 
 
@@ -206,11 +207,12 @@ class InternalAccumulatorSuite extends SparkFunSuite with LocalSparkContext {
       fail(s"unable to find internal accumulator called $TEST_ACCUM")
     }
   }
-
+  
   /**
    * A special [[ContextCleaner]] that saves the IDs of the accumulators registered for cleanup.
    */
-  private class SaveAccumContextCleaner(sc: SparkContext) extends ContextCleaner(sc) {
+  private class SaveAccumContextCleaner(sc: SparkContext) extends
+    ContextCleaner(sc, null) {
     private val accumsRegistered = new ArrayBuffer[Long]
 
     override def registerAccumulatorForCleanup(a: AccumulatorV2[_, _]): Unit = {

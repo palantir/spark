@@ -134,7 +134,7 @@ class ContextCleanerSuite extends ContextCleanerSuiteBase {
     val tester = new CleanerTester(sc, shuffleIds = shuffleDeps.map(_.shuffleId))
 
     // Explicit cleanup
-    shuffleDeps.foreach(s => cleaner.doCleanupShuffle(s.shuffleId, blocking = true))
+    shuffleDeps.foreach(s => cleaner.doCleanupShuffle(s.shuffleId))
     tester.assertCleanup()
 
     // Verify that shuffles can be re-executed after cleaning up
