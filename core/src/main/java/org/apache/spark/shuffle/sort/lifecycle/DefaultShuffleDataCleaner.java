@@ -25,6 +25,7 @@ public class DefaultShuffleDataCleaner implements ShuffleDataCleaner {
     this.blockManagerMaster = blockManagerMaster;
     this.blockOnShuffleCleanup = blockOnShuffleCleanup;
   }
+
   @Override
   public void removeShuffleData(int shuffleId) throws IOException {
     blockManagerMaster.removeShuffle(shuffleId, blockOnShuffleCleanup);

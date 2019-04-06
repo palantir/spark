@@ -7,6 +7,8 @@ import org.apache.spark.api.shuffle.ShuffleDriverComponents;
 import org.apache.spark.internal.config.package$;
 import org.apache.spark.storage.BlockManagerMaster;
 
+import java.io.IOException;
+
 public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
 
   private final boolean blockOnShuffleCleanup;

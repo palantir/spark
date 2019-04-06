@@ -27,9 +27,8 @@ import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.collection.mutable.HashMap
 import scala.language.implicitConversions
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 import scala.util.control.NonFatal
-
 import com.google.common.collect.MapMaker
 import com.palantir.logsafe.{SafeArg, UnsafeArg}
 import org.apache.commons.lang3.SerializationUtils
@@ -43,7 +42,7 @@ import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFor
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.api.conda.CondaEnvironment
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
-import org.apache.spark.api.shuffle.ShuffleDataIO
+import org.apache.spark.api.shuffle.{ShuffleDataIO, ShuffleDriverComponents}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.deploy.{CondaRunner, LocalSparkCluster, SparkHadoopUtil}
 import org.apache.spark.input.{FixedLengthBinaryInputFormat, PortableDataStream, StreamInputFormat, WholeTextFileInputFormat}
@@ -216,6 +215,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
   private var _shutdownHookRef: AnyRef = _
   private var _statusStore: AppStatusStore = _
   private var _heartbeater: Heartbeater = _
+  private var _shuffleDriverComponents: ShuffleDriverComponents = _
 
   /* ------------------------------------------------------------------------------------- *
    | Accessors and public fields. These provide access to the internal state of the        |
@@ -1958,6 +1958,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
       }
       _heartbeater = null
     }
+    _shuffleDriverComponents.cleanupApplication()
     if (env != null && _heartbeatReceiver != null) {
       Utils.tryLogNonFatalError {
         env.rpcEnv.stop(_heartbeatReceiver)

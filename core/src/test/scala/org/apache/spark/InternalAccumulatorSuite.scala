@@ -207,7 +207,7 @@ class InternalAccumulatorSuite extends SparkFunSuite with LocalSparkContext {
       fail(s"unable to find internal accumulator called $TEST_ACCUM")
     }
   }
-  
+
   /**
    * A special [[ContextCleaner]] that saves the IDs of the accumulators registered for cleanup.
    */

@@ -17,11 +17,13 @@
 
 package org.apache.spark.api.shuffle;
 
+import java.io.IOException;
+
 public interface ShuffleDriverComponents {
 
   void initializeApplication();
 
-  void cleanupApplication();
+  void cleanupApplication() throws IOException;
 
   ShuffleDataCleaner dataCleaner();
 }
