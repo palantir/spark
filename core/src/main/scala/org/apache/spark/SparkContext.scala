@@ -27,8 +27,9 @@ import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.collection.mutable.HashMap
 import scala.language.implicitConversions
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.{classTag, ClassTag}
 import scala.util.control.NonFatal
+
 import com.google.common.collect.MapMaker
 import com.palantir.logsafe.{SafeArg, UnsafeArg}
 import org.apache.commons.lang3.SerializationUtils
