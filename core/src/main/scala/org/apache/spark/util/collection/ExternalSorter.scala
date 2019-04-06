@@ -721,6 +721,16 @@ private[spark] class ExternalSorter[K, V, C](
     lengths
   }
 
+  private def writeEmptyPartition(mapOutputWriter: ShuffleMapOutputWriter) = {
+    var partitionWriter: ShufflePartitionWriter = null
+    try {
+      partitionWriter = mapOutputWriter.getNextPartitionWriter
+    } finally {
+      if (partitionWriter != null) {
+        partitionWriter.close()
+      }
+    }
+  }
   /**
    * Write all the data added into this ExternalSorter into a map output writer that pushes bytes
    * to some arbitrary backing store. This is called by the SortShuffleWriter.
@@ -731,17 +741,27 @@ private[spark] class ExternalSorter[K, V, C](
       shuffleId: Int, mapId: Int, mapOutputWriter: ShuffleMapOutputWriter): Array[Long] = {
     // Track location of each range in the map output
     val lengths = new Array[Long](numPartitions)
+    var nextPartitionId = 0
     if (spills.isEmpty) {
       // Case where we only have in-memory data
       val collection = if (aggregator.isDefined) map else buffer
       val it = collection.destructiveSortedWritablePartitionedIterator(comparator)
       while (it.hasNext()) {
         val partitionId = it.nextPartition()
+        // The contract for the plugin is that we will ask for a writer for every partition
+        // even if it's empty. However, the external sorter will return non-contiguous
+        // partition ids. So this loop "backfills" the empty partitions that form the gaps.
+
+        // The algorithm as a whole is correct because the partition ids are returned by the
+        // iterator in ascending order.
+        for (emptyPartition <- nextPartitionId until partitionId) {
+          writeEmptyPartition(mapOutputWriter)
+        }
         var partitionWriter: ShufflePartitionWriter = null
         var partitionPairsWriter: ShufflePartitionPairsWriter = null
         try {
-          val blockId = ShuffleBlockId(shuffleId, mapId, partitionId)
           partitionWriter = mapOutputWriter.getNextPartitionWriter
+          val blockId = ShuffleBlockId(shuffleId, mapId, partitionId)
           partitionPairsWriter = new ShufflePartitionPairsWriter(
             partitionWriter,
             serializerManager,
@@ -755,14 +775,27 @@ private[spark] class ExternalSorter[K, V, C](
           if (partitionPairsWriter != null) {
             partitionPairsWriter.close()
           }
+          if (partitionWriter != null) {
+            partitionWriter.close()
+          }
         }
         if (partitionWriter != null) {
           lengths(partitionId) = partitionWriter.getNumBytesWritten
         }
+        nextPartitionId = partitionId + 1
       }
     } else {
       // We must perform merge-sort; get an iterator by partition and write everything directly.
       for ((id, elements) <- this.partitionedIterator) {
+        // The contract for the plugin is that we will ask for a writer for every partition
+        // even if it's empty. However, the external sorter will return non-contiguous
+        // partition ids. So this loop "backfills" the empty partitions that form the gaps.
+
+        // The algorithm as a whole is correct because the partition ids are returned by the
+        // iterator in ascending order.
+        for (emptyPartition <- nextPartitionId until id) {
+          writeEmptyPartition(mapOutputWriter)
+        }
         val blockId = ShuffleBlockId(shuffleId, mapId, id)
         var partitionWriter: ShufflePartitionWriter = null
         var partitionPairsWriter: ShufflePartitionPairsWriter = null
@@ -787,7 +820,14 @@ private[spark] class ExternalSorter[K, V, C](
         if (partitionWriter != null) {
           lengths(id) = partitionWriter.getNumBytesWritten
         }
+        nextPartitionId = id + 1
       }
+    }
+
+    // The iterator may have stopped short of opening a writer for every partition. So fill in the
+    // remaining empty partitions.
+    for (emptyPartition <- nextPartitionId until numPartitions) {
+      writeEmptyPartition(mapOutputWriter)
     }
 
     context.taskMetrics().incMemoryBytesSpilled(memoryBytesSpilled)
