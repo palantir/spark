@@ -64,11 +64,13 @@ private[spark] class ShufflePartitionPairsWriter(
 
   override def close(): Unit = {
     if (isOpen) {
+      // Closing objOut should propagate close to all inner layers
+      // We can't close wrappedStream explicitly because closing objOut and closing wrappedStream
+      // causes problems when closing compressed output streams twice.
       objOut.close()
       objOut = null
-      wrappedStream.close()
       wrappedStream = null
-      partitionStream.close()
+      partitionStream = null
       partitionWriter.close()
       isOpen = false
       updateBytesWritten()
