@@ -564,12 +564,12 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     val maybeIO = Utils.loadExtensions(
       classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
     require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
-    val shuffleDriverComponents = maybeIO.head.driver
-    shuffleDriverComponents.initializeApplication()
+    _shuffleDriverComponents = maybeIO.head.driver
+    _shuffleDriverComponents.initializeApplication()
 
     _cleaner =
       if (_conf.get(CLEANER_REFERENCE_TRACKING)) {
-        Some(new ContextCleaner(this, shuffleDriverComponents.dataCleaner()))
+        Some(new ContextCleaner(this, _shuffleDriverComponents.dataCleaner()))
       } else {
         None
       }
