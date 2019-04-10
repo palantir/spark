@@ -36,7 +36,6 @@ class DefaultShuffleReadSupport(
   private val maxBlocksInFlightPerAddress =
     conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS)
   private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
-  private val detectCorrupt = conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   override def getPartitionReaders(
       blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): ShuffleReaderIterable = {
@@ -64,7 +63,6 @@ class DefaultShuffleReadSupport(
         maxReqsInFlight,
         maxBlocksInFlightPerAddress,
         maxReqSizeShuffleToMem,
-        detectCorrupt,
         shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics(),
         minReduceId,
         maxReduceId,
@@ -82,7 +80,6 @@ private class ShuffleBlockFetcherIterable(
     maxReqsInFlight: Int,
     maxBlocksInFlightPerAddress: Int,
     maxReqSizeShuffleToMem: Long,
-    detectCorrupt: Boolean,
     shuffleMetrics: ShuffleReadMetricsReporter,
     minReduceId: Int,
     maxReduceId: Int,
@@ -99,7 +96,6 @@ private class ShuffleBlockFetcherIterable(
       maxReqsInFlight,
       maxBlocksInFlightPerAddress,
       maxReqSizeShuffleToMem,
-      detectCorrupt,
       shuffleMetrics)
     val completionIterator = innerIterator.toCompletionIterator
     new ShuffleReaderIterator {

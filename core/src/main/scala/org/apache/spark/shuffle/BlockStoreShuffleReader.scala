@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
 
 import org.apache.spark._
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
-import org.apache.spark.internal.Logging
+import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.storage.ShuffleBlockId
 import org.apache.spark.util.{CompletionIterator, Utils}
@@ -43,10 +43,15 @@ private[spark] class BlockStoreShuffleReader[K, C](
     readMetrics: ShuffleReadMetricsReporter,
     serializerManager: SerializerManager,
     shuffleReadSupport: ShuffleReadSupport,
-    mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
+    mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker,
+    sparkConf: SparkConf = SparkEnv.get.conf)
   extends ShuffleReader[K, C] with Logging {
 
   private val dep = handle.dependency
+
+  private val detectCorrupt = sparkConf.get(config.SHUFFLE_DETECT_CORRUPT)
+
+  private val maxBytesInFlight = sparkConf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024
 
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
@@ -75,17 +80,21 @@ private[spark] class BlockStoreShuffleReader[K, C](
             blockInfo.getShuffleId,
             blockInfo.getMapId,
             blockInfo.getReduceId)
-          try {
-            val in = serializerManager.wrapStream(blockId, nextStream.getInputStream)
-            val out = new ChunkedByteBufferOutputStream(64 * 1024, ByteBuffer.allocate)
-            // Decompress the whole block at once to detect any corruption, which could increase
-            // the memory usage and potentially increase the chance of OOM.
-            // TODO: manage the memory used here, and spill it into disk in case of OOM.
-            Utils.copyStream(in, out, closeStreams = true)
-            returnStream = out.toChunkedByteBuffer.toInputStream(dispose = true)
-          } catch {
-            case e: IOException =>
-              streamsIterator.retryLastBlock(e)
+          if (detectCorrupt && blockInfo.getLength < maxBytesInFlight) {
+            try {
+              val in = serializerManager.wrapStream(blockId, nextStream.getInputStream)
+              val out = new ChunkedByteBufferOutputStream(64 * 1024, ByteBuffer.allocate)
+              // Decompress the whole block at once to detect any corruption, which could increase
+              // the memory usage and potentially increase the chance of OOM.
+              // TODO: manage the memory used here, and spill it into disk in case of OOM.
+              Utils.copyStream(in, out, closeStreams = true)
+              returnStream = out.toChunkedByteBuffer.toInputStream(dispose = true)
+            } catch {
+              case e: IOException =>
+                streamsIterator.retryLastBlock(e)
+            }
+          } else {
+            returnStream = serializerManager.wrapStream(blockId, nextStream.getInputStream)
           }
         }
         if (returnStream == null) {

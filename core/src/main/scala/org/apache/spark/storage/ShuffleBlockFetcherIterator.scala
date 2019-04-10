@@ -56,7 +56,6 @@ import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
  * @param maxBlocksInFlightPerAddress max number of shuffle blocks being fetched at any given point
  *                                    for a given remote host:port.
  * @param maxReqSizeShuffleToMem max size (in bytes) of a request that can be shuffled to memory.
- * @param detectCorrupt whether to detect any corruption in fetched blocks.
  * @param shuffleMetrics used to report shuffle metrics.
  */
 private[spark]
@@ -69,7 +68,6 @@ final class ShuffleBlockFetcherIterator(
     maxReqsInFlight: Int,
     maxBlocksInFlightPerAddress: Int,
     maxReqSizeShuffleToMem: Long,
-    detectCorrupt: Boolean,
     shuffleMetrics: ShuffleReadMetricsReporter)
   extends Iterator[ShuffleReaderInputStream] with DownloadFileManager with Logging {
 
@@ -480,20 +478,16 @@ final class ShuffleBlockFetcherIterator(
 
   def retryLast(t: Throwable): Unit = {
     val blockId = currentResult.blockId
-    if (detectCorrupt && currentResult.size < maxBytesInFlight) {
-      if (corruptedBlocks.contains(blockId)) {
-        throwFetchFailedException(blockId, currentResult.address, t)
-      } else {
-        logWarning(s"got a corrupted block $blockId from $currentResult.address, fetch again", t)
-        corruptedBlocks += blockId
-        fetchRequests += FetchRequest(currentResult.address,
-          Array((currentResult.blockId, currentResult.size)))
-        // Send fetch requests up to maxBytesInFlight
-        numBlocksToFetch += 1
-        fetchUpToMaxBytes()
-      }
-    } else {
+    if (corruptedBlocks.contains(blockId)) {
       throwFetchFailedException(blockId, currentResult.address, t)
+    } else {
+      logWarning(s"got a corrupted block $blockId from $currentResult.address, fetch again", t)
+      corruptedBlocks += blockId
+      fetchRequests += FetchRequest(currentResult.address,
+        Array((currentResult.blockId, currentResult.size)))
+      // Send fetch requests up to maxBytesInFlight
+      numBlocksToFetch += 1
+      fetchUpToMaxBytes()
     }
   }
 
