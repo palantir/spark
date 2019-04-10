@@ -461,6 +461,9 @@ case class FlatMapGroupsInRWithArrowExec(
     keyDeserializer: Expression,
     groupingAttributes: Seq[Attribute],
     child: SparkPlan) extends UnaryExecNode {
+
+  val condaInstructions: Option[CondaSetupInstructions] = sparkContext.buildCondaInstructions()
+
   override def outputPartitioning: Partitioning = child.outputPartitioning
 
   override def producedAttributes: AttributeSet = AttributeSet(output)
@@ -480,7 +483,8 @@ case class FlatMapGroupsInRWithArrowExec(
       val grouped = GroupedIterator(iter, groupingAttributes, child.output)
       val getKey = ObjectOperator.deserializeRowToObject(keyDeserializer, groupingAttributes)
       val runner = new ArrowRRunner(
-        func, packageNames, broadcastVars, inputSchema, SQLConf.get.sessionLocalTimeZone)
+        func, packageNames, broadcastVars, condaInstructions, inputSchema,
+        SQLConf.get.sessionLocalTimeZone)
 
       val groupedByRKey = grouped.map { case (key, rowIter) =>
         val newKey = rowToRBytes(getKey(key).asInstanceOf[Row])
