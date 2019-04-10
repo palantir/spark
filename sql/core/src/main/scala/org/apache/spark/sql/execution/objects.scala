@@ -209,6 +209,8 @@ case class MapPartitionsInRWithArrowExec(
     inputSchema: StructType,
     output: Seq[Attribute],
     child: SparkPlan) extends UnaryExecNode {
+  val condaInstructions: Option[CondaSetupInstructions] = sparkContext.buildCondaInstructions()
+
   override def producedAttributes: AttributeSet = AttributeSet(output)
 
   private val batchSize = conf.arrowMaxRecordsPerBatch
@@ -223,7 +225,8 @@ case class MapPartitionsInRWithArrowExec(
       val batchIter =
         if (batchSize > 0) new BatchIterator(inputIter, batchSize) else Iterator(inputIter)
 
-      val runner = new ArrowRRunner(func, packageNames, broadcastVars, inputSchema,
+      val runner = new ArrowRRunner(
+        func, packageNames, broadcastVars, condaInstructions, inputSchema,
         SQLConf.get.sessionLocalTimeZone, RRunnerModes.DATAFRAME_DAPPLY)
 
       // The communication mechanism is as follows:
