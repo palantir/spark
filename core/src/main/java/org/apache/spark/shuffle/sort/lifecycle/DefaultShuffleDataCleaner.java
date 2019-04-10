@@ -38,7 +38,9 @@ public class DefaultShuffleDataCleaner implements ShuffleDataCleaner {
    */
   private final boolean blockOnShuffleCleanup;
 
-  public DefaultShuffleDataCleaner(BlockManagerMaster blockManagerMaster, boolean blockOnShuffleCleanup) {
+  public DefaultShuffleDataCleaner(
+      BlockManagerMaster blockManagerMaster,
+      boolean blockOnShuffleCleanup) {
     this.blockManagerMaster = blockManagerMaster;
     this.blockOnShuffleCleanup = blockOnShuffleCleanup;
   }

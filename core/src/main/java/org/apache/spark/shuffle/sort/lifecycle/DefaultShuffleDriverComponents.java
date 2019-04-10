@@ -30,7 +30,8 @@ public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
   private BlockManagerMaster blockManagerMaster;
 
   public DefaultShuffleDriverComponents(SparkConf sparkConf) {
-    this.blockOnShuffleCleanup = (boolean) sparkConf.get(package$.MODULE$.CLEANER_REFERENCE_TRACKING_BLOCKING_SHUFFLE());
+    this.blockOnShuffleCleanup =
+        (boolean) sparkConf.get(package$.MODULE$.CLEANER_REFERENCE_TRACKING_BLOCKING_SHUFFLE());
   }
 
   @Override
