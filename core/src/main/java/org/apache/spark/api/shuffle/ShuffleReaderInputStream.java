@@ -23,7 +23,7 @@ import java.io.InputStream;
 
 /**
  * :: Experimental ::
- * An interface for reading shuffle records.
+ * An object containing the shuffle block's input stream and information about that block.
  * @since 3.0.0
  */
 @Experimental

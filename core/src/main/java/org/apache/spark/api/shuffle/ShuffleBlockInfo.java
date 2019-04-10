@@ -19,6 +19,11 @@ package org.apache.spark.api.shuffle;
 
 import java.util.Objects;
 
+/**
+ * :: Experimental ::
+ * An object defining the shuffle block and length metadata associated with the block.
+ * @since 3.0.0
+ */
 public class ShuffleBlockInfo {
   private final int shuffleId;
   private final int mapId;

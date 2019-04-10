@@ -48,30 +48,28 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
   private val dep = handle.dependency
 
+  /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
-    val wrappedStreams =
+    val streamsIterator =
       shuffleReadSupport.getPartitionReaders(new Iterable[ShuffleBlockInfo] {
         override def iterator: Iterator[ShuffleBlockInfo] = {
-          /** Read the combined key-values for this reduce task */
           mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition)
-            .flatMap(blockManagerIdInfo => {
-              blockManagerIdInfo._2.map(
-                blockInfo => {
-                  val block = blockInfo._1.asInstanceOf[ShuffleBlockId]
-                  new ShuffleBlockInfo(block.shuffleId, block.mapId, block.reduceId, blockInfo._2)
-                }
-              )
-            })
+            .flatMap { blockManagerIdInfo =>
+              blockManagerIdInfo._2.map { blockInfo =>
+                val block = blockInfo._1.asInstanceOf[ShuffleBlockId]
+                new ShuffleBlockInfo(block.shuffleId, block.mapId, block.reduceId, blockInfo._2)
+              }
+            }
         }
       }.asJava).iterator()
 
     val retryingWrappedStreams = new Iterator[InputStream] {
-      override def hasNext: Boolean = wrappedStreams.hasNext
+      override def hasNext: Boolean = streamsIterator.hasNext
 
       override def next(): InputStream = {
         var returnStream: InputStream = null
-        while (wrappedStreams.hasNext && returnStream == null) {
-          val nextStream = wrappedStreams.next()
+        while (streamsIterator.hasNext && returnStream == null) {
+          val nextStream = streamsIterator.next()
           val blockInfo = nextStream.getShuffleBlockInfo
           val blockId = ShuffleBlockId(
             blockInfo.getShuffleId,
@@ -81,13 +79,13 @@ private[spark] class BlockStoreShuffleReader[K, C](
             val in = serializerManager.wrapStream(blockId, nextStream.getInputStream)
             val out = new ChunkedByteBufferOutputStream(64 * 1024, ByteBuffer.allocate)
             // Decompress the whole block at once to detect any corruption, which could increase
-            // the memory usage tne potential increase the chance of OOM.
+            // the memory usage and potentially increase the chance of OOM.
             // TODO: manage the memory used here, and spill it into disk in case of OOM.
             Utils.copyStream(in, out, closeStreams = true)
             returnStream = out.toChunkedByteBuffer.toInputStream(dispose = true)
           } catch {
             case e: IOException =>
-              wrappedStreams.retryLastBlock(e)
+              streamsIterator.retryLastBlock(e)
           }
         }
         if (returnStream == null) {

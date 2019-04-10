@@ -51,12 +51,10 @@ class DefaultShuffleReadSupport(
         override def iterator(): ShuffleReaderIterator = emptyIterator
       }
     } else {
-      val minMaxReduceIds = blockMetadata.asScala.map(block => block.getReduceId)
+      val (minReduceId, maxReduceId) = blockMetadata.asScala.map(block => block.getReduceId)
         .foldLeft(Int.MaxValue, 0) {
           case ((min, max), elem) => (math.min(min, elem), math.max(max, elem))
         }
-      val minReduceId = minMaxReduceIds._1
-      val maxReduceId = minMaxReduceIds._2
       val shuffleId = blockMetadata.asScala.head.getShuffleId
 
       new ShuffleBlockFetcherIterable(
@@ -105,7 +103,7 @@ private class ShuffleBlockFetcherIterable(
       shuffleMetrics)
     val completionIterator = innerIterator.toCompletionIterator
     new ShuffleReaderIterator {
-      override def hasNext: Boolean = innerIterator.hasNext
+      override def hasNext: Boolean = completionIterator.hasNext
 
       override def next(): ShuffleReaderInputStream = completionIterator.next()
 
