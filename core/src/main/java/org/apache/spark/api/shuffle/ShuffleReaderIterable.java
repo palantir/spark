@@ -33,8 +33,10 @@ public interface ShuffleReaderIterable extends Iterable<ShuffleReaderInputStream
     /**
      * Instructs the shuffle iterator to fetch the last block again. This is useful
      * if the block is determined to be corrupt after decryption or decompression.
+     *
+     * @throws Exception if current block cannot be retried.
      */
-    default void retryLastBlock(Throwable t) {
+    default void retryLastBlock(Throwable t) throws Exception {
       throw new UnsupportedOperationException("Cannot retry fetching bad blocks", t);
     }
   }
