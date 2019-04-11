@@ -968,7 +968,7 @@ class ALSCleanerSuite extends SparkFunSuite with BeforeAndAfterEach {
         val keysOnly = shuffled.keys
         val deps = keysOnly.dependencies
         keysOnly.count()
-        ALS.cleanShuffleDependencies(sc, deps)
+        ALS.cleanShuffleDependencies(sc, deps, true)
         val resultingFiles = getAllFiles
         assert(resultingFiles === Set())
         // Ensure running count again works fine even if we kill the shuffle files.
