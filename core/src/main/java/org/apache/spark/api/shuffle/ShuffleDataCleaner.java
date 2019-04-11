@@ -21,6 +21,6 @@ import java.io.IOException;
 
 public interface ShuffleDataCleaner {
 
-  void removeShuffleData(int shuffleId) throws IOException;
+  void removeShuffleData(int shuffleId, boolean blocking) throws IOException;
 
 }

@@ -26,13 +26,7 @@ import org.apache.spark.storage.BlockManagerMaster;
 
 public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
 
-  private final boolean blockOnShuffleCleanup;
   private BlockManagerMaster blockManagerMaster;
-
-  public DefaultShuffleDriverComponents(SparkConf sparkConf) {
-    this.blockOnShuffleCleanup =
-        (boolean) sparkConf.get(package$.MODULE$.CLEANER_REFERENCE_TRACKING_BLOCKING_SHUFFLE());
-  }
 
   @Override
   public void initializeApplication() {
@@ -47,7 +41,7 @@ public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
   @Override
   public ShuffleDataCleaner dataCleaner() {
     checkInitialized();
-    return new DefaultShuffleDataCleaner(blockManagerMaster, blockOnShuffleCleanup);
+    return new DefaultShuffleDataCleaner(blockManagerMaster);
   }
 
   private void checkInitialized() {

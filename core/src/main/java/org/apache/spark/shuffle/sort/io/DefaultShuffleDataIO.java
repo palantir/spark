@@ -38,6 +38,6 @@ public class DefaultShuffleDataIO implements ShuffleDataIO {
 
   @Override
   public ShuffleDriverComponents driver() {
-    return new DefaultShuffleDriverComponents(sparkConf);
+    return new DefaultShuffleDriverComponents();
   }
 }

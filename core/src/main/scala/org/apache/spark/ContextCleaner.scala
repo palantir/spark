@@ -101,6 +101,19 @@ private[spark] class ContextCleaner(
    */
   private val blockOnCleanupTasks = sc.conf.get(CLEANER_REFERENCE_TRACKING_BLOCKING)
 
+  /**
+   * Whether the cleaning thread will block on shuffle cleanup tasks.
+   *
+   * When context cleaner is configured to block on every delete request, it can throw timeout
+   * exceptions on cleanup of shuffle blocks, as reported in SPARK-3139. To avoid that, this
+   * parameter by default disables blocking on shuffle cleanups. Note that this does not affect
+   * the cleanup of RDDs and broadcasts. This is intended to be a temporary workaround,
+   * until the real RPC issue (referred to in the comment above `blockOnCleanupTasks`) is
+   * resolved.
+   */
+  private val blockOnShuffleCleanupTasks =
+    sc.conf.get(CLEANER_REFERENCE_TRACKING_BLOCKING_SHUFFLE)
+
   @volatile private var stopped = false
 
   /** Attach a listener object to get information of when objects are cleaned. */
@@ -178,7 +191,7 @@ private[spark] class ContextCleaner(
               case CleanRDD(rddId) =>
                 doCleanupRDD(rddId, blocking = blockOnCleanupTasks)
               case CleanShuffle(shuffleId) =>
-                doCleanupShuffle(shuffleId)
+                doCleanupShuffle(shuffleId, blocking = blockOnShuffleCleanupTasks)
               case CleanBroadcast(broadcastId) =>
                 doCleanupBroadcast(broadcastId, blocking = blockOnCleanupTasks)
               case CleanAccum(accId) =>
@@ -208,11 +221,11 @@ private[spark] class ContextCleaner(
   }
 
   /** Perform shuffle cleanup. */
-  def doCleanupShuffle(shuffleId: Int): Unit = {
+  def doCleanupShuffle(shuffleId: Int, blocking: Boolean): Unit = {
     try {
       logDebug("Cleaning shuffle " + shuffleId)
       mapOutputTrackerMaster.unregisterShuffle(shuffleId)
-      shuffleDataCleaner.removeShuffleData(shuffleId)
+      shuffleDataCleaner.removeShuffleData(shuffleId, blocking)
       listeners.asScala.foreach(_.shuffleCleaned(shuffleId))
       logInfo("Cleaned shuffle " + shuffleId)
     } catch {
