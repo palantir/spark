@@ -17,11 +17,9 @@
 
 package org.apache.spark.shuffle.sort.lifecycle;
 
-import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.api.shuffle.ShuffleDataCleaner;
 import org.apache.spark.api.shuffle.ShuffleDriverComponents;
-import org.apache.spark.internal.config.package$;
 import org.apache.spark.storage.BlockManagerMaster;
 
 public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
