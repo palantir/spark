@@ -55,8 +55,9 @@ private[spark] class ShufflePartitionPairsWriter(
 
   private def open(): Unit = {
     // The contract is that the partition writer is expected to close its own streams, but
-    // the compressor will only flush the stream when it is specifically closed, not just
-    // when it's flushed.
+    // the compressor will only flush the stream when it is specifically closed. So we want to
+    // close objOut to flush the compressed bytes to the partition writer stream, but we don't want
+    // to close the partition output stream in the process.
     partitionStream = new CloseShieldOutputStream(partitionWriter.toStream)
     wrappedStream = serializerManager.wrapStream(blockId, partitionStream)
     objOut = serializerInstance.serializeStream(wrappedStream)
