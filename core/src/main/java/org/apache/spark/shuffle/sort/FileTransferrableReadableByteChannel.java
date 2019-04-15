@@ -15,30 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.spark.api.shuffle;
+package org.apache.spark.shuffle.sort;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
+import org.apache.spark.api.shuffle.TransferrableReadableByteChannel;
+import org.apache.spark.util.Utils;
 
-import org.apache.spark.annotation.Experimental;
+public class FileTransferrableReadableByteChannel implements TransferrableReadableByteChannel {
 
-/**
- * :: Experimental ::
- * An interface for giving streams / channels for shuffle writes.
- *
- * @since 3.0.0
- */
-@Experimental
-public interface ShufflePartitionWriter {
+  private final FileChannel input;
+  private final long transferStartPosition;
 
-  /**
-   * Opens and returns an underlying {@link OutputStream} that can write bytes to the underlying
-   * data store.
-   */
-  OutputStream openStream() throws IOException;
+  public FileTransferrableReadableByteChannel(FileChannel input, long transferStartPosition) {
+    this.input = input;
+    this.transferStartPosition = transferStartPosition;
+  }
 
-  /**
-   * Get the number of bytes written by this writer's stream returned by {@link #openStream()}.
-   */
-  long getNumBytesWritten();
+  @Override
+  public void transferTo(WritableByteChannel outputChannel, long numBytesToTransfer) {
+    Utils.copyFileStreamNIO(input, outputChannel, transferStartPosition, numBytesToTransfer);
+  }
 }

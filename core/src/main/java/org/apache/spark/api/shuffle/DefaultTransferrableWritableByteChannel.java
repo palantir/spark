@@ -18,27 +18,24 @@
 package org.apache.spark.api.shuffle;
 
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.channels.WritableByteChannel;
 
-import org.apache.spark.annotation.Experimental;
+public class DefaultTransferrableWritableByteChannel implements TransferrableWritableByteChannel {
 
-/**
- * :: Experimental ::
- * An interface for giving streams / channels for shuffle writes.
- *
- * @since 3.0.0
- */
-@Experimental
-public interface ShufflePartitionWriter {
+  private final WritableByteChannel delegate;
 
-  /**
-   * Opens and returns an underlying {@link OutputStream} that can write bytes to the underlying
-   * data store.
-   */
-  OutputStream openStream() throws IOException;
+  public DefaultTransferrableWritableByteChannel(WritableByteChannel delegate) {
+    this.delegate = delegate;
+  }
 
-  /**
-   * Get the number of bytes written by this writer's stream returned by {@link #openStream()}.
-   */
-  long getNumBytesWritten();
+  @Override
+  public void transferFrom(
+      TransferrableReadableByteChannel source, long numBytesToTransfer) throws IOException {
+    source.transferTo(delegate, numBytesToTransfer);
+  }
+
+  @Override
+  public void close() throws IOException {
+    delegate.close();
+  }
 }

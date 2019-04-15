@@ -17,28 +17,24 @@
 
 package org.apache.spark.api.shuffle;
 
+import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
 
 import org.apache.spark.annotation.Experimental;
 
 /**
  * :: Experimental ::
- * An interface for giving streams / channels for shuffle writes.
+ * Represents an output byte channel that can copy bytes from readable byte channels to some
+ * arbitrary storage system.
  *
  * @since 3.0.0
  */
 @Experimental
-public interface ShufflePartitionWriter {
+public interface TransferrableWritableByteChannel extends Closeable {
 
   /**
-   * Opens and returns an underlying {@link OutputStream} that can write bytes to the underlying
-   * data store.
+   * Copy all bytes from the source readable byte channel into this byte channel.
    */
-  OutputStream openStream() throws IOException;
-
-  /**
-   * Get the number of bytes written by this writer's stream returned by {@link #openStream()}.
-   */
-  long getNumBytesWritten();
+  void transferFrom(
+      TransferrableReadableByteChannel source, long numBytesToTransfer) throws IOException;
 }

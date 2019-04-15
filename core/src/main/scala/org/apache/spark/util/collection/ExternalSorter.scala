@@ -722,14 +722,7 @@ private[spark] class ExternalSorter[K, V, C](
   }
 
   private def writeEmptyPartition(mapOutputWriter: ShuffleMapOutputWriter): Unit = {
-    var partitionWriter: ShufflePartitionWriter = null
-    try {
-      partitionWriter = mapOutputWriter.getNextPartitionWriter
-    } finally {
-      if (partitionWriter != null) {
-        partitionWriter.close()
-      }
-    }
+    mapOutputWriter.getNextPartitionWriter
   }
 
   /**
@@ -775,9 +768,6 @@ private[spark] class ExternalSorter[K, V, C](
         } finally {
           if (partitionPairsWriter != null) {
             partitionPairsWriter.close()
-          }
-          if (partitionWriter != null) {
-            partitionWriter.close()
           }
         }
         if (partitionWriter != null) {

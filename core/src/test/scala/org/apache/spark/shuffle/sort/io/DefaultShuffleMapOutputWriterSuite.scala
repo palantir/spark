@@ -20,6 +20,7 @@ package org.apache.spark.shuffle.sort.io
 import java.io.{ByteArrayInputStream, File, FileInputStream, FileOutputStream}
 import java.math.BigInteger
 import java.nio.ByteBuffer
+import java.nio.channels.{Channels, WritableByteChannel}
 
 import org.mockito.Answers.RETURNS_SMART_NULLS
 import org.mockito.ArgumentMatchers.{any, anyInt, anyLong}
@@ -31,10 +32,11 @@ import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
+import org.apache.spark.api.shuffle.{SupportsTransferTo, TransferrableReadableByteChannel}
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.network.util.LimitedInputStream
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
-import org.apache.spark.util.Utils
+import org.apache.spark.util.{ByteBufferInputStream, Utils}
 
 class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAfterEach {
 
@@ -134,14 +136,13 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
   test("writing to an outputstream") {
     (0 until NUM_PARTITIONS).foreach{ p =>
       val writer = mapOutputWriter.getNextPartitionWriter
-      val stream = writer.toStream()
+      val stream = writer.openStream()
       data(p).foreach { i => stream.write(i)}
       stream.close()
       intercept[IllegalStateException] {
         stream.write(p)
       }
       assert(writer.getNumBytesWritten() == D_LEN)
-      writer.close
     }
     mapOutputWriter.commitAllPartitions()
     val partitionLengths = (0 until NUM_PARTITIONS).map { _ => D_LEN.toDouble}.toArray
@@ -153,15 +154,15 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
   test("writing to a channel") {
     (0 until NUM_PARTITIONS).foreach{ p =>
       val writer = mapOutputWriter.getNextPartitionWriter
-      val channel = writer.toChannel()
+      val channel = writer.asInstanceOf[SupportsTransferTo].openTransferrableChannel()
       val byteBuffer = ByteBuffer.allocate(D_LEN * 4)
       val intBuffer = byteBuffer.asIntBuffer()
       intBuffer.put(data(p))
-      assert(channel.isOpen)
-      channel.write(byteBuffer)
+      channel.transferFrom(
+        new ByteBufferTransferrableReadableChannel(byteBuffer), byteBuffer.remaining())
       // Bytes require * 4
       assert(writer.getNumBytesWritten == D_LEN * 4)
-      writer.close
+      channel.close()
     }
     mapOutputWriter.commitAllPartitions()
     val partitionLengths = (0 until NUM_PARTITIONS).map { _ => (D_LEN * 4).toDouble}.toArray
@@ -173,7 +174,7 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
   test("copyStreams with an outputstream") {
     (0 until NUM_PARTITIONS).foreach{ p =>
       val writer = mapOutputWriter.getNextPartitionWriter
-      val stream = writer.toStream()
+      val stream = writer.openStream()
       val byteBuffer = ByteBuffer.allocate(D_LEN * 4)
       val intBuffer = byteBuffer.asIntBuffer()
       intBuffer.put(data(p))
@@ -182,7 +183,6 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
       in.close()
       stream.close()
       assert(writer.getNumBytesWritten == D_LEN * 4)
-      writer.close
     }
     mapOutputWriter.commitAllPartitions()
     val partitionLengths = (0 until NUM_PARTITIONS).map { _ => (D_LEN * 4).toDouble}.toArray
@@ -194,7 +194,7 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
   test("copyStreamsWithNIO with a channel") {
     (0 until NUM_PARTITIONS).foreach{ p =>
       val writer = mapOutputWriter.getNextPartitionWriter
-      val channel = writer.toChannel()
+      val channel = writer.asInstanceOf[SupportsTransferTo].openTransferrableChannel()
       val byteBuffer = ByteBuffer.allocate(D_LEN * 4)
       val intBuffer = byteBuffer.asIntBuffer()
       intBuffer.put(data(p))
@@ -202,15 +202,22 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
       out.write(byteBuffer.array())
       out.close()
       val in = new FileInputStream(tempFile)
-      Utils.copyFileStreamNIO(in.getChannel, channel, 0, D_LEN * 4)
-      in.close()
+      channel.transferFrom(
+        new ByteBufferTransferrableReadableChannel(byteBuffer), byteBuffer.remaining())
+      channel.close()
       assert(writer.getNumBytesWritten == D_LEN * 4)
-      writer.close
     }
     mapOutputWriter.commitAllPartitions()
     val partitionLengths = (0 until NUM_PARTITIONS).map { _ => (D_LEN * 4).toDouble}.toArray
     assert(partitionSizesInMergedFile === partitionLengths)
     assert(mergedOutputFile.length() === partitionLengths.sum)
     assert(data === readRecordsFromFile(true))
+  }
+
+  private class ByteBufferTransferrableReadableChannel(buf: ByteBuffer)
+    extends TransferrableReadableByteChannel {
+    override def transferTo(outputChannel: WritableByteChannel, numBytesToTransfer: Long): Unit = {
+      outputChannel.write(buf)
+    }
   }
 }

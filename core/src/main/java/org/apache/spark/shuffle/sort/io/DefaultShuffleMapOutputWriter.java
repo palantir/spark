@@ -24,6 +24,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 
+import org.apache.spark.api.shuffle.DefaultTransferrableWritableByteChannel;
+import org.apache.spark.api.shuffle.SupportsTransferTo;
+import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,6 +89,7 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     } else {
       currChannelPosition = 0L;
     }
+
     return new DefaultShufflePartitionWriter(currPartitionId++);
   }
 
@@ -140,68 +144,69 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     }
   }
 
-  private class DefaultShufflePartitionWriter implements ShufflePartitionWriter {
+  private class DefaultShufflePartitionWriter implements SupportsTransferTo {
 
     private final int partitionId;
-    private PartitionWriterStream stream = null;
+    private PartitionWriterStream partStream = null;
+    private PartitionWriterChannel partChannel = null;
 
     private DefaultShufflePartitionWriter(int partitionId) {
       this.partitionId = partitionId;
     }
 
     @Override
-    public OutputStream toStream() throws IOException {
-      if (outputFileChannel != null) {
-        throw new IllegalStateException("Requested an output channel for a previous write but" +
-            " now an output stream has been requested. Should not be using both channels" +
-            " and streams to write.");
+    public OutputStream openStream() throws IOException {
+      if (partStream == null) {
+        if (outputFileChannel != null) {
+          throw new IllegalStateException("Requested an output channel for a previous write but" +
+              " now an output stream has been requested. Should not be using both channels" +
+              " and streams to write.");
+        }
+        initStream();
+        partStream = new PartitionWriterStream(partitionId);
       }
-      initStream();
-      stream = new PartitionWriterStream();
-      return stream;
+      return partStream;
     }
 
     @Override
-    public FileChannel toChannel() throws IOException {
-      if (stream != null) {
-        throw new IllegalStateException("Requested an output stream for a previous write but" +
-            " now an output channel has been requested. Should not be using both channels" +
-            " and streams to write.");
+    public TransferrableWritableByteChannel openTransferrableChannel() throws IOException {
+      if (partChannel == null) {
+        if (partStream != null) {
+          throw new IllegalStateException("Requested an output stream for a previous write but" +
+              " now an output channel has been requested. Should not be using both channels" +
+              " and streams to write.");
+        }
+        initChannel();
+        partChannel = new PartitionWriterChannel(partitionId);
       }
-      initChannel();
-      return outputFileChannel;
+      return partChannel;
     }
 
     @Override
     public long getNumBytesWritten() {
-      if (outputFileChannel != null && stream == null) {
+      if (partChannel != null) {
         try {
-          long newPosition = outputFileChannel.position();
-          return newPosition - currChannelPosition;
-        } catch (Exception e) {
-          log.error("The partition which failed is: {}", partitionId, e);
-          throw new IllegalStateException("Failed to calculate position of file channel", e);
+          return partChannel.getCount();
+        } catch (IOException e) {
+          throw new RuntimeException(e);
         }
-      } else if (stream != null) {
-        return stream.getCount();
+      } else if (partStream != null) {
+        return partStream.getCount();
       } else {
         // Assume an empty partition if stream and channel are never created
         return 0;
       }
     }
-
-    @Override
-    public void close() throws IOException {
-      if (stream != null) {
-        stream.close();
-      }
-      partitionLengths[partitionId] = getNumBytesWritten();
-    }
   }
 
   private class PartitionWriterStream extends OutputStream {
+    private final int partitionId;
     private int count = 0;
     private boolean isClosed = false;
+
+    PartitionWriterStream(int partitionId) {
+      this.partitionId = partitionId;
+    }
 
     public int getCount() {
       return count;
@@ -222,9 +227,9 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     }
 
     @Override
-    public void close() throws IOException {
-      flush();
+    public void close() {
       isClosed = true;
+      partitionLengths[partitionId] = count;
     }
 
     @Override
@@ -238,6 +243,26 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
       if (isClosed) {
         throw new IllegalStateException("Attempting to write to a closed block output stream.");
       }
+    }
+  }
+
+  private class PartitionWriterChannel extends DefaultTransferrableWritableByteChannel {
+
+    private final int partitionId;
+
+    PartitionWriterChannel(int partitionId) {
+      super(outputFileChannel);
+      this.partitionId = partitionId;
+    }
+
+    public long getCount() throws IOException {
+      long writtenPosition = outputFileChannel.position();
+      return writtenPosition - currChannelPosition;
+    }
+
+    @Override
+    public void close() throws IOException {
+      partitionLengths[partitionId] = getCount();
     }
   }
 }

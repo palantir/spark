@@ -18,27 +18,32 @@
 package org.apache.spark.api.shuffle;
 
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.channels.Channels;
 
 import org.apache.spark.annotation.Experimental;
 
 /**
  * :: Experimental ::
- * An interface for giving streams / channels for shuffle writes.
+ * Indicates that partition writers can transfer bytes directly from input byte channels to
+ * output channels that stream data to the underlying shuffle partition storage medium.
  *
  * @since 3.0.0
  */
 @Experimental
-public interface ShufflePartitionWriter {
+public interface SupportsTransferTo extends ShufflePartitionWriter {
 
   /**
-   * Opens and returns an underlying {@link OutputStream} that can write bytes to the underlying
-   * data store.
+   * Opens and returns a {@link TransferrableWritableByteChannel} for transferring bytes from
+   * partial input byte channels to the underlying shuffle data store.
    */
-  OutputStream openStream() throws IOException;
+  default TransferrableWritableByteChannel openTransferrableChannel() throws IOException {
+    return new DefaultTransferrableWritableByteChannel(Channels.newChannel(openStream()));
+  }
 
   /**
-   * Get the number of bytes written by this writer's stream returned by {@link #openStream()}.
+   * Returns the number of bytes written either by this writer's output stream opened by
+   * {@link #openStream()} or the byte channel opened by {@link #openTransferrableChannel()}.
    */
+  @Override
   long getNumBytesWritten();
 }
