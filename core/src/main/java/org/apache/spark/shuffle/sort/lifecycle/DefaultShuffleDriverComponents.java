@@ -18,9 +18,10 @@
 package org.apache.spark.shuffle.sort.lifecycle;
 
 import org.apache.spark.SparkEnv;
-import org.apache.spark.api.shuffle.ShuffleDataCleaner;
 import org.apache.spark.api.shuffle.ShuffleDriverComponents;
 import org.apache.spark.storage.BlockManagerMaster;
+
+import java.io.IOException;
 
 public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
 
@@ -37,9 +38,9 @@ public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
   }
 
   @Override
-  public ShuffleDataCleaner dataCleaner() {
+  public void removeShuffleData(int shuffleId, boolean blocking) throws IOException {
     checkInitialized();
-    return new DefaultShuffleDataCleaner(blockManagerMaster);
+    blockManagerMaster.removeShuffle(shuffleId, blocking);
   }
 
   private void checkInitialized() {

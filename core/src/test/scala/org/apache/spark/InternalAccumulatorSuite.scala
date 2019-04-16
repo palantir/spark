@@ -22,7 +22,6 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.shuffle.FetchFailedException
-import org.apache.spark.shuffle.sort.lifecycle.DefaultShuffleDataCleaner
 import org.apache.spark.util.{AccumulatorContext, AccumulatorV2}
 
 

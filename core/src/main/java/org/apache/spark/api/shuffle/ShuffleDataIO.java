@@ -27,6 +27,6 @@ import org.apache.spark.annotation.Experimental;
  */
 @Experimental
 public interface ShuffleDataIO {
-  ShuffleExecutorComponents executor();
   ShuffleDriverComponents driver();
+  ShuffleExecutorComponents executor();
 }

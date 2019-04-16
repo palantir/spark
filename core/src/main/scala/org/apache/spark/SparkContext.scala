@@ -569,7 +569,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
 
     _cleaner =
       if (_conf.get(CLEANER_REFERENCE_TRACKING)) {
-        Some(new ContextCleaner(this, _shuffleDriverComponents.dataCleaner()))
+        Some(new ContextCleaner(this, _shuffleDriverComponents))
       } else {
         None
       }

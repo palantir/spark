@@ -25,5 +25,5 @@ public interface ShuffleDriverComponents {
 
   void cleanupApplication() throws IOException;
 
-  ShuffleDataCleaner dataCleaner();
+  void removeShuffleData(int shuffleId, boolean blocking) throws IOException;
 }

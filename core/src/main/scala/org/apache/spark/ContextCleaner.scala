@@ -23,7 +23,7 @@ import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Scheduled
 
 import scala.collection.JavaConverters._
 
-import org.apache.spark.api.shuffle.ShuffleDataCleaner
+import org.apache.spark.api.shuffle.ShuffleDriverComponents
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
@@ -61,7 +61,7 @@ private class CleanupTaskWeakReference(
  */
 private[spark] class ContextCleaner(
     sc: SparkContext,
-    shuffleDataCleaner: ShuffleDataCleaner) extends Logging {
+    shuffleDriverComponents: ShuffleDriverComponents) extends Logging {
 
   /**
    * A buffer to ensure that `CleanupTaskWeakReference`s are not garbage collected as long as they
@@ -225,7 +225,7 @@ private[spark] class ContextCleaner(
     try {
       logDebug("Cleaning shuffle " + shuffleId)
       mapOutputTrackerMaster.unregisterShuffle(shuffleId)
-      shuffleDataCleaner.removeShuffleData(shuffleId, blocking)
+      shuffleDriverComponents.removeShuffleData(shuffleId, blocking)
       listeners.asScala.foreach(_.shuffleCleaned(shuffleId))
       logInfo("Cleaned shuffle " + shuffleId)
     } catch {
