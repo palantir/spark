@@ -39,6 +39,7 @@ import org.apache.spark.HashPartitioner;
 import org.apache.spark.ShuffleDependency;
 import org.apache.spark.SparkConf;
 import org.apache.spark.TaskContext;
+import org.apache.spark.TaskContext$;
 import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.io.CompressionCodec$;
@@ -53,6 +54,7 @@ import org.apache.spark.scheduler.MapStatus;
 import org.apache.spark.security.CryptoStreamUtils;
 import org.apache.spark.serializer.*;
 import org.apache.spark.shuffle.IndexShuffleBlockResolver;
+import org.apache.spark.shuffle.sort.io.DefaultShuffleWriteSupport;
 import org.apache.spark.storage.*;
 import org.apache.spark.util.Utils;
 
@@ -65,6 +67,7 @@ import static org.mockito.Mockito.*;
 
 public class UnsafeShuffleWriterSuite {
 
+  static final int DEFAULT_INITIAL_SORT_BUFFER_SIZE = 4096;
   static final int NUM_PARTITITONS = 4;
   TestMemoryManager memoryManager;
   TaskMemoryManager taskMemoryManager;
@@ -85,6 +88,7 @@ public class UnsafeShuffleWriterSuite {
 
   @After
   public void tearDown() {
+    TaskContext$.MODULE$.unset();
     Utils.deleteRecursively(tempDir);
     final long leakedMemory = taskMemoryManager.cleanUpAllAllocatedMemory();
     if (leakedMemory != 0) {
@@ -151,6 +155,9 @@ public class UnsafeShuffleWriterSuite {
     when(taskContext.taskMetrics()).thenReturn(taskMetrics);
     when(shuffleDep.serializer()).thenReturn(serializer);
     when(shuffleDep.partitioner()).thenReturn(hashPartitioner);
+    when(taskContext.taskMemoryManager()).thenReturn(taskMemoryManager);
+
+    TaskContext$.MODULE$.setTaskContext(taskContext);
   }
 
   private UnsafeShuffleWriter<Object, Object> createWriter(
@@ -164,7 +171,8 @@ public class UnsafeShuffleWriterSuite {
       0, // map id
       taskContext,
       conf,
-      taskContext.taskMetrics().shuffleWriteMetrics()
+      taskContext.taskMetrics().shuffleWriteMetrics(),
+      new DefaultShuffleWriteSupport(conf, shuffleBlockResolver)
     );
   }
 
@@ -444,10 +452,10 @@ public class UnsafeShuffleWriterSuite {
   }
 
   private void writeEnoughRecordsToTriggerSortBufferExpansionAndSpill() throws Exception {
-    memoryManager.limit(UnsafeShuffleWriter.DEFAULT_INITIAL_SORT_BUFFER_SIZE * 16);
+    memoryManager.limit(DEFAULT_INITIAL_SORT_BUFFER_SIZE * 16);
     final UnsafeShuffleWriter<Object, Object> writer = createWriter(false);
     final ArrayList<Product2<Object, Object>> dataToWrite = new ArrayList<>();
-    for (int i = 0; i < UnsafeShuffleWriter.DEFAULT_INITIAL_SORT_BUFFER_SIZE + 1; i++) {
+    for (int i = 0; i < DEFAULT_INITIAL_SORT_BUFFER_SIZE + 1; i++) {
       dataToWrite.add(new Tuple2<>(i, i));
     }
     writer.write(dataToWrite.iterator());
@@ -525,7 +533,8 @@ public class UnsafeShuffleWriterSuite {
         0, // map id
         taskContext,
         conf,
-        taskContext.taskMetrics().shuffleWriteMetrics());
+        taskContext.taskMetrics().shuffleWriteMetrics(),
+        new DefaultShuffleWriteSupport(conf, shuffleBlockResolver));
 
     // Peak memory should be monotonically increasing. More specifically, every time
     // we allocate a new page it should increase by exactly the size of the page.
