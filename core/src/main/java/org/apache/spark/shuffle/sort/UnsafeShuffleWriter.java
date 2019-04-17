@@ -17,11 +17,13 @@
 
 package org.apache.spark.shuffle.sort;
 
+import java.nio.channels.Channels;
 import javax.annotation.Nullable;
 import java.io.*;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
+import org.apache.spark.api.shuffle.DefaultTransferrableWritableByteChannel;
 import org.apache.spark.api.shuffle.SupportsTransferTo;
 import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 import scala.Option;
@@ -430,12 +432,12 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       for (int partition = 0; partition < numPartitions; partition++) {
         boolean copyThrewExecption = true;
         ShufflePartitionWriter writer = mapWriter.getNextPartitionWriter();
-        SupportsTransferTo transferToWriter =
-            writer instanceof SupportsTransferTo ? (SupportsTransferTo) writer
-                : new DelegatingSupportsTransferTo(writer);
         TransferrableWritableByteChannel partitionChannel = null;
         try {
-          partitionChannel = transferToWriter.openTransferrableChannel();
+          partitionChannel = writer instanceof SupportsTransferTo ?
+              ((SupportsTransferTo) writer).openTransferrableChannel()
+              : new DefaultTransferrableWritableByteChannel(
+                  Channels.newChannel(writer.openStream()));
           for (int i = 0; i < spills.length; i++) {
             long partitionLengthInSpill = 0L;
             partitionLengthInSpill += spills[i].partitionLengths[partition];
@@ -492,24 +494,6 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
         // so we need to clean up memory and spill files created by the sorter
         sorter.cleanupResources();
       }
-    }
-  }
-
-  private static final class DelegatingSupportsTransferTo implements SupportsTransferTo {
-    private final ShufflePartitionWriter delegate;
-
-    DelegatingSupportsTransferTo(ShufflePartitionWriter delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public OutputStream openStream() throws IOException {
-      return delegate.openStream();
-    }
-
-    @Override
-    public long getNumBytesWritten() {
-      return delegate.getNumBytesWritten();
     }
   }
 }
