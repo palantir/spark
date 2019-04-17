@@ -26,6 +26,9 @@ import org.apache.spark.annotation.Experimental;
  * :: Experimental ::
  * Indicates that partition writers can transfer bytes directly from input byte channels to
  * output channels that stream data to the underlying shuffle partition storage medium.
+ * <p>
+ * This API is separated out from ShuffleParittionWriter because it only needs to be used for
+ * specific low-level optimizations.
  *
  * @since 3.0.0
  */

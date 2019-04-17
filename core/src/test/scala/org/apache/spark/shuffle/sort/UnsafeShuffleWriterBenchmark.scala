@@ -46,17 +46,7 @@ object UnsafeShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
     val shuffleWriteSupport = new DefaultShuffleWriteSupport(conf, blockResolver)
 
     TaskContext.setTaskContext(taskContext)
-    new UnsafeShuffleWriter[String, String](
-      blockManager,
-      blockResolver,
-      taskMemoryManager,
-      shuffleHandle,
-      0,
-      taskContext,
-      conf,
-      taskContext.taskMetrics().shuffleWriteMetrics,
-      shuffleWriteSupport
-    )
+    new UnsafeShuffleWriter[String, String](blockManager, taskMemoryManager, shuffleHandle, 0, taskContext, conf, taskContext.taskMetrics().shuffleWriteMetrics, shuffleWriteSupport)
   }
 
   def writeBenchmarkWithSmallDataset(): Unit = {
