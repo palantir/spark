@@ -92,7 +92,8 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   @Override
   public void commitAllPartitions() throws IOException {
     cleanUp();
-    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, outputTempFile);
+    File resolvedTmp = outputTempFile != null && outputTempFile.isFile() ? outputTempFile : null;
+    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
   }
 
   @Override
