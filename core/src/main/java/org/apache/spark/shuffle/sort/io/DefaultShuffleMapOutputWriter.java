@@ -24,15 +24,15 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 
-import org.apache.spark.api.shuffle.DefaultTransferrableWritableByteChannel;
-import org.apache.spark.api.shuffle.SupportsTransferTo;
-import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.shuffle.DefaultTransferrableWritableByteChannel;
 import org.apache.spark.api.shuffle.ShuffleMapOutputWriter;
 import org.apache.spark.api.shuffle.ShufflePartitionWriter;
+import org.apache.spark.api.shuffle.SupportsTransferTo;
+import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 import org.apache.spark.shuffle.ShuffleWriteMetricsReporter;
 import org.apache.spark.internal.config.package$;
 import org.apache.spark.shuffle.IndexShuffleBlockResolver;
@@ -96,7 +96,8 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   @Override
   public void commitAllPartitions() throws IOException {
     cleanUp();
-    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, outputTempFile);
+    File resolvedTmp = outputTempFile != null && outputTempFile.isFile() ? outputTempFile : null;
+    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
   }
 
   @Override
@@ -115,11 +116,9 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     if (outputBufferedFileStream != null) {
       outputBufferedFileStream.close();
     }
-
     if (outputFileChannel != null) {
       outputFileChannel.close();
     }
-
     if (outputFileStream != null) {
       outputFileStream.close();
     }
@@ -230,13 +229,6 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     public void close() {
       isClosed = true;
       partitionLengths[partitionId] = count;
-    }
-
-    @Override
-    public void flush() throws IOException {
-      if (!isClosed) {
-        outputBufferedFileStream.flush();
-      }
     }
 
     private void verifyNotClosed() {
