@@ -29,7 +29,7 @@ import org.apache.spark.annotation.Experimental;
  */
 @Experimental
 public interface ShuffleMapOutputWriter {
-  ShufflePartitionWriter getNextPartitionWriter() throws IOException;
+  ShufflePartitionWriter getPartitionWriter(int partitionId) throws IOException;
 
   void commitAllPartitions() throws IOException;
 
