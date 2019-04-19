@@ -99,8 +99,15 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   @Override
   public Optional<MapShuffleLocations> commitAllPartitions() throws IOException {
     cleanUp();
+<<<<<<< HEAD
     blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, outputTempFile);
     return Optional.of(DefaultMapShuffleLocations.get(shuffleServerId));
+||||||| merged common ancestors
+    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, outputTempFile);
+=======
+    File resolvedTmp = outputTempFile != null && outputTempFile.isFile() ? outputTempFile : null;
+    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
+>>>>>>> palantir/spark-25299
   }
 
   @Override
@@ -119,11 +126,9 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     if (outputBufferedFileStream != null) {
       outputBufferedFileStream.close();
     }
-
     if (outputFileChannel != null) {
       outputFileChannel.close();
     }
-
     if (outputFileStream != null) {
       outputFileStream.close();
     }
@@ -199,8 +204,9 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
       if (stream != null) {
+        // Closing is a no-op.
         stream.close();
       }
       partitionLengths[partitionId] = getNumBytesWritten();
@@ -230,16 +236,8 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     }
 
     @Override
-    public void close() throws IOException {
-      flush();
+    public void close() {
       isClosed = true;
-    }
-
-    @Override
-    public void flush() throws IOException {
-      if (!isClosed) {
-        outputBufferedFileStream.flush();
-      }
     }
 
     private void verifyNotClosed() {

@@ -19,8 +19,14 @@ package org.apache.spark.shuffle.sort
 
 import org.apache.spark.SparkConf
 import org.apache.spark.benchmark.Benchmark
+<<<<<<< HEAD
 import org.apache.spark.shuffle.sort.io.DefaultShuffleWriteSupport
 import org.apache.spark.storage.BlockManagerId
+||||||| merged common ancestors
+import org.apache.spark.shuffle.sort.io.{DefaultShuffleWriteSupport}
+=======
+import org.apache.spark.shuffle.sort.io.DefaultShuffleWriteSupport
+>>>>>>> palantir/spark-25299
 
 /**
  * Benchmark to measure performance for aggregate primitives.
@@ -47,10 +53,16 @@ object BypassMergeSortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase 
 
   def getWriter(transferTo: Boolean): BypassMergeSortShuffleWriter[String, String] = {
     val conf = new SparkConf(loadDefaults = false)
+<<<<<<< HEAD
     val shuffleWriteSupport = new DefaultShuffleWriteSupport(
       conf, blockResolver, BlockManagerId("0", "localhost", 7090))
+||||||| merged common ancestors
+    val shuffleWriteSupport = new DefaultShuffleWriteSupport(conf, blockResolver)
+=======
+>>>>>>> palantir/spark-25299
     conf.set("spark.file.transferTo", String.valueOf(transferTo))
     conf.set("spark.shuffle.file.buffer", "32k")
+    val shuffleWriteSupport = new DefaultShuffleWriteSupport(conf, blockResolver)
 
     val shuffleWriter = new BypassMergeSortShuffleWriter[String, String](
       blockManager,
