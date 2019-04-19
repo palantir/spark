@@ -116,12 +116,12 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
       (shuffleBlockId, byteOutputStream.size().toLong)
     }
     val blocksToRetrieve = Seq(
-      (DefaultMapShuffleLocations.get(localBlockManagerId), shuffleBlockIdsAndSizes))
+      (Option.apply(DefaultMapShuffleLocations.get(localBlockManagerId)), shuffleBlockIdsAndSizes))
     val mapOutputTracker = mock(classOf[MapOutputTracker])
     when(mapOutputTracker.getMapSizesByShuffleLocation(shuffleId, reduceId, reduceId + 1))
-      .thenAnswer(new Answer[Iterator[(ShuffleLocation, Seq[(BlockId, Long)])]] {
+      .thenAnswer(new Answer[Iterator[(Option[ShuffleLocation], Seq[(BlockId, Long)])]] {
         def answer(invocationOnMock: InvocationOnMock):
-            Iterator[(ShuffleLocation, Seq[(BlockId, Long)])] = {
+            Iterator[(Option[ShuffleLocation], Seq[(BlockId, Long)])] = {
           blocksToRetrieve.iterator
         }
       })

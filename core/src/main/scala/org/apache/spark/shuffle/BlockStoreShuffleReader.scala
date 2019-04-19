@@ -23,6 +23,7 @@ import java.nio.ByteBuffer
 import scala.collection.JavaConverters._
 
 import org.apache.spark._
+import org.apache.spark.api.java.Optional
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.serializer.SerializerManager
@@ -68,7 +69,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
                   block.mapId,
                   block.reduceId,
                   blockInfo._2,
-                  shuffleLocationInfo._1)
+                  Optional.ofNullable(shuffleLocationInfo._1.orNull))
               }
             }
         }

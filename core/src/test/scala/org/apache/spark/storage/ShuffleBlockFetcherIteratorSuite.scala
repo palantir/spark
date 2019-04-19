@@ -30,8 +30,9 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.PrivateMethodTester
 
+import org.apache.spark.api.java.Optional
 import org.apache.spark.{SparkFunSuite, TaskContext}
-import org.apache.spark.api.shuffle.ShuffleBlockInfo
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleLocation}
 import org.apache.spark.network._
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle.{BlockFetchingListener, DownloadFileManager}
@@ -401,7 +402,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     // The first block should be returned without an exception
     val id1 = iterator.next().getShuffleBlockInfo
-    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1, shuffleLocation))
+    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1, Optional.of(shuffleLocation)))
 
     when(transfer.fetchBlocks(any(), any(), any(), any(), any(), any()))
       .thenAnswer(new Answer[Unit] {
@@ -484,8 +485,11 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       taskContext.taskMetrics.createTempShuffleReadMetrics())
     // Blocks should be returned without exceptions.
     assert(Set(iterator.next().getShuffleBlockInfo, iterator.next().getShuffleBlockInfo) ===
-        Set(new ShuffleBlockInfo(0, 0, 0, size, DefaultMapShuffleLocations.get(localBmId)),
-          new ShuffleBlockInfo(0, 1, 0, size, DefaultMapShuffleLocations.get(remoteBmId))))
+        Set(
+          new ShuffleBlockInfo(0, 0, 0, size,
+            Optional.of(DefaultMapShuffleLocations.get(localBmId))),
+          new ShuffleBlockInfo(0, 1, 0, size,
+            Optional.of(DefaultMapShuffleLocations.get(remoteBmId)))))
   }
 
   test("retry corrupt blocks (disabled)") {
@@ -540,7 +544,8 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     // Continue only after the mock calls onBlockFetchFailure
     sem.acquire()
 
-    val remoteShuffleLocation = DefaultMapShuffleLocations.get(remoteBmId)
+    val remoteShuffleLocation: Optional[ShuffleLocation] =
+      Optional.of(DefaultMapShuffleLocations.get(remoteBmId))
     // The first block should be returned without an exception
     val id1 = iterator.next().getShuffleBlockInfo
     assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1, remoteShuffleLocation))

@@ -95,7 +95,7 @@ private class ShuffleBlockFetcherIterable(
       mapOutputTracker.getMapSizesByShuffleLocation(shuffleId, minReduceId, maxReduceId + 1)
         .map { shuffleLocationInfo =>
           val defaultShuffleLocation = shuffleLocationInfo._1
-            .asInstanceOf[DefaultMapShuffleLocations]
+            .get.asInstanceOf[DefaultMapShuffleLocations]
           (defaultShuffleLocation.getBlockManagerId, shuffleLocationInfo._2)
         },
       maxBytesInFlight,

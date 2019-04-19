@@ -199,7 +199,7 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
           val shuffleBlockId = ShuffleBlockId(0, mapId, 0)
           (shuffleBlockId, dataFileLength)
         }
-        Seq((DefaultMapShuffleLocations.get(dataBlockId), shuffleBlockIdsAndSizes)).toIterator
+        Seq((Option.apply(DefaultMapShuffleLocations.get(dataBlockId)), shuffleBlockIdsAndSizes)).toIterator
       }
 
     when(dependency.serializer).thenReturn(serializer)

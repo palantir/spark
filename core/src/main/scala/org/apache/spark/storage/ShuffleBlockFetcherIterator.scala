@@ -17,13 +17,14 @@
 
 package org.apache.spark.storage
 
-import java.io.{InputStream, IOException}
+import java.io.{IOException, InputStream}
 import java.util.concurrent.LinkedBlockingQueue
-import javax.annotation.concurrent.GuardedBy
 
+import javax.annotation.concurrent.GuardedBy
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
+import org.apache.spark.api.java.Optional
 import org.apache.spark.{SparkException, TaskContext}
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderInputStream}
 import org.apache.spark.internal.Logging
@@ -474,7 +475,7 @@ final class ShuffleBlockFetcherIterator(
     val blockId = currentResult.blockId.asInstanceOf[ShuffleBlockId]
     new ShuffleReaderInputStream(
       new ShuffleBlockInfo(blockId.shuffleId, blockId.mapId, blockId.reduceId, currentResult.size,
-        DefaultMapShuffleLocations.get(currentResult.address)),
+        Optional.of(DefaultMapShuffleLocations.get(currentResult.address))),
       new BufferReleasingInputStream(input, this))
   }
 
