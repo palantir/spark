@@ -26,8 +26,14 @@ import org.apache.spark._
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.serializer.SerializerManager
+<<<<<<< HEAD
 import org.apache.spark.storage.ShuffleBlockId
 import org.apache.spark.util.{CompletionIterator, Utils}
+=======
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
+import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator}
+import org.apache.spark.util.CompletionIterator
+>>>>>>> spark-25299
 import org.apache.spark.util.collection.ExternalSorter
 import org.apache.spark.util.io.ChunkedByteBufferOutputStream
 
@@ -55,6 +61,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
+<<<<<<< HEAD
     val streamsIterator =
       shuffleReadSupport.getPartitionReaders(new Iterable[ShuffleBlockInfo] {
         override def iterator: Iterator[ShuffleBlockInfo] = {
@@ -67,6 +74,28 @@ private[spark] class BlockStoreShuffleReader[K, C](
             }
         }
       }.asJava).iterator()
+=======
+    val wrappedStreams = new ShuffleBlockFetcherIterator(
+      context,
+      blockManager.shuffleClient,
+      blockManager,
+      mapOutputTracker.getMapSizesByShuffleLocation(handle.shuffleId, startPartition, endPartition)
+        .map {
+          case (loc: DefaultMapShuffleLocations, blocks: Seq[(BlockId, Long)]) =>
+            (loc.getBlockManagerId, blocks)
+          case _ =>
+            throw new UnsupportedOperationException("Not allowed to using non-default map shuffle" +
+              " locations yet.")
+        },
+      serializerManager.wrapStream,
+      // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
+      SparkEnv.get.conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024,
+      SparkEnv.get.conf.get(config.REDUCER_MAX_REQS_IN_FLIGHT),
+      SparkEnv.get.conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS),
+      SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM),
+      SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT),
+      readMetrics).toCompletionIterator
+>>>>>>> spark-25299
 
     val retryingWrappedStreams = new Iterator[InputStream] {
       override def hasNext: Boolean = streamsIterator.hasNext

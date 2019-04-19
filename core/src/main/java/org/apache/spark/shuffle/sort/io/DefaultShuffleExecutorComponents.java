@@ -65,5 +65,9 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
       throw new IllegalStateException(
           "Executor components must be initialized before getting writers.");
     }
+<<<<<<< HEAD
+=======
+    return new DefaultShuffleWriteSupport(sparkConf, blockResolver, blockManager.shuffleServerId());
+>>>>>>> spark-25299
   }
 }

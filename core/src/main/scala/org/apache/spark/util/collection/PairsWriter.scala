@@ -15,24 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.spark.api.shuffle;
+package org.apache.spark.util.collection
 
-import java.io.IOException;
+private[spark] trait PairsWriter {
 
-import org.apache.spark.annotation.Experimental;
-import org.apache.spark.api.java.Optional;
-
-/**
- * :: Experimental ::
- * An interface for creating and managing shuffle partition writers
- *
- * @since 3.0.0
- */
-@Experimental
-public interface ShuffleMapOutputWriter {
-  ShufflePartitionWriter getNextPartitionWriter() throws IOException;
-
-  Optional<MapShuffleLocations> commitAllPartitions() throws IOException;
-
-  void abort(Throwable error) throws IOException;
+  def write(key: Any, value: Any): Unit
 }
