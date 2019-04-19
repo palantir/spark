@@ -99,15 +99,9 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   @Override
   public Optional<MapShuffleLocations> commitAllPartitions() throws IOException {
     cleanUp();
-<<<<<<< HEAD
-    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, outputTempFile);
-    return Optional.of(DefaultMapShuffleLocations.get(shuffleServerId));
-||||||| merged common ancestors
-    blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, outputTempFile);
-=======
     File resolvedTmp = outputTempFile != null && outputTempFile.isFile() ? outputTempFile : null;
     blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
->>>>>>> palantir/spark-25299
+    return Optional.of(DefaultMapShuffleLocations.get(shuffleServerId));
   }
 
   @Override

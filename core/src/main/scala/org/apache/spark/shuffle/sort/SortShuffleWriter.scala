@@ -64,42 +64,14 @@ private[spark] class SortShuffleWriter[K, V, C](
     // Don't bother including the time to open the merged output file in the shuffle write time,
     // because it just opens a single file, so is typically too fast to measure accurately
     // (see SPARK-3570).
-<<<<<<< HEAD
-    val output = shuffleBlockResolver.getDataFile(dep.shuffleId, mapId)
-    val tmp = Utils.tempFileWith(output)
-    try {
-      val blockId = ShuffleBlockId(dep.shuffleId, mapId, IndexShuffleBlockResolver.NOOP_REDUCE_ID)
-      val partitionLengths = sorter.writePartitionedFile(blockId, tmp)
-      shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, tmp)
-      mapStatus = MapStatus(
-          blockManager.shuffleServerId,
-          DefaultMapShuffleLocations.get(blockManager.shuffleServerId),
-          partitionLengths)
-    } finally {
-      if (tmp.exists() && !tmp.delete()) {
-        logError(s"Error while deleting temp file ${tmp.getAbsolutePath}")
-      }
-    }
-||||||| merged common ancestors
-    val output = shuffleBlockResolver.getDataFile(dep.shuffleId, mapId)
-    val tmp = Utils.tempFileWith(output)
-    try {
-      val blockId = ShuffleBlockId(dep.shuffleId, mapId, IndexShuffleBlockResolver.NOOP_REDUCE_ID)
-      val partitionLengths = sorter.writePartitionedFile(blockId, tmp)
-      shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, tmp)
-      mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths)
-    } finally {
-      if (tmp.exists() && !tmp.delete()) {
-        logError(s"Error while deleting temp file ${tmp.getAbsolutePath}")
-      }
-    }
-=======
     val mapOutputWriter = writeSupport.createMapOutputWriter(
       dep.shuffleId, mapId, dep.partitioner.numPartitions)
     val partitionLengths = sorter.writePartitionedMapOutput(dep.shuffleId, mapId, mapOutputWriter)
     mapOutputWriter.commitAllPartitions()
-    mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths)
->>>>>>> palantir/spark-25299
+    mapStatus = MapStatus(
+      blockManager.shuffleServerId,
+      DefaultMapShuffleLocations.get(blockManager.shuffleServerId),
+      partitionLengths)
   }
 
   /** Close this writer, passing along whether the map completed */
