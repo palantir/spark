@@ -36,6 +36,7 @@ import org.apache.spark.network._
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle.{BlockFetchingListener, DownloadFileManager}
 import org.apache.spark.shuffle.FetchFailedException
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.util.Utils
 
 
@@ -393,13 +394,14 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       Int.MaxValue,
       Int.MaxValue,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
+    val shuffleLocation = DefaultMapShuffleLocations.get(remoteBmId)
 
     // Continue only after the mock calls onBlockFetchFailure
     sem.acquire()
 
     // The first block should be returned without an exception
     val id1 = iterator.next().getShuffleBlockInfo
-    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1))
+    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1, shuffleLocation))
 
     when(transfer.fetchBlocks(any(), any(), any(), any(), any(), any()))
       .thenAnswer(new Answer[Unit] {
@@ -482,7 +484,8 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       taskContext.taskMetrics.createTempShuffleReadMetrics())
     // Blocks should be returned without exceptions.
     assert(Set(iterator.next().getShuffleBlockInfo, iterator.next().getShuffleBlockInfo) ===
-        Set(new ShuffleBlockInfo(0, 0, 0, size), new ShuffleBlockInfo(0, 1, 0, size)))
+        Set(new ShuffleBlockInfo(0, 0, 0, size, DefaultMapShuffleLocations.get(localBmId)),
+          new ShuffleBlockInfo(0, 1, 0, size, DefaultMapShuffleLocations.get(remoteBmId))))
   }
 
   test("retry corrupt blocks (disabled)") {
@@ -537,13 +540,14 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
     // Continue only after the mock calls onBlockFetchFailure
     sem.acquire()
 
+    val remoteShuffleLocation = DefaultMapShuffleLocations.get(remoteBmId)
     // The first block should be returned without an exception
     val id1 = iterator.next().getShuffleBlockInfo
-    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1))
+    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1, remoteShuffleLocation))
     val id2 = iterator.next().getShuffleBlockInfo
-    assert(id2 === new ShuffleBlockInfo(0, 1, 0, 1))
+    assert(id2 === new ShuffleBlockInfo(0, 1, 0, 1, remoteShuffleLocation))
     val id3 = iterator.next().getShuffleBlockInfo
-    assert(id3 === new ShuffleBlockInfo(0, 2, 0, 1))
+    assert(id3 === new ShuffleBlockInfo(0, 2, 0, 1, remoteShuffleLocation))
   }
 
   test("Blocks should be shuffled to disk when size of the request is above the" +

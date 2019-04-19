@@ -48,7 +48,7 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
   @Override
   public ShuffleWriteSupport writes() {
     checkInitialized();
-    return new DefaultShuffleWriteSupport(sparkConf, blockResolver);
+    return new DefaultShuffleWriteSupport(sparkConf, blockResolver, blockManager.shuffleServerId());
   }
 
   @Override
@@ -65,9 +65,5 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
       throw new IllegalStateException(
           "Executor components must be initialized before getting writers.");
     }
-<<<<<<< HEAD
-=======
-    return new DefaultShuffleWriteSupport(sparkConf, blockResolver, blockManager.shuffleServerId());
->>>>>>> spark-25299
   }
 }

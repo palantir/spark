@@ -22,20 +22,18 @@ import java.nio.ByteBuffer
 
 import org.mockito.Mockito.{mock, when}
 import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.{Answer}
+import org.mockito.stubbing.Answer
 
 import org.apache.spark._
+import org.apache.spark.api.shuffle.ShuffleLocation
 import org.apache.spark.internal.config
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
 import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
-<<<<<<< HEAD
 import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
-import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerId, ShuffleBlockId}
-=======
 import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.storage.{BlockManager, BlockManagerId, ShuffleBlockId}
->>>>>>> spark-25299
+import org.apache.spark.storage.BlockId
 
 /**
  * Wrapper for a managed buffer that keeps track of how many times retain and release are called.
@@ -113,31 +111,17 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
 
     // Make a mocked MapOutputTracker for the shuffle reader to use to determine what
     // shuffle data to read.
-<<<<<<< HEAD
     val shuffleBlockIdsAndSizes = (0 until numMaps).map { mapId =>
       val shuffleBlockId = ShuffleBlockId(shuffleId, mapId, reduceId)
       (shuffleBlockId, byteOutputStream.size().toLong)
-=======
-    val mapOutputTracker = mock(classOf[MapOutputTracker])
-    when(mapOutputTracker.getMapSizesByShuffleLocation(
-        shuffleId, reduceId, reduceId + 1)).thenReturn {
-      // Test a scenario where all data is local, to avoid creating a bunch of additional mocks
-      // for the code to read data over the network.
-      val shuffleBlockIdsAndSizes = (0 until numMaps).map { mapId =>
-        val shuffleBlockId = ShuffleBlockId(shuffleId, mapId, reduceId)
-        (shuffleBlockId, byteOutputStream.size().toLong)
-      }
-      Seq(
-        (DefaultMapShuffleLocations.get(localBlockManagerId), shuffleBlockIdsAndSizes))
-        .toIterator
->>>>>>> spark-25299
     }
-    val blocksToRetrieve = Seq((localBlockManagerId, shuffleBlockIdsAndSizes))
+    val blocksToRetrieve = Seq(
+      (DefaultMapShuffleLocations.get(localBlockManagerId), shuffleBlockIdsAndSizes))
     val mapOutputTracker = mock(classOf[MapOutputTracker])
-    when(mapOutputTracker.getMapSizesByExecutorId(shuffleId, reduceId, reduceId + 1))
-      .thenAnswer(new Answer[Iterator[(BlockManagerId, Seq[(BlockId, Long)])]] {
+    when(mapOutputTracker.getMapSizesByShuffleLocation(shuffleId, reduceId, reduceId + 1))
+      .thenAnswer(new Answer[Iterator[(ShuffleLocation, Seq[(BlockId, Long)])]] {
         def answer(invocationOnMock: InvocationOnMock):
-            Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
+            Iterator[(ShuffleLocation, Seq[(BlockId, Long)])] = {
           blocksToRetrieve.iterator
         }
       })

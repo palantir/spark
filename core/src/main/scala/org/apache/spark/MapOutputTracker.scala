@@ -885,9 +885,14 @@ private[spark] object MapOutputTracker extends Logging {
         for (part <- startPartition until endPartition) {
           val size = status.getSizeForBlock(part)
           if (size != 0) {
-            val shuffleLoc = status.mapShuffleLocations.getLocationForBlock(part)
-            splitsByAddress.getOrElseUpdate(shuffleLoc, ListBuffer()) +=
+            if (status.mapShuffleLocations == null) {
+              splitsByAddress.getOrElseUpdate(ShuffleLocation.EMPTY_LOCATION, ListBuffer()) +=
                 ((ShuffleBlockId(shuffleId, mapId, part), size))
+            } else {
+              val shuffleLoc = status.mapShuffleLocations.getLocationForBlock(part)
+              splitsByAddress.getOrElseUpdate(shuffleLoc, ListBuffer()) +=
+                ((ShuffleBlockId(shuffleId, mapId, part), size))
+            }
           }
         }
       }

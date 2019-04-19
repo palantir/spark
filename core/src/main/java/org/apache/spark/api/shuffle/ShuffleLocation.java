@@ -22,4 +22,5 @@ package org.apache.spark.api.shuffle;
  * and writers are expected to cast this down to an implementation-specific representation.
  */
 public interface ShuffleLocation {
+  ShuffleLocation EMPTY_LOCATION = new ShuffleLocation() {};
 }
