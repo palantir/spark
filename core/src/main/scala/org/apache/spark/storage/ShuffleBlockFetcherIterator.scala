@@ -17,10 +17,10 @@
 
 package org.apache.spark.storage
 
-import java.io.{IOException, InputStream}
+import java.io.{InputStream, IOException}
 import java.util.concurrent.LinkedBlockingQueue
-
 import javax.annotation.concurrent.GuardedBy
+
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
@@ -30,8 +30,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle._
 import org.apache.spark.network.util.TransportConf
-import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.shuffle.{FetchFailedException, ShuffleReadMetricsReporter}
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.util.{CompletionIterator, TaskCompletionListener, Utils}
 
 /**
