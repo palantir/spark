@@ -18,11 +18,12 @@
 package org.apache.spark.shuffle.sort
 
 import org.mockito.Mockito.when
-
 import org.apache.spark.{Aggregator, SparkEnv, TaskContext}
+
 import org.apache.spark.benchmark.Benchmark
 import org.apache.spark.shuffle.BaseShuffleHandle
 import org.apache.spark.shuffle.sort.io.DefaultShuffleWriteSupport
+import org.apache.spark.storage.BlockManagerId
 
 /**
  * Benchmark to measure performance for aggregate primitives.
@@ -77,7 +78,10 @@ object SortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase {
 
     when(taskContext.taskMemoryManager()).thenReturn(taskMemoryManager)
     TaskContext.setTaskContext(taskContext)
-    val writeSupport = new DefaultShuffleWriteSupport(defaultConf, blockResolver)
+    val writeSupport = new DefaultShuffleWriteSupport(
+      defaultConf,
+      blockResolver,
+      BlockManagerId("0", "localhost", 9099))
 
     val shuffleWriter = new SortShuffleWriter[String, String, String](
       blockResolver,

@@ -67,10 +67,10 @@ private[spark] class SortShuffleWriter[K, V, C](
     val mapOutputWriter = writeSupport.createMapOutputWriter(
       dep.shuffleId, mapId, dep.partitioner.numPartitions)
     val partitionLengths = sorter.writePartitionedMapOutput(dep.shuffleId, mapId, mapOutputWriter)
-    mapOutputWriter.commitAllPartitions()
+    val mapLocations = mapOutputWriter.commitAllPartitions()
     mapStatus = MapStatus(
       blockManager.shuffleServerId,
-      DefaultMapShuffleLocations.get(blockManager.shuffleServerId),
+      mapLocations.orNull(),
       partitionLengths)
   }
 
