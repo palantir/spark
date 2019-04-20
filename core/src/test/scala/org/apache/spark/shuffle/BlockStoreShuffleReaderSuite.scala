@@ -153,8 +153,8 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
       reduceId + 1,
       taskContext,
       metrics,
-      serializerManager,
       shuffleReadSupport,
+      serializerManager,
       mapOutputTracker)
 
     assert(shuffleReader.read().length === keyValuePairsPerMap * numMaps)

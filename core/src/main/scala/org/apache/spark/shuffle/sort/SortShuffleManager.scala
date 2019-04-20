@@ -128,7 +128,6 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       endPartition,
       context,
       metrics,
-      SparkEnv.get.serializerManager,
       shuffleExecutorComponents.reads())
   }
 

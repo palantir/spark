@@ -215,8 +215,8 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       1,
       taskContext,
       taskContext.taskMetrics().createTempShuffleReadMetrics(),
-      serializerManager,
       readSupport,
+      serializerManager,
       mapOutputTracker
     )
   }
