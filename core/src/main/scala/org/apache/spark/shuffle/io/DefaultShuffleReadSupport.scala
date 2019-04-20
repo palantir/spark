@@ -20,8 +20,7 @@ package org.apache.spark.shuffle.io
 import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
-import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderInputStream, ShuffleReaderIterable, ShuffleReadSupport}
-import org.apache.spark.api.shuffle.ShuffleReaderIterable.ShuffleReaderIterator
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderInputStream, ShuffleReadSupport}
 import org.apache.spark.internal.config
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
 import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
@@ -38,18 +37,11 @@ class DefaultShuffleReadSupport(
     conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS)
   private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
 
-  override def getPartitionReaders(
-      blockMetadata: java.lang.Iterable[ShuffleBlockInfo]): ShuffleReaderIterable = {
+  override def getPartitionReaders(blockMetadata: java.lang.Iterable[ShuffleBlockInfo]):
+      java.lang.Iterable[ShuffleReaderInputStream] = {
 
     if (blockMetadata.asScala.isEmpty) {
-      val emptyIterator = new ShuffleReaderIterator {
-        override def hasNext: Boolean = Iterator.empty.hasNext
-
-        override def next(): ShuffleReaderInputStream = Iterator.empty.next()
-      }
-      return new ShuffleReaderIterable {
-        override def iterator(): ShuffleReaderIterator = emptyIterator
-      }
+      return Iterable.empty.asJava
     } else {
       val (minReduceId, maxReduceId) = blockMetadata.asScala.map(block => block.getReduceId)
         .foldLeft(Int.MaxValue, 0) {
@@ -69,7 +61,7 @@ class DefaultShuffleReadSupport(
         maxReduceId,
         shuffleId,
         mapOutputTracker
-      )
+      ).asJava
     }
   }
 }
@@ -85,10 +77,10 @@ private class ShuffleBlockFetcherIterable(
     minReduceId: Int,
     maxReduceId: Int,
     shuffleId: Int,
-    mapOutputTracker: MapOutputTracker) extends ShuffleReaderIterable {
+    mapOutputTracker: MapOutputTracker) extends Iterable[ShuffleReaderInputStream] {
 
-  override def iterator: ShuffleReaderIterator = {
-    val innerIterator = new ShuffleBlockFetcherIterator(
+  override def iterator: Iterator[ShuffleReaderInputStream] = {
+    new ShuffleBlockFetcherIterator(
       context,
       blockManager.shuffleClient,
       blockManager,
@@ -102,15 +94,8 @@ private class ShuffleBlockFetcherIterable(
       maxReqsInFlight,
       maxBlocksInFlightPerAddress,
       maxReqSizeShuffleToMem,
-      shuffleMetrics)
-    val completionIterator = innerIterator.toCompletionIterator
-    new ShuffleReaderIterator {
-      override def hasNext: Boolean = completionIterator.hasNext
+      shuffleMetrics).toCompletionIterator
 
-      override def next(): ShuffleReaderInputStream = completionIterator.next()
-
-      override def retryLastBlock(t: Throwable): Unit = innerIterator.retryLast(t)
-    }
   }
 
 }

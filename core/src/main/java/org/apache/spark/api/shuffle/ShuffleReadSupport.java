@@ -20,6 +20,7 @@ package org.apache.spark.api.shuffle;
 import org.apache.spark.annotation.Experimental;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 /**
  * :: Experimental ::
@@ -29,9 +30,9 @@ import java.io.IOException;
 @Experimental
 public interface ShuffleReadSupport {
   /**
-   * Returns an underlying {@link ShuffleReaderIterable} that will iterate through shuffle data,
+   * Returns an underlying {@link Iterable<ShuffleReaderInputStream>} that will iterate through shuffle data,
    * given an iterable for the shuffle blocks to fetch.
    */
-  ShuffleReaderIterable getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
+  Iterable<ShuffleReaderInputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
 }

@@ -27,7 +27,8 @@ import org.apache.spark.api.java.Optional
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.serializer.SerializerManager
-import org.apache.spark.storage.ShuffleBlockId
+import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
+import org.apache.spark.storage.{ShuffleBlockFetcherIterator, ShuffleBlockId}
 import org.apache.spark.util.{CompletionIterator, Utils}
 import org.apache.spark.util.collection.ExternalSorter
 import org.apache.spark.util.io.ChunkedByteBufferOutputStream
@@ -87,7 +88,8 @@ private[spark] class BlockStoreShuffleReader[K, C](
             blockInfo.getShuffleId,
             blockInfo.getMapId,
             blockInfo.getReduceId)
-          if (detectCorrupt && blockInfo.getLength < maxBytesInFlight) {
+          if (detectCorrupt && blockInfo.getLength < maxBytesInFlight
+            && shuffleReadSupport.isInstanceOf[DefaultShuffleReadSupport]) {
             try {
               val in = serializerManager.wrapStream(blockId, nextStream.getInputStream)
               val out = new ChunkedByteBufferOutputStream(64 * 1024, ByteBuffer.allocate)
@@ -98,7 +100,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
               returnStream = out.toChunkedByteBuffer.toInputStream(dispose = true)
             } catch {
               case e: IOException =>
-                streamsIterator.retryLastBlock(e)
+                streamsIterator.asInstanceOf[ShuffleBlockFetcherIterator].retryLast(e)
             }
           } else {
             returnStream = serializerManager.wrapStream(blockId, nextStream.getInputStream)
