@@ -18,10 +18,14 @@
 package org.apache.spark.api.shuffle;
 
 import java.io.IOException;
+import java.util.Map;
 
 public interface ShuffleDriverComponents {
 
-  void initializeApplication();
+  /**
+   * @return additional SparkConf values necessary for the executors.
+   */
+  Map<String, String> initializeApplication();
 
   void cleanupApplication() throws IOException;
 

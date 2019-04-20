@@ -17,19 +17,22 @@
 
 package org.apache.spark.shuffle.sort.lifecycle;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.api.shuffle.ShuffleDriverComponents;
 import org.apache.spark.storage.BlockManagerMaster;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
 
   private BlockManagerMaster blockManagerMaster;
 
   @Override
-  public void initializeApplication() {
+  public Map<String, String> initializeApplication() {
     blockManagerMaster = SparkEnv.get().blockManager().master();
+    return ImmutableMap.of();
   }
 
   @Override
