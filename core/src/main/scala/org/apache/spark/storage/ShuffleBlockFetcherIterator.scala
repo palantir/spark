@@ -17,15 +17,15 @@
 
 package org.apache.spark.storage
 
-import java.io.{IOException, InputStream}
+import java.io.{InputStream, IOException}
 import java.util.concurrent.LinkedBlockingQueue
-
 import javax.annotation.concurrent.GuardedBy
+
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Queue}
 
-import org.apache.spark.api.java.Optional
 import org.apache.spark.{SparkException, TaskContext}
+import org.apache.spark.api.java.Optional
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderInputStream}
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}

@@ -30,8 +30,8 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.PrivateMethodTester
 
-import org.apache.spark.api.java.Optional
 import org.apache.spark.{SparkFunSuite, TaskContext}
+import org.apache.spark.api.java.Optional
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleLocation}
 import org.apache.spark.network._
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
