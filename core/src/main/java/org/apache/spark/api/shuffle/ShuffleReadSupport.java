@@ -29,8 +29,8 @@ import java.io.IOException;
 @Experimental
 public interface ShuffleReadSupport {
   /**
-   * Returns an underlying {@link Iterable<ShuffleReaderInputStream>} that will iterate through shuffle data,
-   * given an iterable for the shuffle blocks to fetch.
+   * Returns an underlying {@link Iterable<ShuffleReaderInputStream>} that will iterate
+   * through shuffle data, given an iterable for the shuffle blocks to fetch.
    */
   Iterable<ShuffleReaderInputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
