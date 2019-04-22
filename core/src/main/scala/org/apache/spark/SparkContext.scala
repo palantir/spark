@@ -400,13 +400,6 @@ class SparkContext(config: SparkConf) extends SafeLogging {
 
     _conf.set(EXECUTOR_ID, SparkContext.DRIVER_IDENTIFIER)
 
-    val configuredPluginClasses = conf.get(SHUFFLE_IO_PLUGIN_CLASS)
-    val maybeIO = Utils.loadExtensions(
-      classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
-    require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
-    _shuffleDriverComponents = maybeIO.head.driver
-    _shuffleDriverComponents.initializeApplication().asScala.foreach(x => _conf.set(x._1, x._2))
-
     _jars = Utils.getUserJars(_conf)
     _files = _conf.getOption("spark.files").map(_.split(",")).map(_.filter(_.nonEmpty))
       .toSeq.flatten
@@ -435,8 +428,6 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     val appStatusSource = AppStatusSource.createSource(conf)
     _statusStore = AppStatusStore.createLiveStore(conf, appStatusSource)
     listenerBus.addToStatusQueue(_statusStore.listener.get)
-
-    _hadoopConfiguration = SparkHadoopUtil.get.newConfiguration(_conf)
 
     // Create the Spark execution environment (cache, map output tracker, etc)
     _env = createSparkEnv(_conf, isLocal, listenerBus)
@@ -469,6 +460,8 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     // the bound port to the cluster manager properly
     _ui.foreach(_.bind())
 
+    _hadoopConfiguration = SparkHadoopUtil.get.newConfiguration(_conf)
+
     // Add each JAR given through the constructor
     if (jars != null) {
       jars.foreach(addJar)
@@ -499,6 +492,13 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     executorEnvs("SPARK_EXECUTOR_MEMORY") = executorMemory + "m"
     executorEnvs ++= _conf.getExecutorEnv
     executorEnvs("SPARK_USER") = sparkUser
+
+    val configuredPluginClasses = conf.get(SHUFFLE_IO_PLUGIN_CLASS)
+    val maybeIO = Utils.loadExtensions(
+      classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
+    require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
+    _shuffleDriverComponents = maybeIO.head.driver
+    _shuffleDriverComponents.initializeApplication().asScala.foreach(x => _conf.set(x._1, x._2))
 
     // We need to register "HeartbeatReceiver" before "createTaskScheduler" because Executor will
     // retrieve "HeartbeatReceiver" in the constructor. (SPARK-6640)

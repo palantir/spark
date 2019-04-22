@@ -26,6 +26,21 @@ import org.apache.spark.api.shuffle.{ShuffleDataIO, ShuffleDriverComponents, Shu
 import org.apache.spark.internal.config.SHUFFLE_IO_PLUGIN_CLASS
 import org.apache.spark.shuffle.sort.io.DefaultShuffleWriteSupport
 
+class ShuffleDriverComponentsSuite extends SparkFunSuite with LocalSparkContext {
+  test(s"test serialization of shuffle initialization conf to executors") {
+    val testConf = new SparkConf()
+      .setAppName("testing")
+      .setMaster("local-cluster[2,1,1024]")
+      .set(SHUFFLE_IO_PLUGIN_CLASS, "org.apache.spark.shuffle.TestShuffleDataIO")
+
+    sc = new SparkContext(testConf)
+
+    sc.parallelize(Seq((1, "one"), (2, "two"), (3, "three")), 3)
+      .groupByKey()
+      .collect()
+  }
+}
+
 class TestShuffleDriverComponents extends ShuffleDriverComponents {
   override def initializeApplication(): util.Map[String, String] =
     ImmutableMap.of("spark.test.key", "spark.test.value")
@@ -51,20 +66,5 @@ class TestShuffleExecutorComponents(sparkConf: SparkConf) extends ShuffleExecuto
     val blockManager = SparkEnv.get.blockManager
     val blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager)
     new DefaultShuffleWriteSupport(sparkConf, blockResolver)
-  }
-}
-
-class ShuffleDriverComponentsTest extends SparkFunSuite with LocalSparkContext {
-  test(s"test serialization of shuffle initialization conf to executors") {
-    val testConf = new SparkConf()
-      .setAppName("testing")
-      .setMaster("local-cluster[2,1,1024]")
-      .set(SHUFFLE_IO_PLUGIN_CLASS, "org.apache.spark.shuffle.TestShuffleDataIO")
-
-    sc = new SparkContext(testConf)
-
-    sc.parallelize(Seq((1, "one"), (2, "two"), (3, "three")), 3)
-      .groupByKey()
-      .collect()
   }
 }
