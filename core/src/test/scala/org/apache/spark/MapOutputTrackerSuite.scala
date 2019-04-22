@@ -71,9 +71,9 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     val statuses = tracker.getMapSizesByShuffleLocation(10, 0)
     assert(statuses.toSet ===
       Seq(
-        (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
+        (Some(DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000))),
           ArrayBuffer((ShuffleBlockId(10, 0, 0), size1000))),
-        (DefaultMapShuffleLocations.get(BlockManagerId("b", "hostB", 1000)),
+        (Some(DefaultMapShuffleLocations.get(BlockManagerId("b", "hostB", 1000))),
           ArrayBuffer((ShuffleBlockId(10, 1, 0), size10000))))
         .toSet)
     assert(0 == tracker.getNumCachedSerializedBroadcast)
@@ -155,7 +155,7 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     slaveTracker.updateEpoch(masterTracker.getEpoch)
     assert(slaveTracker.getMapSizesByShuffleLocation(10, 0).toSeq ===
       Seq(
-        (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
+        (Some(DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000))),
           ArrayBuffer((ShuffleBlockId(10, 0, 0), size1000)))))
     assert(0 == masterTracker.getNumCachedSerializedBroadcast)
 
@@ -324,12 +324,13 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     tracker.registerMapOutput(10, 1, MapStatus(BlockManagerId("b", "hostB", 1000),
       Array(size10000, size0, size1000, size0)))
     assert(tracker.containsShuffle(10))
-    assert(tracker.getMapSizesByShuffleLocation(10, 0, 4).toSeq ===
+    assert(tracker.getMapSizesByShuffleLocation(10, 0, 4)
+      .map(x => (x._1.get, x._2)).toSeq ===
         Seq(
-          (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
-              Seq((ShuffleBlockId(10, 0, 1), size1000), (ShuffleBlockId(10, 0, 3), size10000))),
           (DefaultMapShuffleLocations.get(BlockManagerId("b", "hostB", 1000)),
-              Seq((ShuffleBlockId(10, 1, 0), size10000), (ShuffleBlockId(10, 1, 2), size1000)))
+              Seq((ShuffleBlockId(10, 1, 0), size10000), (ShuffleBlockId(10, 1, 2), size1000))),
+          (DefaultMapShuffleLocations.get(BlockManagerId("a", "hostA", 1000)),
+            Seq((ShuffleBlockId(10, 0, 1), size1000), (ShuffleBlockId(10, 0, 3), size10000)))
         )
     )
 
