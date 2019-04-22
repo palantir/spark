@@ -20,7 +20,6 @@ package org.apache.spark.api.shuffle;
 import org.apache.spark.annotation.Experimental;
 
 import java.io.IOException;
-import java.util.Iterator;
 
 /**
  * :: Experimental ::
