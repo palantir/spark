@@ -17,10 +17,12 @@
 
 package org.apache.spark.shuffle.io
 
+import java.io.InputStream
+
 import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
-import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReaderInputStream, ShuffleReadSupport}
+import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.config
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
 import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
@@ -38,17 +40,16 @@ class DefaultShuffleReadSupport(
   private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
 
   override def getPartitionReaders(blockMetadata: java.lang.Iterable[ShuffleBlockInfo]):
-      java.lang.Iterable[ShuffleReaderInputStream] = {
+      java.lang.Iterable[InputStream] = {
 
-    if (blockMetadata.asScala.isEmpty) {
-      return Iterable.empty.asJava
+    val iterableToReturn = if (blockMetadata.asScala.nonEmpty) {
+      Iterable.empty
     } else {
       val (minReduceId, maxReduceId) = blockMetadata.asScala.map(block => block.getReduceId)
         .foldLeft(Int.MaxValue, 0) {
           case ((min, max), elem) => (math.min(min, elem), math.max(max, elem))
         }
       val shuffleId = blockMetadata.asScala.head.getShuffleId
-
       new ShuffleBlockFetcherIterable(
         TaskContext.get(),
         blockManager,
@@ -61,8 +62,9 @@ class DefaultShuffleReadSupport(
         maxReduceId,
         shuffleId,
         mapOutputTracker
-      ).asJava
+      )
     }
+    iterableToReturn.asJava
   }
 }
 
@@ -77,9 +79,9 @@ private class ShuffleBlockFetcherIterable(
     minReduceId: Int,
     maxReduceId: Int,
     shuffleId: Int,
-    mapOutputTracker: MapOutputTracker) extends Iterable[ShuffleReaderInputStream] {
+    mapOutputTracker: MapOutputTracker) extends Iterable[InputStream] {
 
-  override def iterator: Iterator[ShuffleReaderInputStream] = {
+  override def iterator: Iterator[InputStream] = {
     new ShuffleBlockFetcherIterator(
       context,
       blockManager.shuffleClient,
@@ -95,7 +97,6 @@ private class ShuffleBlockFetcherIterable(
       maxBlocksInFlightPerAddress,
       maxReqSizeShuffleToMem,
       shuffleMetrics).toCompletionIterator
-
   }
 
 }
