@@ -76,7 +76,7 @@ case class DataSourceResolution(
 
   object V1WriteProvider {
     private val v1WriteOverrideSet =
-      conf.userV1SourceWriterList.toLowerCase(Locale.ROOT).split(",").toSet
+      conf.useV1SourceWriterList.toLowerCase(Locale.ROOT).split(",").toSet
 
     def unapply(provider: String): Option[String] = {
       if (v1WriteOverrideSet.contains(provider.toLowerCase(Locale.ROOT))) {
