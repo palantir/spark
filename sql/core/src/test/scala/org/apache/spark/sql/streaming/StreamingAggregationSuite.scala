@@ -32,7 +32,14 @@ import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.execution.exchange.Exchange
 import org.apache.spark.sql.execution.streaming._
+<<<<<<< HEAD
 import org.apache.spark.sql.execution.streaming.state.{StateStore, StreamingAggregationStateManager}
+||||||| parent of fb6b19ab7c... [SPARK-23014][SS] Fully remove V1 memory sink.
+import org.apache.spark.sql.execution.streaming.state.StreamingAggregationStateManager
+=======
+import org.apache.spark.sql.execution.streaming.sources.MemorySink
+import org.apache.spark.sql.execution.streaming.state.StreamingAggregationStateManager
+>>>>>>> fb6b19ab7c... [SPARK-23014][SS] Fully remove V1 memory sink.
 import org.apache.spark.sql.expressions.scalalang.typed
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
