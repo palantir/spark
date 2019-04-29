@@ -17,8 +17,7 @@
 
 package org.apache.spark.shuffle
 
-import java.io.{InputStream, IOException}
-import java.nio.ByteBuffer
+import java.io.InputStream
 
 import scala.collection.JavaConverters._
 
@@ -26,12 +25,12 @@ import org.apache.spark._
 import org.apache.spark.api.java.Optional
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.io.CompressionCodec
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.io.DefaultShuffleReadSupport
 import org.apache.spark.storage.{ShuffleBlockFetcherIterator, ShuffleBlockId}
-import org.apache.spark.util.{CompletionIterator, Utils}
+import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
-import org.apache.spark.util.io.ChunkedByteBufferOutputStream
 
 /**
  * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
@@ -51,9 +50,9 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
   private val dep = handle.dependency
 
-  private val detectCorrupt = sparkConf.get(config.SHUFFLE_DETECT_CORRUPT)
+  private val compressionCodec = CompressionCodec.createCodec(sparkConf)
 
-  private val maxBytesInFlight = sparkConf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024
+  private val compressShuffle = sparkConf.get(config.SHUFFLE_COMPRESS)
 
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
@@ -82,28 +81,18 @@ private[spark] class BlockStoreShuffleReader[K, C](
       override def next(): InputStream = {
         var returnStream: InputStream = null
         while (streamsIterator.hasNext && returnStream == null) {
-          val nextStream = streamsIterator.next()
-          val blockInfo = nextStream.getShuffleBlockInfo
-          val blockId = ShuffleBlockId(
-            blockInfo.getShuffleId,
-            blockInfo.getMapId,
-            blockInfo.getReduceId)
-          if (detectCorrupt && blockInfo.getLength < maxBytesInFlight
-            && shuffleReadSupport.isInstanceOf[DefaultShuffleReadSupport]) {
-            try {
-              val in = serializerManager.wrapStream(blockId, nextStream.getInputStream)
-              val out = new ChunkedByteBufferOutputStream(64 * 1024, ByteBuffer.allocate)
-              // Decompress the whole block at once to detect any corruption, which could increase
-              // the memory usage and potentially increase the chance of OOM.
-              // TODO: manage the memory used here, and spill it into disk in case of OOM.
-              Utils.copyStream(in, out, closeStreams = true)
-              returnStream = out.toChunkedByteBuffer.toInputStream(dispose = true)
-            } catch {
-              case e: IOException =>
-                streamsIterator.asInstanceOf[ShuffleBlockFetcherIterator].retryLast(e)
-            }
+          if (shuffleReadSupport.isInstanceOf[DefaultShuffleReadSupport]) {
+            // The default implementation checks for corrupt streams, so it will already have
+            // decompressed/decrypted the bytes
+            returnStream = streamsIterator.next()
           } else {
-            returnStream = serializerManager.wrapStream(blockId, nextStream.getInputStream)
+            val nextStream = streamsIterator.next()
+            returnStream = if (compressShuffle) {
+              compressionCodec.compressedInputStream(
+                serializerManager.wrapForEncryption(nextStream))
+            } else {
+              serializerManager.wrapForEncryption(nextStream)
+            }
           }
         }
         if (returnStream == null) {

@@ -23,6 +23,7 @@ import org.apache.spark.SparkEnv;
 import org.apache.spark.api.shuffle.ShuffleExecutorComponents;
 import org.apache.spark.api.shuffle.ShuffleReadSupport;
 import org.apache.spark.api.shuffle.ShuffleWriteSupport;
+import org.apache.spark.serializer.SerializerManager;
 import org.apache.spark.shuffle.IndexShuffleBlockResolver;
 import org.apache.spark.shuffle.io.DefaultShuffleReadSupport;
 import org.apache.spark.storage.BlockManager;
@@ -33,6 +34,7 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
   private BlockManager blockManager;
   private IndexShuffleBlockResolver blockResolver;
   private MapOutputTracker mapOutputTracker;
+  private SerializerManager serializerManager;
 
   public DefaultShuffleExecutorComponents(SparkConf sparkConf) {
     this.sparkConf = sparkConf;
@@ -42,6 +44,7 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
   public void initializeExecutor(String appId, String execId) {
     blockManager = SparkEnv.get().blockManager();
     mapOutputTracker = SparkEnv.get().mapOutputTracker();
+    serializerManager = SparkEnv.get().serializerManager();
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
   }
 
@@ -54,7 +57,7 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
   @Override
   public ShuffleReadSupport reads() {
     checkInitialized();
-    return new DefaultShuffleReadSupport(blockManager, mapOutputTracker, sparkConf);
+    return new DefaultShuffleReadSupport(blockManager, mapOutputTracker, serializerManager, sparkConf);
   }
 
   private void checkInitialized() {

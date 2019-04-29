@@ -207,7 +207,11 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
     when(dependency.aggregator).thenReturn(aggregator)
     when(dependency.keyOrdering).thenReturn(sorter)
 
-    val readSupport = new DefaultShuffleReadSupport(blockManager, mapOutputTracker, defaultConf)
+    val readSupport = new DefaultShuffleReadSupport(
+      blockManager,
+      mapOutputTracker,
+      serializerManager,
+      defaultConf)
 
     new BlockStoreShuffleReader[String, String](
       shuffleHandle,

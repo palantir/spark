@@ -21,23 +21,20 @@ import java.io.{File, InputStream, IOException}
 import java.util.UUID
 import java.util.concurrent.Semaphore
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-
 import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito.{mock, times, verify, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.scalatest.PrivateMethodTester
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 import org.apache.spark.{SparkFunSuite, TaskContext}
-import org.apache.spark.api.java.Optional
-import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleLocation}
 import org.apache.spark.network._
 import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer}
 import org.apache.spark.network.shuffle.{BlockFetchingListener, DownloadFileManager}
+import org.apache.spark.network.util.LimitedInputStream
 import org.apache.spark.shuffle.FetchFailedException
-import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.util.Utils
 
 
@@ -114,10 +111,12 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
+      (_, in) => in,
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       metrics)
 
     // 3 local blocks fetched in initialization
@@ -125,15 +124,10 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     for (i <- 0 until 5) {
       assert(iterator.hasNext, s"iterator should have 5 elements but actually has $i elements")
-      val shuffleInputStream = iterator.next()
-      val shuffleBlockInfo = shuffleInputStream.getShuffleBlockInfo
-      val inputStream = shuffleInputStream.getInputStream
+      val inputStream = iterator.next()
+      val blockId = iterator.getCurrentBlock()
 
       // Make sure we release buffers when a wrapped input stream is closed.
-      val blockId = ShuffleBlockId(
-        shuffleBlockInfo.getShuffleId,
-        shuffleBlockInfo.getMapId,
-        shuffleBlockInfo.getReduceId)
       val mockBuf = localBlocks.getOrElse(blockId, remoteBlocks(blockId))
       // Note: ShuffleBlockFetcherIterator wraps input streams in a BufferReleasingInputStream
       val wrappedInputStream = inputStream.asInstanceOf[BufferReleasingInputStream]
@@ -197,18 +191,20 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
+      (_, in) => in,
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
     verify(blocks(ShuffleBlockId(0, 0, 0)), times(0)).release()
-    iterator.next().getInputStream.close() // close() first block's input stream
+    iterator.next().close() // close() first block's input stream
     verify(blocks(ShuffleBlockId(0, 0, 0)), times(1)).release()
 
     // Get the 2nd block but do not exhaust the iterator
-    val subIter = iterator.next().getInputStream
+    val subIter = iterator.next()
 
     // Complete the task; then the 2nd block buffer should be exhausted
     verify(blocks(ShuffleBlockId(0, 1, 0)), times(0)).release()
@@ -263,10 +259,12 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
+      (_, in) => in,
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
 
@@ -321,10 +319,12 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
+      (_, in) => in,
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
     // Continue only after the mock calls onBlockFetchFailure
@@ -390,19 +390,21 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
+      (_, in) => new LimitedInputStream(in, 100),
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
-    val shuffleLocation = DefaultMapShuffleLocations.get(remoteBmId)
 
     // Continue only after the mock calls onBlockFetchFailure
     sem.acquire()
 
     // The first block should be returned without an exception
-    val id1 = iterator.next().getShuffleBlockInfo
-    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1, Optional.of(shuffleLocation)))
+    iterator.next()
+    val id1 = iterator.getCurrentBlock()
+    assert(id1 === ShuffleBlockId(0, 0, 0))
 
     when(transfer.fetchBlocks(any(), any(), any(), any(), any(), any()))
       .thenAnswer(new Answer[Unit] {
@@ -417,39 +419,16 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       }
     })
 
-    // This should fail to read the bytes and call for a retry
-    val readByte = readNextStreamAndRetryOnError(iterator)
-    assert(readByte === None)
+    // The next block is corrupt local block (the second one is corrupt and retried)
+    intercept[FetchFailedException] { iterator.next() }
 
     sem.acquire()
 
-    // The next call should fail and not call for a retry because the stream wasn't
-    // corrupt, but the fetch itself failed
-    intercept[FetchFailedException] {
-      readNextStreamAndRetryOnError(iterator)
-    }
-    // The next call is the retry of the second block, which fails
-    intercept[FetchFailedException] {
-      readNextStreamAndRetryOnError(iterator)
-    }
-  }
-
-  def readNextStreamAndRetryOnError(iterator: ShuffleBlockFetcherIterator): Option[Byte] = {
-    try {
-      val stream = iterator.next()
-      val readByte = Array[Byte](1)
-      stream.getInputStream.read(readByte, 0, 1)
-      Some(readByte)
-    } catch {
-      case e: IOException =>
-        iterator.retryLast(e)
-    }
-    None
+    intercept[FetchFailedException] { iterator.next() }
   }
 
   test("big blocks are not checked for corruption") {
-    val size = 10000L
-    val corruptBuffer = mockCorruptBuffer(size)
+    val corruptBuffer = mockCorruptBuffer(10000L)
 
     val blockManager = mock(classOf[BlockManager])
     val localBmId = BlockManagerId("test-client", "test-client", 1)
@@ -478,18 +457,19 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
+      (_, in) => new LimitedInputStream(in, 100),
       2048,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
     // Blocks should be returned without exceptions.
-    assert(Set(iterator.next().getShuffleBlockInfo, iterator.next().getShuffleBlockInfo) ===
-        Set(
-          new ShuffleBlockInfo(0, 0, 0, size,
-            Optional.of(DefaultMapShuffleLocations.get(localBmId))),
-          new ShuffleBlockInfo(0, 1, 0, size,
-            Optional.of(DefaultMapShuffleLocations.get(remoteBmId)))))
+    iterator.next()
+    val blockId1 = iterator.getCurrentBlock()
+    iterator.next()
+    val blockId2 = iterator.getCurrentBlock()
+    assert(Set(blockId1, blockId2) === Set(ShuffleBlockId(0, 0, 0), ShuffleBlockId(0, 1, 0)))
   }
 
   test("retry corrupt blocks (disabled)") {
@@ -535,24 +515,27 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
+      (_, in) => in,
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
     // Continue only after the mock calls onBlockFetchFailure
     sem.acquire()
 
-    val remoteShuffleLocation: Optional[ShuffleLocation] =
-      Optional.of(DefaultMapShuffleLocations.get(remoteBmId))
     // The first block should be returned without an exception
-    val id1 = iterator.next().getShuffleBlockInfo
-    assert(id1 === new ShuffleBlockInfo(0, 0, 0, 1, remoteShuffleLocation))
-    val id2 = iterator.next().getShuffleBlockInfo
-    assert(id2 === new ShuffleBlockInfo(0, 1, 0, 1, remoteShuffleLocation))
-    val id3 = iterator.next().getShuffleBlockInfo
-    assert(id3 === new ShuffleBlockInfo(0, 2, 0, 1, remoteShuffleLocation))
+    iterator.next()
+    val id1 = iterator.getCurrentBlock()
+    assert(id1 === ShuffleBlockId(0, 0, 0))
+    iterator.next()
+    val id2 = iterator.getCurrentBlock()
+    assert(id2 === ShuffleBlockId(0, 1, 0))
+    iterator.next()
+    val id3 = iterator.getCurrentBlock()
+    assert(id3 === ShuffleBlockId(0, 2, 0))
   }
 
   test("Blocks should be shuffled to disk when size of the request is above the" +
@@ -597,10 +580,12 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
         transfer,
         blockManager,
         blocksByAddress,
+        (_, in) => in,
         maxBytesInFlight = Int.MaxValue,
         maxReqsInFlight = Int.MaxValue,
         maxBlocksInFlightPerAddress = Int.MaxValue,
         maxReqSizeShuffleToMem = 200,
+        true,
         taskContext.taskMetrics.createTempShuffleReadMetrics())
     }
 
@@ -642,10 +627,12 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress.toIterator,
+      (_, in) => in,
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
     // All blocks fetched return zero length and should trigger a receive-side error:

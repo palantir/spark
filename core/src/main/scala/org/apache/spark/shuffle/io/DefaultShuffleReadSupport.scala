@@ -24,6 +24,7 @@ import scala.collection.JavaConverters._
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
 import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.config
+import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
 import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
@@ -31,6 +32,7 @@ import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 class DefaultShuffleReadSupport(
     blockManager: BlockManager,
     mapOutputTracker: MapOutputTracker,
+    serializerManager: SerializerManager,
     conf: SparkConf) extends ShuffleReadSupport {
 
   private val maxBytesInFlight = conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024
@@ -38,11 +40,12 @@ class DefaultShuffleReadSupport(
   private val maxBlocksInFlightPerAddress =
     conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS)
   private val maxReqSizeShuffleToMem = conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM)
+  private val detectCorrupt = conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   override def getPartitionReaders(blockMetadata: java.lang.Iterable[ShuffleBlockInfo]):
       java.lang.Iterable[InputStream] = {
 
-    val iterableToReturn = if (blockMetadata.asScala.nonEmpty) {
+    val iterableToReturn = if (blockMetadata.asScala.isEmpty) {
       Iterable.empty
     } else {
       val (minReduceId, maxReduceId) = blockMetadata.asScala.map(block => block.getReduceId)
@@ -53,10 +56,12 @@ class DefaultShuffleReadSupport(
       new ShuffleBlockFetcherIterable(
         TaskContext.get(),
         blockManager,
+        serializerManager,
         maxBytesInFlight,
         maxReqsInFlight,
         maxBlocksInFlightPerAddress,
         maxReqSizeShuffleToMem,
+        detectCorrupt,
         shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics(),
         minReduceId,
         maxReduceId,
@@ -71,10 +76,12 @@ class DefaultShuffleReadSupport(
 private class ShuffleBlockFetcherIterable(
     context: TaskContext,
     blockManager: BlockManager,
+    serializerManager: SerializerManager,
     maxBytesInFlight: Long,
     maxReqsInFlight: Int,
     maxBlocksInFlightPerAddress: Int,
     maxReqSizeShuffleToMem: Long,
+    detectCorruption: Boolean,
     shuffleMetrics: ShuffleReadMetricsReporter,
     minReduceId: Int,
     maxReduceId: Int,
@@ -92,10 +99,12 @@ private class ShuffleBlockFetcherIterable(
             .get.asInstanceOf[DefaultMapShuffleLocations]
           (defaultShuffleLocation.getBlockManagerId, shuffleLocationInfo._2)
         },
+      serializerManager.wrapStream,
       maxBytesInFlight,
       maxReqsInFlight,
       maxBlocksInFlightPerAddress,
       maxReqSizeShuffleToMem,
+      detectCorruption,
       shuffleMetrics).toCompletionIterator
   }
 
