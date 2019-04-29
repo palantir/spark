@@ -457,7 +457,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
-      (_, in) => new LimitedInputStream(in, 100),
+      (_, in) => new LimitedInputStream(in, 10000),
       2048,
       Int.MaxValue,
       Int.MaxValue,
@@ -515,12 +515,12 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       transfer,
       blockManager,
       blocksByAddress,
-      (_, in) => in,
+      (_, in) => new LimitedInputStream(in, 100),
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
       Int.MaxValue,
-      true,
+      false,
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
     // Continue only after the mock calls onBlockFetchFailure
@@ -585,7 +585,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
         maxReqsInFlight = Int.MaxValue,
         maxBlocksInFlightPerAddress = Int.MaxValue,
         maxReqSizeShuffleToMem = 200,
-        true,
+        detectCorrupt = true,
         taskContext.taskMetrics.createTempShuffleReadMetrics())
     }
 
