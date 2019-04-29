@@ -57,7 +57,10 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
   @Override
   public ShuffleReadSupport reads() {
     checkInitialized();
-    return new DefaultShuffleReadSupport(blockManager, mapOutputTracker, serializerManager, sparkConf);
+    return new DefaultShuffleReadSupport(blockManager,
+        mapOutputTracker,
+        serializerManager,
+        sparkConf);
   }
 
   private void checkInitialized() {
