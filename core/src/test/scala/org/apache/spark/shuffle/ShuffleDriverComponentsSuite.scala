@@ -43,7 +43,7 @@ class ShuffleDriverComponentsSuite extends SparkFunSuite with LocalSparkContext 
 
 class TestShuffleDriverComponents extends ShuffleDriverComponents {
   override def initializeApplication(): util.Map[String, String] =
-    ImmutableMap.of("spark.test.key", "spark.test.value")
+    ImmutableMap.of("test-key", "test-value")
 
   override def cleanupApplication(): Unit = {}
 
@@ -58,8 +58,9 @@ class TestShuffleDataIO(sparkConf: SparkConf) extends ShuffleDataIO {
 }
 
 class TestShuffleExecutorComponents(sparkConf: SparkConf) extends ShuffleExecutorComponents {
-  override def initializeExecutor(appId: String, execId: String): Unit = {
-    assert(sparkConf.get("spark.test.key").equals("spark.test.value"))
+  override def initializeExecutor(appId: String, execId: String,
+                                  extraConfigs: util.Map[String, String]): Unit = {
+    assert(extraConfigs.get("test-key").equals("test-value"))
   }
 
   override def writes(): ShuffleWriteSupport = {

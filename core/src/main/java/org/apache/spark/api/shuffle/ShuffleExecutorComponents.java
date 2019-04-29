@@ -19,6 +19,8 @@ package org.apache.spark.api.shuffle;
 
 import org.apache.spark.annotation.Experimental;
 
+import java.util.Map;
+
 /**
  * :: Experimental ::
  * An interface for building shuffle support for Executors
@@ -27,7 +29,7 @@ import org.apache.spark.annotation.Experimental;
  */
 @Experimental
 public interface ShuffleExecutorComponents {
-  void initializeExecutor(String appId, String execId);
+  void initializeExecutor(String appId, String execId, Map<String, String> extraConfigs);
 
   ShuffleWriteSupport writes();
 }
