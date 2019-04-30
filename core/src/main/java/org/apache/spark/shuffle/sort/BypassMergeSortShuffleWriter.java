@@ -24,6 +24,8 @@ import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import javax.annotation.Nullable;
 
+import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.shuffle.MapShuffleLocations;
 import org.apache.spark.api.shuffle.SupportsTransferTo;
 import org.apache.spark.api.shuffle.TransferrableReadableByteChannel;
 import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
@@ -136,8 +138,11 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     try {
       if (!records.hasNext()) {
         partitionLengths = new long[numPartitions];
-        mapOutputWriter.commitAllPartitions();
-        mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
+        Optional<MapShuffleLocations> blockLocs = mapOutputWriter.commitAllPartitions();
+        mapStatus = MapStatus$.MODULE$.apply(
+            blockManager.shuffleServerId(),
+            blockLocs.orNull(),
+            partitionLengths);
         return;
       }
       final SerializerInstance serInstance = serializer.newInstance();
@@ -170,8 +175,11 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       }
 
       partitionLengths = writePartitionedData(mapOutputWriter);
-      mapOutputWriter.commitAllPartitions();
-      mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
+      Optional<MapShuffleLocations> mapLocations = mapOutputWriter.commitAllPartitions();
+      mapStatus = MapStatus$.MODULE$.apply(
+          blockManager.shuffleServerId(),
+          mapLocations.orNull(),
+          partitionLengths);
     } catch (Exception e) {
       try {
         mapOutputWriter.abort(e);
@@ -204,7 +212,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       for (int i = 0; i < numPartitions; i++) {
         final File file = partitionWriterSegments[i].file();
         boolean copyThrewException = true;
-        ShufflePartitionWriter writer = mapOutputWriter.getNextPartitionWriter();
+        ShufflePartitionWriter writer = mapOutputWriter.getPartitionWriter(i);
         if (file.exists()) {
           if (transferToEnabled && writer instanceof SupportsTransferTo) {
             FileInputStream in = new FileInputStream(file);

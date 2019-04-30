@@ -23,9 +23,6 @@ import java.io.*;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
 
-import org.apache.spark.api.shuffle.DefaultTransferrableWritableByteChannel;
-import org.apache.spark.api.shuffle.SupportsTransferTo;
-import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 import scala.Option;
 import scala.Product2;
 import scala.collection.JavaConverters;
@@ -40,9 +37,14 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.spark.*;
 import org.apache.spark.annotation.Private;
+import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.shuffle.DefaultTransferrableWritableByteChannel;
+import org.apache.spark.api.shuffle.MapShuffleLocations;
+import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 import org.apache.spark.api.shuffle.ShuffleMapOutputWriter;
 import org.apache.spark.api.shuffle.ShufflePartitionWriter;
 import org.apache.spark.api.shuffle.ShuffleWriteSupport;
+import org.apache.spark.api.shuffle.SupportsTransferTo;
 import org.apache.spark.internal.config.package$;
 import org.apache.spark.io.CompressionCodec;
 import org.apache.spark.io.CompressionCodec$;
@@ -218,6 +220,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final ShuffleMapOutputWriter mapWriter = shuffleWriteSupport
       .createMapOutputWriter(shuffleId, mapId, partitioner.numPartitions());
     final long[] partitionLengths;
+    Optional<MapShuffleLocations> mapLocations;
     try {
       try {
         partitionLengths = mergeSpills(spills, mapWriter);
@@ -228,7 +231,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
           }
         }
       }
-      mapWriter.commitAllPartitions();
+      mapLocations = mapWriter.commitAllPartitions();
     } catch (Exception e) {
       try {
         mapWriter.abort(e);
@@ -237,7 +240,10 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       }
       throw e;
     }
-    mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
+    mapStatus = MapStatus$.MODULE$.apply(
+        blockManager.shuffleServerId(),
+        mapLocations.orNull(),
+        partitionLengths);
   }
 
   @VisibleForTesting
@@ -282,11 +288,6 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     long[] partitionLengths = new long[numPartitions];
     try {
       if (spills.length == 0) {
-        // The contract we are working under states that we will open a partition writer for
-        // each partition, regardless of number of spills
-        for (int i = 0; i < numPartitions; i++) {
-          mapWriter.getNextPartitionWriter();
-        }
         return partitionLengths;
       } else {
         // There are multiple spills to merge, so none of these spill files' lengths were counted
@@ -360,7 +361,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       }
       for (int partition = 0; partition < numPartitions; partition++) {
         boolean copyThrewExecption = true;
-        ShufflePartitionWriter writer = mapWriter.getNextPartitionWriter();
+        ShufflePartitionWriter writer = mapWriter.getPartitionWriter(partition);
         OutputStream partitionOutput = null;
         try {
           partitionOutput = writer.openStream();
@@ -431,7 +432,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       }
       for (int partition = 0; partition < numPartitions; partition++) {
         boolean copyThrewExecption = true;
-        ShufflePartitionWriter writer = mapWriter.getNextPartitionWriter();
+        ShufflePartitionWriter writer = mapWriter.getPartitionWriter(partition);
         TransferrableWritableByteChannel partitionChannel = null;
         try {
           partitionChannel = writer instanceof SupportsTransferTo ?

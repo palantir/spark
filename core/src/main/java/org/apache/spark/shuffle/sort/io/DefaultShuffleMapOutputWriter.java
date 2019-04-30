@@ -24,6 +24,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 
+import org.apache.spark.api.java.Optional;
+import org.apache.spark.api.shuffle.MapShuffleLocations;
+import org.apache.spark.shuffle.sort.DefaultMapShuffleLocations;
+import org.apache.spark.storage.BlockManagerId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,8 +54,9 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   private final IndexShuffleBlockResolver blockResolver;
   private final long[] partitionLengths;
   private final int bufferSize;
-  private int currPartitionId = 0;
+  private int lastPartitionId = -1;
   private long currChannelPosition;
+  private final BlockManagerId shuffleServerId;
 
   private final File outputFile;
   private File outputTempFile;
@@ -64,11 +69,13 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
       int shuffleId,
       int mapId,
       int numPartitions,
+      BlockManagerId shuffleServerId,
       ShuffleWriteMetricsReporter metrics,
       IndexShuffleBlockResolver blockResolver,
       SparkConf sparkConf) {
     this.shuffleId = shuffleId;
     this.mapId = mapId;
+    this.shuffleServerId = shuffleServerId;
     this.metrics = metrics;
     this.blockResolver = blockResolver;
     this.bufferSize =
@@ -80,7 +87,11 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
   }
 
   @Override
-  public ShufflePartitionWriter getNextPartitionWriter() throws IOException {
+  public ShufflePartitionWriter getPartitionWriter(int partitionId) throws IOException {
+    if (partitionId <= lastPartitionId) {
+      throw new IllegalArgumentException("Partitions should be requested in increasing order.");
+    }
+    lastPartitionId = partitionId;
     if (outputTempFile == null) {
       outputTempFile = Utils.tempFileWith(outputFile);
     }
@@ -89,15 +100,15 @@ public class DefaultShuffleMapOutputWriter implements ShuffleMapOutputWriter {
     } else {
       currChannelPosition = 0L;
     }
-
-    return new DefaultShufflePartitionWriter(currPartitionId++);
+    return new DefaultShufflePartitionWriter(partitionId);
   }
 
   @Override
-  public void commitAllPartitions() throws IOException {
+  public Optional<MapShuffleLocations> commitAllPartitions() throws IOException {
     cleanUp();
     File resolvedTmp = outputTempFile != null && outputTempFile.isFile() ? outputTempFile : null;
     blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
+    return Optional.of(DefaultMapShuffleLocations.get(shuffleServerId));
   }
 
   @Override

@@ -193,13 +193,13 @@ object BlockStoreShuffleReaderBenchmark extends BenchmarkBase {
       dataBlockId = remoteBlockManagerId
     }
 
-    when(mapOutputTracker.getMapSizesByExecutorId(0, 0, 1))
+    when(mapOutputTracker.getMapSizesByShuffleLocation(0, 0, 1))
       .thenReturn {
         val shuffleBlockIdsAndSizes = (0 until NUM_MAPS).map { mapId =>
           val shuffleBlockId = ShuffleBlockId(0, mapId, 0)
           (shuffleBlockId, dataFileLength)
         }
-        Seq((dataBlockId, shuffleBlockIdsAndSizes)).toIterator
+        Seq((DefaultMapShuffleLocations.get(dataBlockId), shuffleBlockIdsAndSizes)).toIterator
       }
 
     when(dependency.serializer).thenReturn(serializer)
