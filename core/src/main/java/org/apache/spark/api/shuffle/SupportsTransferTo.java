@@ -18,7 +18,6 @@
 package org.apache.spark.api.shuffle;
 
 import java.io.IOException;
-import java.nio.channels.Channels;
 
 import org.apache.spark.annotation.Experimental;
 
