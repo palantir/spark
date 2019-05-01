@@ -60,7 +60,7 @@ class TestShuffleDataIO(sparkConf: SparkConf) extends ShuffleDataIO {
 class TestShuffleExecutorComponents(sparkConf: SparkConf) extends ShuffleExecutorComponents {
   override def initializeExecutor(appId: String, execId: String,
                                   extraConfigs: util.Map[String, String]): Unit = {
-    assert(extraConfigs.get("test-key").equals("test-value"))
+    assert(extraConfigs.get("test-key") == "test-value")
   }
 
   override def writes(): ShuffleWriteSupport = {

@@ -222,7 +222,6 @@ private[spark] object SortShuffleManager extends Logging {
     require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
     val executorComponents = maybeIO.head.executor()
     val extraConfigs = conf.getAllWithPrefix(ShuffleDataIO.SHUFFLE_SPARK_CONF_PREFIX)
-        .map( e => (e._1.stripPrefix(ShuffleDataIO.SHUFFLE_SPARK_CONF_PREFIX), e._2))
         .toMap
     executorComponents.initializeExecutor(
       conf.getAppId,

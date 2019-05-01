@@ -497,9 +497,9 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     val maybeIO = Utils.loadExtensions(
       classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
     require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
-    _shuffleDriverComponents = maybeIO.head.driver
-    _shuffleDriverComponents.initializeApplication().asScala.foreach(x =>
-      _conf.set(ShuffleDataIO.SHUFFLE_SPARK_CONF_PREFIX + x._1, x._2))
+    _shuffleDriverComponents = maybeIO.head.driver()
+    _shuffleDriverComponents.initializeApplication().asScala.foreach {
+      case (k, v) => _conf.set(ShuffleDataIO.SHUFFLE_SPARK_CONF_PREFIX + k, v) }
 
     // We need to register "HeartbeatReceiver" before "createTaskScheduler" because Executor will
     // retrieve "HeartbeatReceiver" in the constructor. (SPARK-6640)
