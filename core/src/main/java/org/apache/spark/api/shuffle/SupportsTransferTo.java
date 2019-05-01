@@ -37,11 +37,9 @@ public interface SupportsTransferTo extends ShufflePartitionWriter {
 
   /**
    * Opens and returns a {@link TransferrableWritableByteChannel} for transferring bytes from
-   * partial input byte channels to the underlying shuffle data store.
+   * input byte channels to the underlying shuffle data store.
    */
-  default TransferrableWritableByteChannel openTransferrableChannel() throws IOException {
-    return new DefaultTransferrableWritableByteChannel(Channels.newChannel(openStream()));
-  }
+  TransferrableWritableByteChannel openTransferrableChannel() throws IOException;
 
   /**
    * Returns the number of bytes written either by this writer's output stream opened by

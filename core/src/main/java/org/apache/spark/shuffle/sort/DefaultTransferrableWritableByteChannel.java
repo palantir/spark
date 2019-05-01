@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.spark.api.shuffle;
+package org.apache.spark.shuffle.sort;
 
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
+import org.apache.spark.api.shuffle.TransferrableReadableByteChannel;
+import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 
 public class DefaultTransferrableWritableByteChannel implements TransferrableWritableByteChannel {
 

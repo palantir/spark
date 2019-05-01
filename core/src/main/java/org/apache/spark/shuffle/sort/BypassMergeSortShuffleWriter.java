@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import javax.annotation.Nullable;
 
@@ -92,7 +93,6 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   private final int mapId;
   private final Serializer serializer;
   private final ShuffleWriteSupport shuffleWriteSupport;
-  private final IndexShuffleBlockResolver shuffleBlockResolver;
 
   /** Array of file writers, one for each partition */
   private DiskBlockObjectWriter[] partitionWriters;
@@ -109,7 +109,6 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
   BypassMergeSortShuffleWriter(
       BlockManager blockManager,
-      IndexShuffleBlockResolver shuffleBlockResolver,
       BypassMergeSortShuffleHandle<K, V> handle,
       int mapId,
       SparkConf conf,
@@ -126,7 +125,6 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     this.numPartitions = partitioner.numPartitions();
     this.writeMetrics = writeMetrics;
     this.serializer = dep.serializer();
-    this.shuffleBlockResolver = shuffleBlockResolver;
     this.shuffleWriteSupport = shuffleWriteSupport;
   }
 
@@ -211,14 +209,19 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     try {
       for (int i = 0; i < numPartitions; i++) {
         final File file = partitionWriterSegments[i].file();
-        boolean copyThrewException = true;
         ShufflePartitionWriter writer = mapOutputWriter.getPartitionWriter(i);
         if (file.exists()) {
-          if (transferToEnabled && writer instanceof SupportsTransferTo) {
+          boolean copyThrewException = true;
+          if (transferToEnabled) {
             FileInputStream in = new FileInputStream(file);
             TransferrableWritableByteChannel outputChannel = null;
             try (FileChannel inputChannel = in.getChannel()) {
-              outputChannel = ((SupportsTransferTo) writer).openTransferrableChannel();
+              if (writer instanceof SupportsTransferTo) {
+                outputChannel = ((SupportsTransferTo) writer).openTransferrableChannel();
+              } else {
+                outputChannel = new DefaultTransferrableWritableByteChannel(
+                    Channels.newChannel(writer.openStream()));
+              }
               TransferrableReadableByteChannel inputTransferable =
                   new FileTransferrableReadableByteChannel(inputChannel, 0L);
               outputChannel.transferFrom(inputTransferable, inputChannel.size());
