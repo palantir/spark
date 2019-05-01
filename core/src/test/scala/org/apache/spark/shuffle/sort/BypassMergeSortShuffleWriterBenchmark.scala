@@ -54,7 +54,6 @@ object BypassMergeSortShuffleWriterBenchmark extends ShuffleWriterBenchmarkBase 
 
     val shuffleWriter = new BypassMergeSortShuffleWriter[String, String](
       blockManager,
-      blockResolver,
       shuffleHandle,
       0,
       conf,
