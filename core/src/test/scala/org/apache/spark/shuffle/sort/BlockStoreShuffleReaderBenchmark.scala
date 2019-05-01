@@ -28,8 +28,8 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import scala.util.Random
 
-import org.apache.spark.api.shuffle.ShuffleLocation
 import org.apache.spark.{Aggregator, MapOutputTracker, ShuffleDependency, SparkConf, SparkEnv, TaskContext}
+import org.apache.spark.api.shuffle.ShuffleLocation
 import org.apache.spark.benchmark.{Benchmark, BenchmarkBase}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.memory.{TaskMemoryManager, TestMemoryManager}
