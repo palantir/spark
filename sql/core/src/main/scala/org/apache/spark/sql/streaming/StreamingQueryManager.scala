@@ -34,7 +34,7 @@ import org.apache.spark.sql.execution.streaming.continuous.{ContinuousExecution,
 import org.apache.spark.sql.execution.streaming.state.StateStoreCoordinatorRef
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.StaticSQLConf.STREAMING_QUERY_LISTENERS
-import org.apache.spark.sql.sources.v2.SupportsWrite
+import org.apache.spark.sql.sources.v2.{SupportsWrite, Table}
 import org.apache.spark.util.{Clock, SystemClock, Utils}
 
 /**
@@ -206,7 +206,7 @@ class StreamingQueryManager private[sql] (sparkSession: SparkSession) extends Lo
       userSpecifiedCheckpointLocation: Option[String],
       df: DataFrame,
       extraOptions: Map[String, String],
-      sink: BaseStreamingSink,
+      sink: Table,
       outputMode: OutputMode,
       useTempCheckpointLocation: Boolean,
       recoverFromCheckpointLocation: Boolean,
@@ -312,7 +312,7 @@ class StreamingQueryManager private[sql] (sparkSession: SparkSession) extends Lo
       userSpecifiedCheckpointLocation: Option[String],
       df: DataFrame,
       extraOptions: Map[String, String],
-      sink: BaseStreamingSink,
+      sink: Table,
       outputMode: OutputMode,
       useTempCheckpointLocation: Boolean = false,
       recoverFromCheckpointLocation: Boolean = true,
