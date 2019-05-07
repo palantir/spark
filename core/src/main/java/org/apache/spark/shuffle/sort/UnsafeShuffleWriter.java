@@ -444,9 +444,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
             final FileChannel spillInputChannel = spillInputChannels[i];
             final long writeStartTime = System.nanoTime();
             partitionChannel.transferFrom(
-                new FileTransferrableReadableByteChannel(
-                    spillInputChannel, spillInputChannelPositions[i]),
-                partitionLengthInSpill);
+                spillInputChannel, spillInputChannelPositions[i], partitionLengthInSpill);
             spillInputChannelPositions[i] += partitionLengthInSpill;
             writeMetrics.incWriteTime(System.nanoTime() - writeStartTime);
           }

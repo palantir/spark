@@ -45,7 +45,6 @@ import org.apache.spark.api.shuffle.SupportsTransferTo;
 import org.apache.spark.api.shuffle.ShuffleMapOutputWriter;
 import org.apache.spark.api.shuffle.ShufflePartitionWriter;
 import org.apache.spark.api.shuffle.ShuffleWriteSupport;
-import org.apache.spark.api.shuffle.TransferrableReadableByteChannel;
 import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
 import org.apache.spark.internal.config.package$;
 import org.apache.spark.scheduler.MapStatus;
@@ -218,12 +217,12 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
               if (writer instanceof SupportsTransferTo) {
                 outputChannel = ((SupportsTransferTo) writer).openTransferrableChannel();
               } else {
+                // Use default transferrable writable channel anyways in order to have parity with
+                // UnsafeShuffleWriter.
                 outputChannel = new DefaultTransferrableWritableByteChannel(
                     Channels.newChannel(writer.openStream()));
               }
-              TransferrableReadableByteChannel inputTransferable =
-                  new FileTransferrableReadableByteChannel(inputChannel, 0L);
-              outputChannel.transferFrom(inputTransferable, inputChannel.size());
+              outputChannel.transferFrom(inputChannel, 0L, inputChannel.size());
               copyThrewException = false;
             } finally {
               Closeables.close(in, copyThrewException);

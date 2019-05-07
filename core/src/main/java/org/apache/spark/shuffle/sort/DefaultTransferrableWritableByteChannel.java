@@ -18,10 +18,18 @@
 package org.apache.spark.shuffle.sort;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
-import org.apache.spark.api.shuffle.TransferrableReadableByteChannel;
 import org.apache.spark.api.shuffle.TransferrableWritableByteChannel;
+import org.apache.spark.util.Utils;
 
+/**
+ * This is used when transferTo is enabled but the shuffle plugin hasn't implemented
+ * {@link org.apache.spark.api.shuffle.SupportsTransferTo}.
+ * <p>
+ * This default implementation exists as a convenience to the unsafe shuffle writer and
+ * the bypass merge sort shuffle writers.
+ */
 public class DefaultTransferrableWritableByteChannel implements TransferrableWritableByteChannel {
 
   private final WritableByteChannel delegate;
@@ -32,8 +40,8 @@ public class DefaultTransferrableWritableByteChannel implements TransferrableWri
 
   @Override
   public void transferFrom(
-      TransferrableReadableByteChannel source, long numBytesToTransfer) throws IOException {
-    source.transferTo(delegate, numBytesToTransfer);
+      FileChannel source, long transferStartPosition, long numBytesToTransfer) {
+    Utils.copyFileStreamNIO(source, delegate, transferStartPosition, numBytesToTransfer);
   }
 
   @Override

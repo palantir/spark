@@ -32,12 +32,12 @@ import org.mockito.stubbing.Answer
 import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
-import org.apache.spark.api.shuffle.{SupportsTransferTo, TransferrableReadableByteChannel}
+import org.apache.spark.api.shuffle.SupportsTransferTo
 import org.apache.spark.executor.ShuffleWriteMetrics
 import org.apache.spark.network.util.LimitedInputStream
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.storage.BlockManagerId
-import org.apache.spark.util.{ByteBufferInputStream, Utils}
+import org.apache.spark.util.ByteBufferInputStream
 import org.apache.spark.util.Utils
 
 class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAfterEach {
@@ -166,11 +166,19 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
       val byteBuffer = ByteBuffer.allocate(D_LEN * 4)
       val intBuffer = byteBuffer.asIntBuffer()
       intBuffer.put(data(p))
-      channel.transferFrom(
-        new ByteBufferTransferrableReadableChannel(byteBuffer), byteBuffer.remaining())
+      val numBytes = byteBuffer.remaining()
+      val outputTempFile = File.createTempFile("channelTemp", "", tempDir)
+      val outputTempFileStream = new FileOutputStream(outputTempFile)
+      Utils.copyStream(
+        new ByteBufferInputStream(byteBuffer),
+        outputTempFileStream,
+        closeStreams = true)
+      val tempFileInput = new FileInputStream(outputTempFile)
+      channel.transferFrom(tempFileInput.getChannel, 0L, numBytes)
       // Bytes require * 4
-      assert(writer.getNumBytesWritten == D_LEN * 4)
       channel.close()
+      tempFileInput.close()
+      assert(writer.getNumBytesWritten == D_LEN * 4)
     }
     mapOutputWriter.commitAllPartitions()
     val partitionLengths = (0 until NUM_PARTITIONS).map { _ => (D_LEN * 4).toDouble}.toArray
@@ -210,8 +218,7 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
       out.write(byteBuffer.array())
       out.close()
       val in = new FileInputStream(tempFile)
-      channel.transferFrom(
-        new ByteBufferTransferrableReadableChannel(byteBuffer), byteBuffer.remaining())
+      channel.transferFrom(in.getChannel, 0L, byteBuffer.remaining())
       channel.close()
       assert(writer.getNumBytesWritten == D_LEN * 4)
     }
@@ -220,12 +227,5 @@ class DefaultShuffleMapOutputWriterSuite extends SparkFunSuite with BeforeAndAft
     assert(partitionSizesInMergedFile === partitionLengths)
     assert(mergedOutputFile.length() === partitionLengths.sum)
     assert(data === readRecordsFromFile(true))
-  }
-
-  private class ByteBufferTransferrableReadableChannel(buf: ByteBuffer)
-    extends TransferrableReadableByteChannel {
-    override def transferTo(outputChannel: WritableByteChannel, numBytesToTransfer: Long): Unit = {
-      outputChannel.write(buf)
-    }
   }
 }

@@ -26,8 +26,12 @@ import org.apache.spark.annotation.Experimental;
  * Indicates that partition writers can transfer bytes directly from input byte channels to
  * output channels that stream data to the underlying shuffle partition storage medium.
  * <p>
- * This API is separated out from ShuffleParittionWriter because it only needs to be used for
- * specific low-level optimizations.
+ * This API is separated out for advanced users because it only needs to be used for
+ * specific low-level optimizations. The idea is that the returned channel can transfer bytes
+ * from the input file channel out to the backing storage system without copying data into
+ * memory.
+ * <p>
+ * Most shuffle plugin implementations should use {@link ShufflePartitionWriter} instead.
  *
  * @since 3.0.0
  */
