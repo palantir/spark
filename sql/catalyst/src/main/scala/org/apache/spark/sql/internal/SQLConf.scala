@@ -1700,6 +1700,73 @@ object SQLConf {
         "a SparkConf entry.")
       .booleanConf
       .createWithDefault(true)
+<<<<<<< HEAD
+||||||| parent of bc46feaced... [SPARK-27693][SQL] Add default catalog property
+
+  val DATETIME_JAVA8API_ENABLED = buildConf("spark.sql.datetime.java8API.enabled")
+    .doc("If the configuration property is set to true, java.time.Instant and " +
+      "java.time.LocalDate classes of Java 8 API are used as external types for " +
+      "Catalyst's TimestampType and DateType. If it is set to false, java.sql.Timestamp " +
+      "and java.sql.Date are used for the same purpose.")
+    .booleanConf
+    .createWithDefault(false)
+
+  val UTC_TIMESTAMP_FUNC_ENABLED = buildConf("spark.sql.legacy.utcTimestampFunc.enabled")
+    .doc("The configuration property enables the to_utc_timestamp() " +
+         "and from_utc_timestamp() functions.")
+    .booleanConf
+    .createWithDefault(false)
+
+  val SOURCES_BINARY_FILE_MAX_LENGTH = buildConf("spark.sql.sources.binaryFile.maxLength")
+    .doc("The max length of a file that can be read by the binary file data source. " +
+      "Spark will fail fast and not attempt to read the file if its length exceeds this value. " +
+      "The theoretical max is Int.MaxValue, though VMs might implement a smaller max.")
+    .internal()
+    .intConf
+    .createWithDefault(Int.MaxValue)
+
+  val LEGACY_CAST_DATETIME_TO_STRING =
+    buildConf("spark.sql.legacy.typeCoercion.datetimeToString")
+      .doc("If it is set to true, date/timestamp will cast to string in binary comparisons " +
+        "with String")
+    .booleanConf
+    .createWithDefault(false)
+=======
+
+  val DATETIME_JAVA8API_ENABLED = buildConf("spark.sql.datetime.java8API.enabled")
+    .doc("If the configuration property is set to true, java.time.Instant and " +
+      "java.time.LocalDate classes of Java 8 API are used as external types for " +
+      "Catalyst's TimestampType and DateType. If it is set to false, java.sql.Timestamp " +
+      "and java.sql.Date are used for the same purpose.")
+    .booleanConf
+    .createWithDefault(false)
+
+  val UTC_TIMESTAMP_FUNC_ENABLED = buildConf("spark.sql.legacy.utcTimestampFunc.enabled")
+    .doc("The configuration property enables the to_utc_timestamp() " +
+         "and from_utc_timestamp() functions.")
+    .booleanConf
+    .createWithDefault(false)
+
+  val SOURCES_BINARY_FILE_MAX_LENGTH = buildConf("spark.sql.sources.binaryFile.maxLength")
+    .doc("The max length of a file that can be read by the binary file data source. " +
+      "Spark will fail fast and not attempt to read the file if its length exceeds this value. " +
+      "The theoretical max is Int.MaxValue, though VMs might implement a smaller max.")
+    .internal()
+    .intConf
+    .createWithDefault(Int.MaxValue)
+
+  val LEGACY_CAST_DATETIME_TO_STRING =
+    buildConf("spark.sql.legacy.typeCoercion.datetimeToString")
+      .doc("If it is set to true, date/timestamp will cast to string in binary comparisons " +
+        "with String")
+    .booleanConf
+    .createWithDefault(false)
+
+  val DEFAULT_V2_CATALOG = buildConf("spark.sql.default.catalog")
+      .doc("Name of the default v2 catalog, used when a catalog is not identified in queries")
+      .stringConf
+      .createOptional
+>>>>>>> bc46feaced... [SPARK-27693][SQL] Add default catalog property
 }
 
 /**
@@ -2150,6 +2217,16 @@ class SQLConf extends Serializable with Logging {
   def setCommandRejectsSparkCoreConfs: Boolean =
     getConf(SQLConf.SET_COMMAND_REJECTS_SPARK_CORE_CONFS)
 
+<<<<<<< HEAD
+||||||| parent of bc46feaced... [SPARK-27693][SQL] Add default catalog property
+  def castDatetimeToString: Boolean = getConf(SQLConf.LEGACY_CAST_DATETIME_TO_STRING)
+
+=======
+  def castDatetimeToString: Boolean = getConf(SQLConf.LEGACY_CAST_DATETIME_TO_STRING)
+
+  def defaultV2Catalog: Option[String] = getConf(DEFAULT_V2_CATALOG)
+
+>>>>>>> bc46feaced... [SPARK-27693][SQL] Add default catalog property
   /** ********************** SQLConf functionality methods ************ */
 
   /** Set Spark SQL configuration properties. */
