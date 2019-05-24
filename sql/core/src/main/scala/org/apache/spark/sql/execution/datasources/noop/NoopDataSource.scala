@@ -43,7 +43,9 @@ private[noop] object NoopTable extends Table with SupportsWrite with SupportsStr
   override def name(): String = "noop-table"
   override def schema(): StructType = new StructType()
   override def capabilities(): util.Set[TableCapability] = Set(
-      TableCapability.BATCH_WRITE, TableCapability.TRUNCATE, TableCapability.ACCEPT_ANY_SCHEMA).asJava
+      TableCapability.BATCH_WRITE,
+      TableCapability.TRUNCATE,
+      TableCapability.ACCEPT_ANY_SCHEMA).asJava
 }
 
 private[noop] object NoopWriteBuilder extends WriteBuilder with SupportsTruncate {
