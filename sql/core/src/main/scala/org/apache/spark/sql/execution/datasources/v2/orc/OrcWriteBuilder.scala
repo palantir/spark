@@ -29,7 +29,11 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 class OrcWriteBuilder(options: CaseInsensitiveStringMap, paths: Seq[String])
-  extends FileWriteBuilder(options, paths) {
+  extends FileWriteBuilder(
+    options,
+    paths,
+    "orc",
+    supportsDataType = OrcDataSourceV2.supportsDataType) {
 
   override def prepareWrite(
       sqlConf: SQLConf,

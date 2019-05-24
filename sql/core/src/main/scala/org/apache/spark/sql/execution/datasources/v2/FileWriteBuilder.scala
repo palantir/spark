@@ -41,7 +41,7 @@ import org.apache.spark.util.SerializableConfiguration
 abstract class FileWriteBuilder(
     options: CaseInsensitiveStringMap,
     paths: Seq[String],
-    formatName: String,
+    _formatName: String,
     supportsDataType: DataType => Boolean) extends WriteBuilder {
   private var schema: StructType = _
   private var queryId: String = _
@@ -133,9 +133,10 @@ abstract class FileWriteBuilder(
     assert(paths.length == 1)
     DataSource.validateSchema(schema)
     schema.foreach { field =>
-      if (!supportsDataType(field.dataType)) {
+      if (!supportsDataType.apply(field.dataType)) {
         throw new AnalysisException(
-          s"$formatName data source does not support ${field.dataType.catalogString} data type.")
+          s"$formatName data source does not support ${field.dataType.catalogString}" +
+            s" data type.")
       }
     }
   }
