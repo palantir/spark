@@ -225,7 +225,7 @@ class AvroDeserializer(rootAvroType: Schema, rootCatalystType: DataType) {
       case (UNION, _) =>
         val allTypes = avroType.getTypes.asScala
         val nonNullTypes = allTypes.filter(_.getType != NULL)
-        val nonNullAvroType = Schema.createUnion(avroType.getTypes.filter(_ != null))
+        val nonNullAvroType = Schema.createUnion(nonNullTypes.asJava)
         if (nonNullTypes.nonEmpty) {
           if (nonNullTypes.length == 1) {
             newWriter(nonNullTypes.head, catalystType, path)
