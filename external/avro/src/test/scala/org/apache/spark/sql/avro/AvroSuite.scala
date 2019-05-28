@@ -247,7 +247,7 @@ class AvroSuite extends QueryTest with SharedSQLContext with SQLTestUtils {
     }
   }
 
-  test("Union type: More than one non-null type") {
+  test("SPARK-27858 Union type: More than one non-null type") {
     withTempDir { dir =>
       val complexNullUnionType = Schema.createUnion(
         List(Schema.create(Type.INT), Schema.create(Type.NULL), Schema.create(Type.STRING)).asJava)
@@ -259,17 +259,17 @@ class AvroSuite extends QueryTest with SharedSQLContext with SQLTestUtils {
       val dataFileWriter = new DataFileWriter[GenericRecord](datumWriter)
       dataFileWriter.create(schema, new File(s"$dir.avro"))
       val avroRec = new GenericData.Record(schema)
-      avroRec.put("field1", 8)
+      avroRec.put("field1", 42)
       dataFileWriter.append(avroRec)
       val avroRec2 = new GenericData.Record(schema)
-      avroRec2.put("field1", "Gabbi")
+      avroRec2.put("field1", "Alice")
       dataFileWriter.append(avroRec2)
       dataFileWriter.flush()
       dataFileWriter.close()
 
       val df = spark.read.format("avro").load(s"$dir.avro")
-      assertResult(8)(df.selectExpr("field1.member0").take(1)(0).get(0))
-      assertResult("Gabbi")(df.selectExpr("field1.member1").take(2).drop(1)(0).get(0))
+      assert(df.schema === StructType.fromDDL("field1 struct<member0: int, member1: string>"))
+      assert(df.collect().toSet == Set(Row(Row(42, null)), Row(Row(null, "Alice"))))
     }
   }
 
