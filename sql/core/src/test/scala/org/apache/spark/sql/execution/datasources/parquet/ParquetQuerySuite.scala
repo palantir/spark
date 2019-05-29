@@ -886,6 +886,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
   // openCostInBytes to disable file merging.
   test("SPARK-17059: Allow FileFormat to specify partition pruning strategy") {
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
+      SQLConf.PARQUET_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString) {
       withTempPath { path =>
         spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
@@ -902,7 +903,8 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
 
   test("Do not filter out parquet file when missing in _metadata file") {
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
-      SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString) {
+      SQLConf.PARQUET_PARTITION_PRUNING_ENABLED.key -> "true",
+      SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString){
       withTempPath { path =>
         spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
           .toDF("x").write.parquet(path.getCanonicalPath)
@@ -918,6 +920,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
 
   test("Only read _metadata file once for a given root path") {
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
+      SQLConf.PARQUET_PARTITION_PRUNING_ENABLED.key -> "true",
       "fs.count.impl" -> classOf[CountingFileSystem].getName,
       "fs.count.impl.disable.cache" -> "true") {
       withTempPath { path =>
@@ -974,6 +977,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
 
   test("Ensure timestamps are filterable") {
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
+      SQLConf.PARQUET_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.PARQUET_INT96_AS_TIMESTAMP.key -> "false") {
       withTempPath { path =>
         val ts = new Timestamp(System.currentTimeMillis())
@@ -994,6 +998,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
 
   test("Ensure dates are filterable") {
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
+      SQLConf.PARQUET_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.PARQUET_INT96_AS_TIMESTAMP.key -> "false") {
       withTempPath { path =>
         val date = new Date(2016, 1, 1)
