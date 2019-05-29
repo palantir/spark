@@ -904,7 +904,7 @@ class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSQLContext
   test("Do not filter out parquet file when missing in _metadata file") {
     withSQLConf(ParquetOutputFormat.JOB_SUMMARY_LEVEL -> "ALL",
       SQLConf.PARQUET_PARTITION_PRUNING_ENABLED.key -> "true",
-      SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString){
+      SQLConf.FILES_OPEN_COST_IN_BYTES.key -> (128 * 1024 * 1024).toString) {
       withTempPath { path =>
         spark.sparkContext.parallelize(Seq(1, 2, 3), 3)
           .toDF("x").write.parquet(path.getCanonicalPath)
