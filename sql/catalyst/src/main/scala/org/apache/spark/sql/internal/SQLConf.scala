@@ -498,7 +498,7 @@ object SQLConf {
   val PARQUET_PARTITION_PRUNING_ENABLED = buildConf("spark.sql.parquet.enablePartitionPruning")
       .doc("Enables driver-side partition pruning for Parquet.")
       .booleanConf
-      .createWithDefault(true)
+      .createWithDefault(false)
 
   val PARQUET_VECTORIZED_READER_BATCH_SIZE = buildConf("spark.sql.parquet.columnarReaderBatchSize")
     .doc("The number of rows to include in a parquet vectorized reader batch. The number should " +
