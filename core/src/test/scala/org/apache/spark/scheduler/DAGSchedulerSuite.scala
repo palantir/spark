@@ -445,17 +445,17 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
     // map stage1 completes successfully, with one task on each executor
     complete(taskSets(0), Seq(
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA1", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(Some(BlockManagerId("exec-hostA1", "hostA", 12345)), Array.fill[Long](1)(2))),
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA2", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(Some(BlockManagerId("exec-hostA2", "hostA", 12345)), Array.fill[Long](1)(2))),
       (Success, makeMapStatus("hostB", 1))
     ))
     // map stage2 completes successfully, with one task on each executor
     complete(taskSets(1), Seq(
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA1", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(Some(BlockManagerId("exec-hostA1", "hostA", 12345)), Array.fill[Long](1)(2))),
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA2", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(Some(BlockManagerId("exec-hostA2", "hostA", 12345)), Array.fill[Long](1)(2))),
       (Success, makeMapStatus("hostB", 1))
     ))
     // make sure our test setup is correct
@@ -2904,7 +2904,7 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
 
 object DAGSchedulerSuite {
   def makeMapStatus(host: String, reduces: Int, sizes: Byte = 2): MapStatus =
-    MapStatus(Some(makeBlockManagerId(host)), Array.fill[Long](reduces)(sizes), 0)
+    MapStatus(Some(makeBlockManagerId(host)), Array.fill[Long](reduces)(sizes))
 
   def makeBlockManagerId(host: String): BlockManagerId =
     BlockManagerId("exec-" + host, host, 12345)
