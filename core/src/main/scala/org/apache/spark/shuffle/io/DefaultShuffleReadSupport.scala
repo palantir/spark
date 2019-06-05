@@ -26,7 +26,7 @@ import org.apache.spark.api.shuffle.{ShuffleBlockInfo, ShuffleReadSupport}
 import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
-import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockAttemptId, ShuffleBlockFetcherIterator, ShuffleBlockId}
+import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 
 class DefaultShuffleReadSupport(
     blockManager: BlockManager,
@@ -93,12 +93,7 @@ private class ShuffleBlockFetcherIterable(
       blockManager.shuffleClient,
       blockManager,
       mapOutputTracker.getMapSizesByExecutorId(shuffleId, minReduceId, maxReduceId + 1)
-        .map(loc => (
-          loc._1.get,
-          loc._2.map { case(shuffleBlockAttemptId, size) =>
-            val block = shuffleBlockAttemptId.asInstanceOf[ShuffleBlockAttemptId]
-            (ShuffleBlockId(block.shuffleId, block.mapId, block.reduceId), size)
-          })),
+        .map(loc => (loc._1.get, loc._2)),
       serializerManager.wrapStream,
       maxBytesInFlight,
       maxReqsInFlight,

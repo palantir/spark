@@ -155,11 +155,11 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
   }
 
   def makeMapStatus(execId: String, host: String): MapStatus = {
-    MapStatus(Some(BlockManagerId(execId, host, 1234)), Array.fill[Long](2)(2), 0)
+    MapStatus(Some(BlockManagerId(execId, host, 1234)), Array.fill[Long](2)(2))
   }
 
   def makeEmptyMapStatus(): MapStatus = {
-    MapStatus(None, Array.fill[Long](2)(2), 0)
+    MapStatus(None, Array.fill[Long](2)(2))
   }
 
   def assertMapShuffleLocations(shuffleId: Int, set: Seq[MapStatus]): Unit = {

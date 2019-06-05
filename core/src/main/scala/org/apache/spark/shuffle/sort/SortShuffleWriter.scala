@@ -65,10 +65,10 @@ private[spark] class SortShuffleWriter[K, V, C](
     // because it just opens a single file, so is typically too fast to measure accurately
     // (see SPARK-3570).
     val mapOutputWriter = writeSupport.createMapOutputWriter(
-      dep.shuffleId, mapId, dep.partitioner.numPartitions, context.attemptNumber())
+      dep.shuffleId, mapId, dep.partitioner.numPartitions)
     val partitionLengths = sorter.writePartitionedMapOutput(dep.shuffleId, mapId, mapOutputWriter)
     val location = mapOutputWriter.commitAllPartitions
-    mapStatus = MapStatus(Option.apply(location.orNull), partitionLengths, context.attemptNumber())
+    mapStatus = MapStatus(Option.apply(location.orNull), partitionLengths)
   }
 
   /** Close this writer, passing along whether the map completed */
