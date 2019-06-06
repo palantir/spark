@@ -30,6 +30,17 @@ import org.apache.spark.unsafe.types.UTF8String
 class DDLParserSuite extends AnalysisTest {
   import CatalystSqlParser._
 
+<<<<<<< HEAD
+  private def intercept(sqlCommand: String, messages: String*): Unit = {
+    val e = intercept[ParseException](parsePlan(sqlCommand))
+    messages.foreach { message =>
+      assert(e.message.contains(message))
+    }
+  }
+||||||| parent of fad827a417... [SPARK-27857][SQL] Move ALTER TABLE parsing into Catalyst
+  private def intercept(sqlCommand: String, messages: String*): Unit =
+    interceptParseException(parsePlan)(sqlCommand, messages: _*)
+=======
   private def assertUnsupported(sql: String, containsThesePhrases: Seq[String] = Seq()): Unit = {
     val e = intercept[ParseException] {
       parsePlan(sql)
@@ -42,6 +53,7 @@ class DDLParserSuite extends AnalysisTest {
 
   private def intercept(sqlCommand: String, messages: String*): Unit =
     interceptParseException(parsePlan)(sqlCommand, messages: _*)
+>>>>>>> fad827a417... [SPARK-27857][SQL] Move ALTER TABLE parsing into Catalyst
 
   private def parseCompare(sql: String, expected: LogicalPlan): Unit = {
     comparePlans(parsePlan(sql), expected, checkAnalysis = false)
