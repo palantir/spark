@@ -1700,6 +1700,8 @@ object SQLConf {
         "a SparkConf entry.")
       .booleanConf
       .createWithDefault(true)
+<<<<<<< HEAD
+||||||| parent of bc46feaced... [SPARK-27693][SQL] Add default catalog property
 
   val DATETIME_JAVA8API_ENABLED = buildConf("spark.sql.datetime.java8API.enabled")
     .doc("If the configuration property is set to true, java.time.Instant and " +
@@ -1764,6 +1766,7 @@ object SQLConf {
       .doc("Name of the default v2 catalog, used when a catalog is not identified in queries")
       .stringConf
       .createOptional
+>>>>>>> bc46feaced... [SPARK-27693][SQL] Add default catalog property
 }
 
 /**
@@ -2214,12 +2217,16 @@ class SQLConf extends Serializable with Logging {
   def setCommandRejectsSparkCoreConfs: Boolean =
     getConf(SQLConf.SET_COMMAND_REJECTS_SPARK_CORE_CONFS)
 
+<<<<<<< HEAD
+||||||| parent of bc46feaced... [SPARK-27693][SQL] Add default catalog property
   def castDatetimeToString: Boolean = getConf(SQLConf.LEGACY_CAST_DATETIME_TO_STRING)
 
+=======
   def castDatetimeToString: Boolean = getConf(SQLConf.LEGACY_CAST_DATETIME_TO_STRING)
 
   def defaultV2Catalog: Option[String] = getConf(DEFAULT_V2_CATALOG)
 
+>>>>>>> bc46feaced... [SPARK-27693][SQL] Add default catalog property
   /** ********************** SQLConf functionality methods ************ */
 
   /** Set Spark SQL configuration properties. */
