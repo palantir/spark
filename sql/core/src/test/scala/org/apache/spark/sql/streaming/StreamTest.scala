@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.streaming
 
+import java.lang.Thread.UncaughtExceptionHandler
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
