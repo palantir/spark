@@ -24,6 +24,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 import org.apache.spark.sql.AnalysisException
+import org.apache.spark.sql.catalog.v2.{CatalogPlugin, LookupCatalog}
 import org.apache.spark.sql.catalyst._
 import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.encoders.OuterScopes
@@ -95,11 +96,17 @@ object AnalysisContext {
 class Analyzer(
     catalog: SessionCatalog,
     conf: SQLConf,
-    maxIterations: Int)
-  extends RuleExecutor[LogicalPlan] with CheckAnalysis {
+    maxIterations: Int,
+    override val lookupCatalog: Option[(String) => CatalogPlugin] = None)
+  extends RuleExecutor[LogicalPlan] with CheckAnalysis with LookupCatalog {
 
   def this(catalog: SessionCatalog, conf: SQLConf) = {
     this(catalog, conf, conf.optimizerMaxIterations)
+  }
+
+  def this(lookupCatalog: Option[(String) => CatalogPlugin], catalog: SessionCatalog,
+      conf: SQLConf) = {
+    this(catalog, conf, conf.optimizerMaxIterations, lookupCatalog)
   }
 
   def executeAndCheck(plan: LogicalPlan, tracker: QueryPlanningTracker): LogicalPlan = {
@@ -977,6 +984,11 @@ class Analyzer(
       // names leading to ambiguous references exception.
       case a @ Aggregate(groupingExprs, aggExprs, appendColumns: AppendColumns) =>
         a.mapExpressions(resolveExpressionTopDown(_, appendColumns))
+
+      case o: OverwriteByExpression if !o.outputResolved =>
+        // do not resolve expression attributes until the query attributes are resolved against the
+        // table by ResolveOutputRelation. that rule will alias the attributes to the table's names.
+        o
 
       case q: LogicalPlan =>
         logTrace(s"Attempting to resolve ${q.simpleString(SQLConf.get.maxToStringFields)}")
@@ -2237,13 +2249,33 @@ class Analyzer(
   object ResolveOutputRelation extends Rule[LogicalPlan] {
     override def apply(plan: LogicalPlan): LogicalPlan = plan.resolveOperators {
       case append @ AppendData(table, query, isByName)
-          if table.resolved && query.resolved && !append.resolved =>
+          if table.resolved && query.resolved && !append.outputResolved =>
         val projection = resolveOutputColumns(table.name, table.output, query, isByName)
 
         if (projection != query) {
           append.copy(query = projection)
         } else {
           append
+        }
+
+      case overwrite @ OverwriteByExpression(table, _, query, isByName)
+          if table.resolved && query.resolved && !overwrite.outputResolved =>
+        val projection = resolveOutputColumns(table.name, table.output, query, isByName)
+
+        if (projection != query) {
+          overwrite.copy(query = projection)
+        } else {
+          overwrite
+        }
+
+      case overwrite @ OverwritePartitionsDynamic(table, query, isByName)
+          if table.resolved && query.resolved && !overwrite.outputResolved =>
+        val projection = resolveOutputColumns(table.name, table.output, query, isByName)
+
+        if (projection != query) {
+          overwrite.copy(query = projection)
+        } else {
+          overwrite
         }
     }
 

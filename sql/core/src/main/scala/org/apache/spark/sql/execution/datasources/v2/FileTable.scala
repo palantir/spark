@@ -16,19 +16,41 @@
  */
 package org.apache.spark.sql.execution.datasources.v2
 
+import java.util
+
+import scala.collection.JavaConverters._
+
 import org.apache.hadoop.fs.FileStatus
 
 import org.apache.spark.sql.{AnalysisException, SparkSession}
+import org.apache.spark.sql.catalog.v2.expressions.Transform
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.sources.v2.{SupportsBatchRead, SupportsBatchWrite, Table}
+import org.apache.spark.sql.sources.v2.{SupportsRead, SupportsWrite, Table, TableCapability}
+import org.apache.spark.sql.sources.v2.TableCapability._
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 abstract class FileTable(
     sparkSession: SparkSession,
-    fileIndex: PartitioningAwareFileIndex,
+    options: CaseInsensitiveStringMap,
+    paths: Seq[String],
     userSpecifiedSchema: Option[StructType])
-  extends Table with SupportsBatchRead with SupportsBatchWrite {
-  def getFileIndex: PartitioningAwareFileIndex = this.fileIndex
+  extends Table with SupportsRead with SupportsWrite {
+
+  import org.apache.spark.sql.catalog.v2.CatalogV2Implicits._
+
+  lazy val fileIndex: PartitioningAwareFileIndex = {
+    val caseSensitiveMap = options.asCaseSensitiveMap.asScala.toMap
+    // Hadoop Configurations are case sensitive.
+    val hadoopConf = sparkSession.sessionState.newHadoopConfWithOptions(caseSensitiveMap)
+    // This is an internal config so must be present.
+    val checkFilesExist = options.get("check_files_exist").toBoolean
+    val rootPathsSpecified = DataSource.checkAndGlobPathIfNecessary(paths, hadoopConf,
+      checkEmptyGlobPath = true, checkFilesExist = checkFilesExist)
+    val fileStatusCache = FileStatusCache.getOrCreate(sparkSession)
+    new InMemoryFileIndex(
+      sparkSession, rootPathsSpecified, caseSensitiveMap, userSpecifiedSchema, fileStatusCache)
+  }
 
   lazy val dataSchema: StructType = userSpecifiedSchema.orElse {
     inferSchema(fileIndex.allFiles())
@@ -43,10 +65,20 @@ abstract class FileTable(
       fileIndex.partitionSchema, caseSensitive)._1
   }
 
+  override def partitioning: Array[Transform] = fileIndex.partitionSchema.asTransforms
+
+  override def properties: util.Map[String, String] = options.asCaseSensitiveMap
+
+  override def capabilities: java.util.Set[TableCapability] = FileTable.CAPABILITIES
+
   /**
    * When possible, this method should return the schema of the given `files`.  When the format
    * does not support inference, or no valid files are given should return None.  In these cases
    * Spark will require that user specify the schema manually.
    */
   def inferSchema(files: Seq[FileStatus]): Option[StructType]
+}
+
+object FileTable {
+  private val CAPABILITIES = Set(BATCH_READ, BATCH_WRITE, TRUNCATE).asJava
 }

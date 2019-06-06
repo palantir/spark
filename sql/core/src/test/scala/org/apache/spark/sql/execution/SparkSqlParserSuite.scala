@@ -215,19 +215,6 @@ class SparkSqlParserSuite extends AnalysisTest {
       "no viable alternative at input")
   }
 
-  test("create table using - schema") {
-    assertEqual("CREATE TABLE my_tab(a INT COMMENT 'test', b STRING) USING parquet",
-      createTableUsing(
-        table = "my_tab",
-        schema = (new StructType)
-          .add("a", IntegerType, nullable = true, "test")
-          .add("b", StringType)
-      )
-    )
-    intercept("CREATE TABLE my_tab(a: INT COMMENT 'test', b: STRING) USING parquet",
-      "no viable alternative at input")
-  }
-
   test("create view as insert into table") {
     // Single insert query
     intercept("CREATE VIEW testView AS INSERT INTO jt VALUES(1, 1)",
@@ -240,15 +227,20 @@ class SparkSqlParserSuite extends AnalysisTest {
   }
 
   test("SPARK-17328 Fix NPE with EXPLAIN DESCRIBE TABLE") {
+    assertEqual("describe t",
+      DescribeTableCommand(TableIdentifier("t"), Map.empty, isExtended = false))
     assertEqual("describe table t",
-      DescribeTableCommand(
-        TableIdentifier("t"), Map.empty, isExtended = false))
+      DescribeTableCommand(TableIdentifier("t"), Map.empty, isExtended = false))
     assertEqual("describe table extended t",
-      DescribeTableCommand(
-        TableIdentifier("t"), Map.empty, isExtended = true))
+      DescribeTableCommand(TableIdentifier("t"), Map.empty, isExtended = true))
     assertEqual("describe table formatted t",
-      DescribeTableCommand(
-        TableIdentifier("t"), Map.empty, isExtended = true))
+      DescribeTableCommand(TableIdentifier("t"), Map.empty, isExtended = true))
+  }
+
+  test("describe query") {
+    val query = "SELECT * FROM t"
+    assertEqual("DESCRIBE QUERY " + query, DescribeQueryCommand(parser.parsePlan(query)))
+    assertEqual("DESCRIBE " + query, DescribeQueryCommand(parser.parsePlan(query)))
   }
 
   test("describe table column") {
@@ -386,5 +378,13 @@ class SparkSqlParserSuite extends AnalysisTest {
     intercept("ALTER VIEW testView AS FROM jt INSERT INTO tbl1 SELECT * WHERE jt.id < 5 " +
       "INSERT INTO tbl2 SELECT * WHERE jt.id > 4",
       "Operation not allowed: ALTER VIEW ... AS FROM ... [INSERT INTO ...]+")
+  }
+
+  test("database and schema tokens are interchangeable") {
+    assertEqual("CREATE DATABASE foo", parser.parsePlan("CREATE SCHEMA foo"))
+    assertEqual("DROP DATABASE foo", parser.parsePlan("DROP SCHEMA foo"))
+    assertEqual("ALTER DATABASE foo SET DBPROPERTIES ('x' = 'y')",
+      parser.parsePlan("ALTER SCHEMA foo SET DBPROPERTIES ('x' = 'y')"))
+    assertEqual("DESC DATABASE foo", parser.parsePlan("DESC SCHEMA foo"))
   }
 }

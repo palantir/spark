@@ -19,6 +19,7 @@ package org.apache.spark.sql.catalyst.util
 
 import java.sql.{Date, Timestamp}
 import java.text.{DateFormat, SimpleDateFormat}
+import java.time.ZoneId
 import java.util.{Calendar, Locale, TimeZone}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.function.{Function => JFunction}
@@ -122,6 +123,8 @@ object DateTimeUtils {
   private val computeTimeZone = new JFunction[String, TimeZone] {
     override def apply(timeZoneId: String): TimeZone = TimeZone.getTimeZone(timeZoneId)
   }
+
+  def getZoneId(timeZoneId: String): ZoneId = ZoneId.of(timeZoneId, ZoneId.SHORT_IDS)
 
   def getTimeZone(timeZoneId: String): TimeZone = {
     computedTimeZones.computeIfAbsent(timeZoneId, computeTimeZone)

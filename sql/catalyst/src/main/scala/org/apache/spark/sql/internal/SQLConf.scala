@@ -314,6 +314,12 @@ object SQLConf {
     .booleanConf
     .createWithDefault(true)
 
+  val ANSI_SQL_PARSER =
+    buildConf("spark.sql.parser.ansi.enabled")
+      .doc("When true, tries to conform to ANSI SQL syntax.")
+      .booleanConf
+      .createWithDefault(false)
+
   val ESCAPED_STRING_LITERALS = buildConf("spark.sql.parser.escapedStringLiterals")
     .internal()
     .doc("When true, string literals (including regex patterns) remain escaped in our SQL " +
@@ -918,6 +924,12 @@ object SQLConf {
     .stringConf
     .createOptional
 
+  val FORCE_DELETE_TEMP_CHECKPOINT_LOCATION =
+    buildConf("spark.sql.streaming.forceDeleteTempCheckpointLocation")
+      .doc("When true, enable temporary checkpoint locations force delete.")
+      .booleanConf
+      .createWithDefault(false)
+
   val MIN_BATCHES_TO_RETAIN = buildConf("spark.sql.streaming.minBatchesToRetain")
     .internal()
     .doc("The minimum number of batches that must be retained and made recoverable.")
@@ -1116,6 +1128,14 @@ object SQLConf {
         "of the interface CheckpointFileManager.")
       .internal()
       .stringConf
+
+  val STREAMING_CHECKPOINT_ESCAPED_PATH_CHECK_ENABLED =
+    buildConf("spark.sql.streaming.checkpoint.escapedPathCheck.enabled")
+      .doc("Whether to detect a streaming query may pick up an incorrect checkpoint path due " +
+        "to SPARK-26824.")
+      .internal()
+      .booleanConf
+      .createWithDefault(true)
 
   val PARALLEL_FILE_LISTING_IN_STATS_COMPUTATION =
     buildConf("spark.sql.statistics.parallelFileListingInStatsComputation.enabled")
@@ -1427,6 +1447,13 @@ object SQLConf {
       .booleanConf
       .createWithDefault(true)
 
+  val CONTINUOUS_STREAMING_EPOCH_BACKLOG_QUEUE_SIZE =
+    buildConf("spark.sql.streaming.continuous.epochBacklogQueueSize")
+      .doc("The max number of entries to be stored in queue to wait for late epochs. " +
+        "If this parameter is exceeded by the size of the queue, stream will stop with an error.")
+      .intConf
+      .createWithDefault(10000)
+
   val CONTINUOUS_STREAMING_EXECUTOR_QUEUE_SIZE =
     buildConf("spark.sql.streaming.continuous.executorQueueSize")
     .internal()
@@ -1457,7 +1484,7 @@ object SQLConf {
       " register class names for which data source V2 write paths are disabled. Writes from these" +
       " sources will fall back to the V1 sources.")
     .stringConf
-    .createWithDefault("")
+    .createWithDefault("orc")
 
   val DISABLED_V2_STREAMING_WRITERS = buildConf("spark.sql.streaming.disabledV2Writers")
     .doc("A comma-separated list of fully qualified data source register class names for which" +
@@ -1848,6 +1875,8 @@ class SQLConf extends Serializable with Logging {
 
   def constraintPropagationEnabled: Boolean = getConf(CONSTRAINT_PROPAGATION_ENABLED)
 
+  def ansiParserEnabled: Boolean = getConf(ANSI_SQL_PARSER)
+
   def escapedStringLiterals: Boolean = getConf(ESCAPED_STRING_LITERALS)
 
   def fileCompressionFactor: Double = getConf(FILE_COMRESSION_FACTOR)
@@ -2058,6 +2087,9 @@ class SQLConf extends Serializable with Logging {
   def decimalOperationsAllowPrecisionLoss: Boolean = getConf(DECIMAL_OPERATIONS_ALLOW_PREC_LOSS)
 
   def literalPickMinimumPrecision: Boolean = getConf(LITERAL_PICK_MINIMUM_PRECISION)
+
+  def continuousStreamingEpochBacklogQueueSize: Int =
+    getConf(CONTINUOUS_STREAMING_EPOCH_BACKLOG_QUEUE_SIZE)
 
   def continuousStreamingExecutorQueueSize: Int = getConf(CONTINUOUS_STREAMING_EXECUTOR_QUEUE_SIZE)
 

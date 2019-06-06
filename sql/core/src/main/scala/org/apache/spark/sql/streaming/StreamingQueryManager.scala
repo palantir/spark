@@ -34,7 +34,7 @@ import org.apache.spark.sql.execution.streaming.continuous.{ContinuousExecution,
 import org.apache.spark.sql.execution.streaming.state.StateStoreCoordinatorRef
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.StaticSQLConf.STREAMING_QUERY_LISTENERS
-import org.apache.spark.sql.sources.v2.StreamingWriteSupportProvider
+import org.apache.spark.sql.sources.v2.SupportsStreamingWrite
 import org.apache.spark.util.{Clock, SystemClock, Utils}
 
 /**
@@ -214,16 +214,20 @@ class StreamingQueryManager private[sql] (sparkSession: SparkSession) extends Lo
       triggerClock: Clock): StreamingQueryWrapper = {
     var deleteCheckpointOnStop = false
     val checkpointLocation = userSpecifiedCheckpointLocation.map { userSpecified =>
-      new Path(userSpecified).toUri.toString
+      new Path(userSpecified).toString
     }.orElse {
       df.sparkSession.sessionState.conf.checkpointLocation.map { location =>
-        new Path(location, userSpecifiedName.getOrElse(UUID.randomUUID().toString)).toUri.toString
+        new Path(location, userSpecifiedName.getOrElse(UUID.randomUUID().toString)).toString
       }
     }.getOrElse {
       if (useTempCheckpointLocation) {
-        // Delete the temp checkpoint when a query is being stopped without errors.
         deleteCheckpointOnStop = true
-        Utils.createTempDir(namePrefix = s"temporary").getCanonicalPath
+        val tempDir = Utils.createTempDir(namePrefix = s"temporary").getCanonicalPath
+        logWarning("Temporary checkpoint location created which is deleted normally when" +
+          s" the query didn't fail: $tempDir. If it's required to delete it under any" +
+          s" circumstances, please set ${SQLConf.FORCE_DELETE_TEMP_CHECKPOINT_LOCATION.key} to" +
+          s" true. Important to know deleting temp checkpoint folder is best effort.")
+        tempDir
       } else {
         throw new AnalysisException(
           "checkpointLocation must be specified either " +
@@ -254,7 +258,7 @@ class StreamingQueryManager private[sql] (sparkSession: SparkSession) extends Lo
     }
 
     (sink, trigger) match {
-      case (v2Sink: StreamingWriteSupportProvider, trigger: ContinuousTrigger) =>
+      case (v2Sink: SupportsStreamingWrite, trigger: ContinuousTrigger) =>
         if (operationCheckEnabled) {
           UnsupportedOperationChecker.checkForContinuous(analyzedPlan, outputMode)
         }

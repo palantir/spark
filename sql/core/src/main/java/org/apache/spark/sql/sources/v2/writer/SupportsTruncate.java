@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.sources.v2;
-
-import org.apache.spark.annotation.Evolving;
-import org.apache.spark.sql.sources.v2.reader.Scan;
-import org.apache.spark.sql.sources.v2.reader.ScanBuilder;
+package org.apache.spark.sql.sources.v2.writer;
 
 /**
- * An empty mix-in interface for {@link Table}, to indicate this table supports batch scan.
+ * Write builder trait for tables that support truncation.
  * <p>
- * If a {@link Table} implements this interface, the
- * {@link SupportsRead#newScanBuilder(DataSourceOptions)} must return a {@link ScanBuilder} that
- * builds {@link Scan} with {@link Scan#toBatch()} implemented.
- * </p>
+ * Truncation removes all data in a table and replaces it with data that is committed in the write.
  */
-@Evolving
-public interface SupportsBatchRead extends SupportsRead { }
+public interface SupportsTruncate extends WriteBuilder {
+  /**
+   * Configures a write to replace all existing data with data committed in the write.
+   *
+   * @return this write builder for method chaining
+   */
+  WriteBuilder truncate();
+}

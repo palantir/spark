@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.sources.v2;
+package org.apache.spark.sql.catalog.v2;
 
-import org.apache.spark.annotation.Evolving;
+import org.apache.spark.annotation.Experimental;
 
 /**
- * TODO: remove it when we finish the API refactor for streaming write side.
+ * Identifies an object in a catalog.
  */
-@Evolving
-public interface DataSourceV2 {}
+@Experimental
+public interface Identifier {
+
+  static Identifier of(String[] namespace, String name) {
+    return new IdentifierImpl(namespace, name);
+  }
+
+  /**
+   * @return the namespace in the catalog
+   */
+  String[] namespace();
+
+  /**
+   * @return the object name
+   */
+  String name();
+}
