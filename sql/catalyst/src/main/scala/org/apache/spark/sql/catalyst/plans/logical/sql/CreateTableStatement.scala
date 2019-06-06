@@ -19,6 +19,7 @@ package org.apache.spark.sql.catalyst.plans.logical.sql
 
 import org.apache.spark.sql.catalog.v2.expressions.Transform
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
+import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.types.StructType
 
@@ -37,7 +38,12 @@ case class CreateTableStatement(
     options: Map[String, String],
     location: Option[String],
     comment: Option[String],
-    ifNotExists: Boolean) extends ParsedStatement
+    ifNotExists: Boolean) extends ParsedStatement {
+
+  override def output: Seq[Attribute] = Seq.empty
+
+  override def children: Seq[LogicalPlan] = Seq.empty
+}
 
 /**
  * A CREATE TABLE AS SELECT command, as parsed from SQL.
@@ -53,6 +59,8 @@ case class CreateTableAsSelectStatement(
     location: Option[String],
     comment: Option[String],
     ifNotExists: Boolean) extends ParsedStatement {
+
+  override def output: Seq[Attribute] = Seq.empty
 
   override def children: Seq[LogicalPlan] = Seq(asSelect)
 }
