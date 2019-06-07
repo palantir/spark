@@ -108,16 +108,9 @@ object DataSourceV2Strategy extends Strategy with PredicateHelper {
     case PhysicalOperation(project, filters, relation: DataSourceV2Relation) =>
       val scanBuilder = relation.newScanBuilder()
 
-<<<<<<< HEAD
-      val normalizedFilters = DataSourceStrategy.normalizeFilters(filters, relation.output)
-||||||| parent of 601fac2cb3... [SPARK-27411][SQL] DataSourceV2Strategy should not eliminate subquery
-      val normalizedFilters = DataSourceStrategy.normalizeFilters(
-        filters.filterNot(SubqueryExpression.hasSubquery), relation.output)
-=======
       val (withSubquery, withoutSubquery) = filters.partition(SubqueryExpression.hasSubquery)
       val normalizedFilters = DataSourceStrategy.normalizeFilters(
         withoutSubquery, relation.output)
->>>>>>> 601fac2cb3... [SPARK-27411][SQL] DataSourceV2Strategy should not eliminate subquery
 
       // `pushedFilters` will be pushed down and evaluated in the underlying data sources.
       // `postScanFilters` need to be evaluated after the scan.
