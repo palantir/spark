@@ -18,7 +18,7 @@
 package org.apache.spark.shuffle
 
 import org.apache.spark.{FetchFailed, TaskContext, TaskFailedReason}
-import org.apache.spark.storage.BlockManagerId
+import org.apache.spark.storage.{BlockManagerId, ShuffleBlockId}
 import org.apache.spark.util.Utils
 
 /**
@@ -58,6 +58,8 @@ private[spark] class FetchFailedException(
 
   def toTaskFailedReason: TaskFailedReason = FetchFailed(bmAddress, shuffleId, mapId, reduceId,
     Utils.exceptionString(this))
+
+  def getShuffleBlockId(): ShuffleBlockId = ShuffleBlockId(shuffleId, mapId, reduceId)
 }
 
 /**
