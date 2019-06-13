@@ -82,11 +82,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       override def next(): InputStream = {
         var returnStream: InputStream = null
         while (streamsIterator.hasNext && returnStream == null) {
-          if (shuffleReadSupport.isInstanceOf[DefaultShuffleReadSupport]) {
-            // The default implementation checks for corrupt streams, so it will already have
-            // decompressed/decrypted the bytes
-            returnStream = streamsIterator.next()
-          } else {
+          if (shuffleReadSupport.shouldWrapStream()) {
             val nextStream = streamsIterator.next()
             returnStream = if (compressShuffle) {
               compressionCodec.compressedInputStream(
@@ -94,6 +90,10 @@ private[spark] class BlockStoreShuffleReader[K, C](
             } else {
               serializerManager.wrapForEncryption(nextStream)
             }
+          } else {
+            // The default implementation checks for corrupt streams, so it will already have
+            // decompressed/decrypted the bytes
+            returnStream = streamsIterator.next()
           }
         }
         if (returnStream == null) {

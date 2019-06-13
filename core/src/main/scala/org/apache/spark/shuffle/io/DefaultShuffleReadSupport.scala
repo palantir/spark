@@ -70,6 +70,8 @@ class DefaultShuffleReadSupport(
     }
     iterableToReturn.asJava
   }
+
+  override def shouldWrapStream(): Boolean = false
 }
 
 private class ShuffleBlockFetcherIterable(

@@ -35,4 +35,8 @@ public interface ShuffleReadSupport {
    */
   Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
+
+  default boolean shouldWrapStream() {
+    return true;
+  }
 }
