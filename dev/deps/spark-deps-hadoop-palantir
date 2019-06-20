@@ -205,7 +205,7 @@ univocity-parsers-2.7.3.jar
 validation-api-1.1.0.Final.jar
 wildfly-openssl-1.0.7.Final.jar
 woodstox-core-5.0.3.jar
-xbean-asm7-shaded-4.13.jar
+xbean-asm7-shaded-4.14.jar
 xmlenc-0.52.jar
 xz-1.8.jar
 zjsonpatch-0.3.0.jar
