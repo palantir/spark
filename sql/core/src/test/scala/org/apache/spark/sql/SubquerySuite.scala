@@ -19,8 +19,11 @@ package org.apache.spark.sql
 
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.spark.sql.catalyst.expressions.SubqueryExpression
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, SubqueryExpression, UnsafeRow}
 import org.apache.spark.sql.catalyst.plans.logical.{Join, LogicalPlan, Sort}
+import org.apache.spark.sql.execution.{SparkPlan, SubqueryExec}
 import org.apache.spark.sql.test.SharedSQLContext
 
 class SubquerySuite extends QueryTest with SharedSQLContext {
@@ -1315,5 +1318,25 @@ class SubquerySuite extends QueryTest with SharedSQLContext {
         """.stripMargin)
       checkAnswer(df3, Seq(Row("a", 2, "a"), Row("a", 2, "b")))
     }
+  }
+
+  test("SPARK-27744: Subquery execution preserves spark local properties") {
+    case class LocalPropertiesOperator(key: String, value: String) extends SparkPlan {
+      override protected def doExecute(): RDD[InternalRow] = {
+        assert(spark.sparkContext.getLocalProperty(key) == value)
+        sparkContext.parallelize(Seq(new UnsafeRow()))
+
+      }
+      override def output: Seq[Attribute] = Seq()
+      override def producedAttributes: AttributeSet = outputSet
+      override def children: Seq[SparkPlan] = Nil
+    }
+
+    spark.sparkContext.setLocalProperty("a", "1")
+    for (i <- 0 to SubqueryExec.THREADS) {
+      SubqueryExec("test", LocalPropertiesOperator("a", "1")).executeCollect()
+    }
+    spark.sparkContext.setLocalProperty("a", "2")
+    SubqueryExec("test", LocalPropertiesOperator("a", "2")).executeCollect()
   }
 }
