@@ -48,6 +48,8 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
     mapOutputTracker = SparkEnv.get().mapOutputTracker();
     serializerManager = SparkEnv.get().serializerManager();
     blockResolver = new IndexShuffleBlockResolver(sparkConf, blockManager);
+
+    // Note: other initialization could be appended here
   }
 
   @Override
