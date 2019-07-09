@@ -78,7 +78,7 @@ private[spark] class SortShuffleWriter[K, V, C](
   override def stop(success: Boolean): Option[MapStatus] = {
     try {
       if (stopping) {
-        return NonemapWriter
+        return None
       }
       stopping = true
       if (success) {
