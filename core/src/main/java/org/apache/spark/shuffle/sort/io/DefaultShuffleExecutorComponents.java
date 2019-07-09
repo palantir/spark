@@ -68,7 +68,7 @@ public class DefaultShuffleExecutorComponents implements ShuffleExecutorComponen
   private void checkInitialized() {
     if (blockResolver == null) {
       throw new IllegalStateException(
-          "Executor components must be initialized before getting writers.");
+          "Executor components must be initialized before getting writers/readers.");
     }
   }
 }
