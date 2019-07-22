@@ -30,7 +30,7 @@ import org.apache.spark.storage.RDDInfo
 @DeveloperApi
 class StageInfo(
     val stageId: Int,
-    private val attemptId: Int,
+    @deprecated("Use attemptNumber instead", "2.3.0") val attemptId: Int,
     val name: String,
     val numTasks: Int,
     val rddInfos: Seq[RDDInfo],
