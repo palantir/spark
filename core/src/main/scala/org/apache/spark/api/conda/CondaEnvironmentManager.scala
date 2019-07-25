@@ -177,12 +177,15 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       BasicIO.processFully((redactCredentials _).andThen(line => {
         out.append(line)
         out.append(BasicIO.Newline)
+        if (verbosity > 0) {
+          logInfo(s"<conda> $line")
+        }
         ()
       })),
       BasicIO.processFully((redactCredentials _).andThen(line => {
         err.append(line)
         err.append(BasicIO.Newline)
-        log.info(s"<conda> $line")
+        logInfo(s"<conda> $line")
       })))
     val exitCode = command.run(collectErrOutToBuffer).exitValue()
     if (exitCode != 0) {
