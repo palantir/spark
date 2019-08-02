@@ -243,7 +243,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       throw e;
     }
     mapStatus = MapStatus$.MODULE$.apply(
-        Option.apply(location.orNull()), partitionLengths, taskContext.attemptNumber());
+        location.orNull(), partitionLengths, taskContext.attemptNumber());
   }
 
   @VisibleForTesting

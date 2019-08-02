@@ -445,30 +445,30 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
     // map stage1 completes successfully, with one task on each executor
     complete(taskSets(0), Seq(
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA1", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(BlockManagerId("exec-hostA1", "hostA", 12345), Array.fill[Long](1)(2), 0)),
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA2", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(BlockManagerId("exec-hostA2", "hostA", 12345), Array.fill[Long](1)(2), 0)),
       (Success, makeMapStatus("hostB", 1))
     ))
     // map stage2 completes successfully, with one task on each executor
     complete(taskSets(1), Seq(
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA1", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(BlockManagerId("exec-hostA1", "hostA", 12345), Array.fill[Long](1)(2), 0)),
       (Success,
-        MapStatus(Some(BlockManagerId("exec-hostA2", "hostA", 12345)), Array.fill[Long](1)(2), 0)),
+        MapStatus(BlockManagerId("exec-hostA2", "hostA", 12345), Array.fill[Long](1)(2), 0)),
       (Success, makeMapStatus("hostB", 1))
     ))
     // make sure our test setup is correct
     val initialMapStatus1 = mapOutputTracker.shuffleStatuses(firstShuffleId).mapStatuses
     //  val initialMapStatus1 = mapOutputTracker.mapStatuses.get(0).get
     assert(initialMapStatus1.count(_ != null) === 3)
-    assert(initialMapStatus1.map{_.location.get.executorId}.toSet ===
+    assert(initialMapStatus1.map{_.location.executorId}.toSet ===
       Set("exec-hostA1", "exec-hostA2", "exec-hostB"))
 
     val initialMapStatus2 = mapOutputTracker.shuffleStatuses(secondShuffleId).mapStatuses
     //  val initialMapStatus1 = mapOutputTracker.mapStatuses.get(0).get
     assert(initialMapStatus2.count(_ != null) === 3)
-    assert(initialMapStatus2.map{_.location.get.executorId}.toSet ===
+    assert(initialMapStatus2.map{_.location.executorId}.toSet ===
       Set("exec-hostA1", "exec-hostA2", "exec-hostB"))
 
     // reduce stage fails with a fetch failure from one host
@@ -482,13 +482,13 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
 
     val mapStatus1 = mapOutputTracker.shuffleStatuses(firstShuffleId).mapStatuses
     assert(mapStatus1.count(_ != null) === 1)
-    assert(mapStatus1(2).location.get.executorId === "exec-hostB")
-    assert(mapStatus1(2).location.get.host === "hostB")
+    assert(mapStatus1(2).location.executorId === "exec-hostB")
+    assert(mapStatus1(2).location.host === "hostB")
 
     val mapStatus2 = mapOutputTracker.shuffleStatuses(secondShuffleId).mapStatuses
     assert(mapStatus2.count(_ != null) === 1)
-    assert(mapStatus2(2).location.get.executorId === "exec-hostB")
-    assert(mapStatus2(2).location.get.host === "hostB")
+    assert(mapStatus2(2).location.executorId === "exec-hostB")
+    assert(mapStatus2(2).location.host === "hostB")
   }
 
   test("zero split job") {
@@ -2904,7 +2904,7 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
 
 object DAGSchedulerSuite {
   def makeMapStatus(host: String, reduces: Int, sizes: Byte = 2): MapStatus =
-    MapStatus(Some(makeBlockManagerId(host)), Array.fill[Long](reduces)(sizes), 0)
+    MapStatus(makeBlockManagerId(host), Array.fill[Long](reduces)(sizes), 0)
 
   def makeBlockManagerId(host: String): BlockManagerId =
     BlockManagerId("exec-" + host, host, 12345)

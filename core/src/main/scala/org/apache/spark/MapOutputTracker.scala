@@ -102,7 +102,7 @@ private class ShuffleStatus(numPartitions: Int) {
    * different block manager.
    */
   def removeMapOutput(mapId: Int, bmAddress: BlockManagerId): Unit = synchronized {
-    if (mapStatuses(mapId) != null && mapStatuses(mapId).location.orNull == bmAddress) {
+    if (mapStatuses(mapId) != null && mapStatuses(mapId).location == bmAddress) {
       _numAvailableOutputs -= 1
       mapStatuses(mapId) = null
       invalidateSerializedMapOutputStatusCache()
@@ -132,8 +132,8 @@ private class ShuffleStatus(numPartitions: Int) {
    */
   def removeOutputsByFilter(f: (BlockManagerId) => Boolean): Unit = synchronized {
     for (mapId <- 0 until mapStatuses.length) {
-      if (mapStatuses(mapId) != null && mapStatuses(mapId).location.isDefined
-        && f(mapStatuses(mapId).location.get)) {
+      if (mapStatuses(mapId) != null && mapStatuses(mapId).location != null
+        && f(mapStatuses(mapId).location)) {
         _numAvailableOutputs -= 1
         mapStatuses(mapId) = null
         invalidateSerializedMapOutputStatusCache()
@@ -609,11 +609,10 @@ private[spark] class MapOutputTrackerMaster(
             // with valid status entries. This is possible if one thread schedules a job which
             // depends on an RDD which is currently being computed by another thread.
             // This also ignores locations that are not on executors.
-            if (status != null && status.location.isDefined
-              && status.location.get.executorId != null) {
+            if (status != null && status.location != null && status.location.executorId != null) {
               val blockSize = status.getSizeForBlock(reducerId)
               if (blockSize > 0) {
-                locs(status.location.get) = locs.getOrElse(status.location.get, 0L) + blockSize
+                locs(status.location) = locs.getOrElse(status.location, 0L) + blockSize
                 totalOutputSize += blockSize
               }
             }
@@ -886,8 +885,13 @@ private[spark] object MapOutputTracker extends Logging {
         for (part <- startPartition until endPartition) {
           val size = status.getSizeForBlock(part)
           if (size != 0) {
-            splitsByAddress.getOrElseUpdate(status.location, ListBuffer()) +=
-              ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.attemptId), size))
+            if (status.location != null) {
+              splitsByAddress.getOrElseUpdate(Option.apply(status.location), ListBuffer()) +=
+                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.attemptId), size))
+            } else {
+              splitsByAddress.getOrElseUpdate(Option.empty, ListBuffer()) +=
+                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.attemptId), size))
+            }
           }
         }
       }

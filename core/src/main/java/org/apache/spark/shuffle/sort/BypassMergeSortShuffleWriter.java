@@ -137,8 +137,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       if (!records.hasNext()) {
         partitionLengths = new long[numPartitions];
         Optional<BlockManagerId> location = mapOutputWriter.commitAllPartitions();
-        mapStatus = MapStatus$.MODULE$.apply(
-            Option.apply(location.orNull()), partitionLengths, attemptId);
+        mapStatus = MapStatus$.MODULE$.apply(location.orNull(), partitionLengths, attemptId);
         return;
       }
       final SerializerInstance serInstance = serializer.newInstance();
@@ -172,8 +171,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
       partitionLengths = writePartitionedData(mapOutputWriter);
       Optional<BlockManagerId> location = mapOutputWriter.commitAllPartitions();
-      mapStatus = MapStatus$.MODULE$.apply(
-          Option.apply(location.orNull()), partitionLengths, attemptId);
+      mapStatus = MapStatus$.MODULE$.apply(location.orNull(), partitionLengths, attemptId);
     } catch (Exception e) {
       try {
         mapOutputWriter.abort(e);
