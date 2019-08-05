@@ -887,10 +887,10 @@ private[spark] object MapOutputTracker extends Logging {
           if (size != 0) {
             if (status.location != null) {
               splitsByAddress.getOrElseUpdate(Option.apply(status.location), ListBuffer()) +=
-                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.attemptId), size))
+                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.mapTaskAttemptId), size))
             } else {
               splitsByAddress.getOrElseUpdate(Option.empty, ListBuffer()) +=
-                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.attemptId), size))
+                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.mapTaskAttemptId), size))
             }
           }
         }

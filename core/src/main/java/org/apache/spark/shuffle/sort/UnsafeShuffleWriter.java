@@ -219,8 +219,8 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final ShuffleMapOutputWriter mapWriter = shuffleWriteSupport
       .createMapOutputWriter(shuffleId,
           mapId,
-          partitioner.numPartitions(),
-          taskContext.taskAttemptId());
+          taskContext.taskAttemptId(),
+          partitioner.numPartitions());
     final long[] partitionLengths;
     Optional<BlockManagerId> location;
     try {

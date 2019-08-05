@@ -69,7 +69,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
                   block.mapId,
                   block.reduceId,
                   blockInfo._2,
-                  block.attemptId,
+                  block.mapTaskAttemptId,
                   Optional.ofNullable(shuffleLocationInfo._1.orNull))
               }
             }

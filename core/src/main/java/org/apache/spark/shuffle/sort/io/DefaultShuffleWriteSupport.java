@@ -43,8 +43,8 @@ public class DefaultShuffleWriteSupport implements ShuffleWriteSupport {
   public ShuffleMapOutputWriter createMapOutputWriter(
       int shuffleId,
       int mapId,
-      int numPartitions,
-      long attemptId) {
+      long mapTaskAttemptId,
+      int numPartitions) {
     return new DefaultShuffleMapOutputWriter(
       shuffleId, mapId, numPartitions, shuffleServerId,
       TaskContext.get().taskMetrics().shuffleWriteMetrics(), blockResolver, sparkConf);
