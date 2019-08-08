@@ -18,8 +18,8 @@
 package org.apache.spark.shuffle.sort
 
 import org.mockito.Mockito.when
-import org.apache.spark.{Aggregator, SparkEnv, TaskContext}
 
+import org.apache.spark.{Aggregator, SparkEnv, TaskContext}
 import org.apache.spark.benchmark.Benchmark
 import org.apache.spark.shuffle.BaseShuffleHandle
 import org.apache.spark.shuffle.sort.io.DefaultShuffleWriteSupport

@@ -17,7 +17,6 @@
 package org.apache.spark.shuffle.sort
 
 import org.apache.spark.{SparkConf, TaskContext}
-
 import org.apache.spark.benchmark.Benchmark
 import org.apache.spark.shuffle.sort.io.DefaultShuffleWriteSupport
 import org.apache.spark.storage.BlockManagerId
