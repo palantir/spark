@@ -45,10 +45,6 @@ class ShuffleDriverComponentsSuite extends SparkFunSuite with LocalSparkContext 
 class TestShuffleDriverComponents extends ShuffleDriverComponents {
   override def initializeApplication(): util.Map[String, String] =
     ImmutableMap.of("test-key", "test-value")
-
-  override def cleanupApplication(): Unit = {}
-
-  override def removeShuffle(shuffleId: Int, blocking: Boolean): Unit = {}
 }
 
 class TestShuffleDataIO(sparkConf: SparkConf) extends ShuffleDataIO {
