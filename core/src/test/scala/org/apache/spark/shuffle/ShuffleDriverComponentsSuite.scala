@@ -48,7 +48,7 @@ class TestShuffleDriverComponents extends ShuffleDriverComponents {
 
   override def cleanupApplication(): Unit = {}
 
-  override def removeShuffleData(shuffleId: Int, blocking: Boolean): Unit = {}
+  override def removeShuffle(shuffleId: Int, blocking: Boolean): Unit = {}
 }
 
 class TestShuffleDataIO(sparkConf: SparkConf) extends ShuffleDataIO {

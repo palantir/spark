@@ -42,12 +42,7 @@ public class DefaultShuffleDriverComponents implements ShuffleDriverComponents {
   }
 
   @Override
-  public void cleanupApplication() {
-    // do nothing
-  }
-
-  @Override
-  public void removeShuffleData(int shuffleId, boolean blocking) throws IOException {
+  public void removeShuffle(int shuffleId, boolean blocking) {
     checkInitialized();
     blockManagerMaster.removeShuffle(shuffleId, blocking);
   }

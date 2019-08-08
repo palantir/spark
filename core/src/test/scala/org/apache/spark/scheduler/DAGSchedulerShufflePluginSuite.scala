@@ -41,8 +41,8 @@ class PluginShuffleDriverComponents(delegate: ShuffleDriverComponents)
   override def cleanupApplication(): Unit =
     delegate.cleanupApplication()
 
-  override def removeShuffleData(shuffleId: Int, blocking: Boolean): Unit =
-    delegate.removeShuffleData(shuffleId, blocking)
+  override def removeShuffle(shuffleId: Int, blocking: Boolean): Unit =
+    delegate.removeShuffle(shuffleId, blocking)
 
   override def shouldUnregisterOutputOnHostOnFetchFailure(): Boolean = true
 }

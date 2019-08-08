@@ -27,9 +27,11 @@ public interface ShuffleDriverComponents {
    */
   Map<String, String> initializeApplication();
 
-  void cleanupApplication() throws IOException;
+  default void cleanupApplication() throws IOException {}
 
-  void removeShuffleData(int shuffleId, boolean blocking) throws IOException;
+  default void registerShuffle(int shuffleId) throws IOException {}
+
+  default void removeShuffle(int shuffleId, boolean blocking) throws IOException {}
 
   default boolean shouldUnregisterOutputOnHostOnFetchFailure() {
     return false;
