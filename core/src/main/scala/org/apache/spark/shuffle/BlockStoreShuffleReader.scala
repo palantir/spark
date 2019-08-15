@@ -76,32 +76,20 @@ private[spark] class BlockStoreShuffleReader[K, C](
         }
       }.asJava).iterator()
 
-    val retryingWrappedStreams = new Iterator[InputStream] {
-      override def hasNext: Boolean = streamsIterator.hasNext
-
-      override def next(): InputStream = {
-        var returnStream: InputStream = null
-        while (streamsIterator.hasNext && returnStream == null) {
-          if (shuffleReadSupport.shouldWrapStream()) {
-            val nextStream = streamsIterator.next()
-            returnStream = if (compressShuffle) {
-              compressionCodec.compressedInputStream(
-                serializerManager.wrapForEncryption(nextStream))
-            } else {
-              serializerManager.wrapForEncryption(nextStream)
-            }
-          } else {
-            // The default implementation checks for corrupt streams, so it will already have
-            // decompressed/decrypted the bytes
-            returnStream = streamsIterator.next()
-          }
+    val retryingWrappedStreams = streamsIterator.asScala.map(readSupportStream => {
+      if (shuffleReadSupport.shouldWrapStream()) {
+        if (compressShuffle) {
+          compressionCodec.compressedInputStream(
+            serializerManager.wrapForEncryption(readSupportStream))
+        } else {
+          serializerManager.wrapForEncryption(readSupportStream)
         }
-        if (returnStream == null) {
-          throw new IllegalStateException("Expected shuffle reader iterator to return a stream")
-        }
-        returnStream
+      } else {
+        // The default implementation checks for corrupt streams, so it will already have
+        // decompressed/decrypted the bytes
+        readSupportStream
       }
-    }
+    })
 
     val serializerInstance = dep.serializer.newInstance()
     val recordIter = retryingWrappedStreams.flatMap { wrappedStream =>
