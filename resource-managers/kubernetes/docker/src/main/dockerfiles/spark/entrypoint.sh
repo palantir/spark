@@ -99,6 +99,7 @@ case "$1" in
     CMD=(
       "$SPARK_HOME/bin/spark-submit"
       --master local
+      --deploy-mode client
       "$@"
     )
     ;;
