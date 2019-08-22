@@ -41,6 +41,3 @@ bintray {
 }
 
 publish.dependsOn bintrayUpload
-bintrayUpload.onlyIf {
-  versionDetails().isCleanTag
-}
