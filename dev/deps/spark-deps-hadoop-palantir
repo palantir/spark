@@ -57,7 +57,7 @@ dropwizard-util-1.0.0.jar
 dropwizard-validation-1.0.0.jar
 ehcache-3.3.1.jar
 flatbuffers-java-1.9.0.jar
-generex-1.0.1.jar
+generex-1.0.2.jar
 geronimo-jcache_1.0_spec-1.0-alpha-1.jar
 gson-2.2.4.jar
 guava-14.0.1.jar
@@ -112,7 +112,7 @@ jackson-xc-1.9.13.jar
 janino-3.0.11.jar
 javassist-3.20.0-GA.jar
 javax.annotation-api-1.2.jar
-javax.el-3.0.0.jar
+javax.el-3.0.1-b11.jar
 javax.inject-1.jar
 javax.inject-2.5.0-b32.jar
 javax.servlet-api-3.1.0.jar
@@ -144,8 +144,9 @@ jtransforms-2.4.0.jar
 jul-to-slf4j-1.7.25.jar
 kafka-clients-2.1.0.jar
 kryo-shaded-4.0.2.jar
-kubernetes-client-4.1.0.jar
-kubernetes-model-4.1.0.jar
+kubernetes-client-4.4.2.jar
+kubernetes-model-4.4.2.jar
+kubernetes-model-common-4.4.2.jar
 leveldbjni-all-1.8.jar
 log4j-1.2.17.jar
 logging-interceptor-3.11.0.jar
