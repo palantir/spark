@@ -88,7 +88,7 @@ hk2-api-2.5.0-b32.jar
 hk2-locator-2.5.0-b32.jar
 hk2-utils-2.5.0-b32.jar
 hppc-0.7.2.jar
-htrace-core4-4.1.0-incubating.jar
+htrace-core4-4.4.2-incubating.jar
 httpclient-4.5.6.jar
 httpcore-4.4.10.jar
 ivy-2.4.0.jar
@@ -144,8 +144,8 @@ jtransforms-2.4.0.jar
 jul-to-slf4j-1.7.25.jar
 kafka-clients-2.1.0.jar
 kryo-shaded-4.0.2.jar
-kubernetes-client-4.1.0.jar
-kubernetes-model-4.1.0.jar
+kubernetes-client-4.4.2.jar
+kubernetes-model-4.4.2.jar
 leveldbjni-all-1.8.jar
 log4j-1.2.17.jar
 logging-interceptor-3.11.0.jar
