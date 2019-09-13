@@ -57,6 +57,7 @@ import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.scheduler._
 import org.apache.spark.scheduler.cluster.StandaloneSchedulerBackend
 import org.apache.spark.scheduler.local.LocalSchedulerBackend
+import org.apache.spark.shuffle.api.{ShuffleDataIO, ShuffleDriverComponents}
 import org.apache.spark.status.{AppStatusSource, AppStatusStore}
 import org.apache.spark.status.api.v1.ThreadStackTrace
 import org.apache.spark.storage._
@@ -215,6 +216,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
   private var _shutdownHookRef: AnyRef = _
   private var _statusStore: AppStatusStore = _
   private var _heartbeater: Heartbeater = _
+  private var _shuffleDriverComponents: ShuffleDriverComponents = _
 
   /* ------------------------------------------------------------------------------------- *
    | Accessors and public fields. These provide access to the internal state of the        |
@@ -305,6 +307,8 @@ class SparkContext(config: SparkConf) extends SafeLogging {
   private[spark] def dagScheduler_=(ds: DAGScheduler): Unit = {
     _dagScheduler = ds
   }
+
+  private[spark] def shuffleDriverComponents: ShuffleDriverComponents = _shuffleDriverComponents
 
   /**
    * A unique identifier for the Spark application.
@@ -491,6 +495,14 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     executorEnvs ++= _conf.getExecutorEnv
     executorEnvs("SPARK_USER") = sparkUser
 
+    val configuredPluginClasses = conf.get(SHUFFLE_IO_PLUGIN_CLASS)
+    val maybeIO = Utils.loadExtensions(
+      classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
+    require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
+    _shuffleDriverComponents = maybeIO.head.driver()
+    _shuffleDriverComponents.initializeApplication().asScala.foreach {
+      case (k, v) => _conf.set(ShuffleDataIO.SHUFFLE_SPARK_CONF_PREFIX + k, v) }
+
     // We need to register "HeartbeatReceiver" before "createTaskScheduler" because Executor will
     // retrieve "HeartbeatReceiver" in the constructor. (SPARK-6640)
     _heartbeatReceiver = env.rpcEnv.setupEndpoint(
@@ -549,7 +561,6 @@ class SparkContext(config: SparkConf) extends SafeLogging {
           case b: ExecutorAllocationClient =>
             Some(new ExecutorAllocationManager(
               schedulerBackend.asInstanceOf[ExecutorAllocationClient], listenerBus, _conf,
-              _env.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster],
               _env.blockManager.master))
           case _ =>
             None
@@ -561,7 +572,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
 
     _cleaner =
       if (_conf.get(CLEANER_REFERENCE_TRACKING)) {
-        Some(new ContextCleaner(this))
+        Some(new ContextCleaner(this, _shuffleDriverComponents))
       } else {
         None
       }
@@ -1951,6 +1962,7 @@ class SparkContext(config: SparkConf) extends SafeLogging {
       }
       _heartbeater = null
     }
+    _shuffleDriverComponents.cleanupApplication()
     if (env != null && _heartbeatReceiver != null) {
       Utils.tryLogNonFatalError {
         env.rpcEnv.stop(_heartbeatReceiver)
