@@ -335,7 +335,6 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     rpcEnv.shutdown()
   }
 
-<<<<<<< HEAD
   test("shuffle map statuses with null blockManagerIds") {
     val rpcEnv = createRpcEnv("test")
     val tracker = newTrackerMaster()
@@ -442,16 +441,14 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     rpcEnv.shutdown()
   }
 
-||||||| 5cf18c43ea... Revert soft dynamic allocation for SPARK-25299. (#513)
-=======
   test("correctly track executors and ExecutorShuffleStatus") {
     val tracker = newTrackerMaster()
     val bmId1 = BlockManagerId("exec1", "host1", 1000)
     val bmId2 = BlockManagerId("exec2", "host2", 1000)
     tracker.registerShuffle(11, 3)
-    tracker.registerMapOutput(11, 0, MapStatus(bmId1, Array(10)))
-    tracker.registerMapOutput(11, 1, MapStatus(bmId1, Array(100)))
-    tracker.registerMapOutput(11, 2, MapStatus(bmId2, Array(1000)))
+    tracker.registerMapOutput(11, 0, MapStatus(bmId1, Array(10), 0L))
+    tracker.registerMapOutput(11, 1, MapStatus(bmId1, Array(100), 1L))
+    tracker.registerMapOutput(11, 2, MapStatus(bmId2, Array(1000), 2L))
 
     assert(tracker.hasOutputsOnExecutor("exec1"))
     assert(tracker.getExecutorShuffleStatus.keySet.equals(Set("exec1", "exec2")))
@@ -470,6 +467,4 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     tracker.markShuffleActive(11)
     assert(tracker.getExecutorShuffleStatus == Map("exec2" -> ExecutorShuffleStatus.Active))
   }
-
->>>>>>> parent of 5cf18c43ea... Revert soft dynamic allocation for SPARK-25299. (#513)
 }

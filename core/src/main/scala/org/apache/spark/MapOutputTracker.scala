@@ -148,17 +148,9 @@ private class ShuffleStatus(numPartitions: Int) {
    */
   def removeOutputsByFilter(f: (BlockManagerId) => Boolean): Unit = synchronized {
     for (mapId <- 0 until mapStatuses.length) {
-<<<<<<< HEAD
       if (mapStatuses(mapId) != null && mapStatuses(mapId).location != null
-        && f(mapStatuses(mapId).location)) {
-        _numAvailableOutputs -= 1
-||||||| 5cf18c43ea... Revert soft dynamic allocation for SPARK-25299. (#513)
-      if (mapStatuses(mapId) != null && f(mapStatuses(mapId).location)) {
-        _numAvailableOutputs -= 1
-=======
-      if (mapStatuses(mapId) != null && f(mapStatuses(mapId).location)) {
+          && f(mapStatuses(mapId).location)) {
         decrementNumAvailableOutputs(mapStatuses(mapId).location)
->>>>>>> parent of 5cf18c43ea... Revert soft dynamic allocation for SPARK-25299. (#513)
         mapStatuses(mapId) = null
         invalidateSerializedMapOutputStatusCache()
       }
