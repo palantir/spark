@@ -218,17 +218,21 @@ private class ShuffleStatus(numPartitions: Int) {
   }
 
   private[this] def incrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
-    _numOutputsPerExecutorId(bmAddress.executorId) += 1
+    if (bmAddress != null) {
+      _numOutputsPerExecutorId(bmAddress.executorId) += 1
+    }
     _numAvailableOutputs += 1
   }
 
   private[this] def decrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
-    assert(_numOutputsPerExecutorId(bmAddress.executorId) >= 1,
-      s"Tried to remove non-existent output from ${bmAddress.executorId}")
-    if (_numOutputsPerExecutorId(bmAddress.executorId) == 1) {
-      _numOutputsPerExecutorId.remove(bmAddress.executorId)
-    } else {
-      _numOutputsPerExecutorId(bmAddress.executorId) -= 1
+    if (bmAddress != null) {
+      assert(_numOutputsPerExecutorId(bmAddress.executorId) >= 1,
+        s"Tried to remove non-existent output from ${bmAddress.executorId}")
+      if (_numOutputsPerExecutorId(bmAddress.executorId) == 1) {
+        _numOutputsPerExecutorId.remove(bmAddress.executorId)
+      } else {
+        _numOutputsPerExecutorId(bmAddress.executorId) -= 1
+      }
     }
     _numAvailableOutputs -= 1
   }
