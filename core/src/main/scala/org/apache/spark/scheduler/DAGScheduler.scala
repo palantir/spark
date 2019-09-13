@@ -825,7 +825,8 @@ private[spark] class DAGScheduler(
     // This makes it easier to avoid race conditions between the user code and the map output
     // tracker that might result if we told the user the stage had finished, but then they queries
     // the map output tracker and some node failures had caused the output statistics to be lost.
-    val waiter = new JobWaiter[MapOutputStatistics](this, jobId, 1, (i: Int, r: MapOutputStatistics) => callback(r))
+    val waiter = new JobWaiter[MapOutputStatistics](
+      this, jobId, 1, (i: Int, r: MapOutputStatistics) => callback(r))
     eventProcessLoop.post(MapStageSubmitted(
       jobId, dependency, callSite, waiter, SerializationUtils.clone(properties)))
     waiter
