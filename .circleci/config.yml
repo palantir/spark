@@ -466,22 +466,6 @@ jobs:
           key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
           paths: ~/.m2
 
-  run-spark-25299-benchmarks:
-    <<: *spark-25299-config
-    steps:
-      - *checkout-code
-      - attach_workspace:
-         at: .
-      - *restore-build-sbt-cache
-      - *link-in-build-sbt-cache
-      - *restore-ivy-cache
-      - *restore-build-binaries-cache
-      - *restore-home-sbt-cache
-      - run:
-          command: ./dev/run-spark-25299-benchmarks.sh -u
-      - store_artifacts:
-          path: /tmp/artifacts/
-
   deploy-gradle:
     <<: *defaults
     docker:
@@ -542,10 +526,6 @@ workflows:
           requires:
             - build-sbt
           <<: *all-branches-and-tags
-      - run-spark-25299-benchmarks:
-          requires:
-            - build-sbt
-          <<: *spark-25299-branch-only
       - run-scala-tests:
           requires:
             - build-sbt
