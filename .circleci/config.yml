@@ -8,13 +8,6 @@ defaults: &defaults
     TERM: dumb
     BUILD_SBT_CACHE: "/home/circleci/build-sbt-cache"
 
-spark-25299-config: &spark-25299-config
-  machine:
-    image: circleci/classic:201808-01
-  environment: &defaults-environment
-    TERM: dumb
-    BUILD_SBT_CACHE: "/home/circleci/build-sbt-cache"
-
 test-defaults: &test-defaults
   <<: *defaults
   environment:
@@ -29,12 +22,6 @@ all-branches-and-tags: &all-branches-and-tags
     tags:
       only: /.*/
 
-spark-25299-branch-only: &spark-25299-branch-only
-  filters:
-    branches:
-      only:
-        - spark-25299
-
 deployable-branches-and-tags: &deployable-branches-and-tags
   filters:
     tags:
@@ -42,8 +29,6 @@ deployable-branches-and-tags: &deployable-branches-and-tags
     branches:
       only:
         - master
-        - spark-25299
-
 
 # Step templates
 

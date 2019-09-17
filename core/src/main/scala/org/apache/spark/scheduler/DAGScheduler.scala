@@ -1411,13 +1411,18 @@ private[spark] class DAGScheduler(
             val status = event.result.asInstanceOf[MapStatus]
             if (status.location != null) {
               val execId = status.location.executorId
-              logDebug("Registering shuffle output on executor " + execId)
-              if (failedEpoch.contains(execId) && smt.epoch <= failedEpoch(execId)) {
-                logInfo(s"Ignoring possibly bogus $smt completion from executor $execId")
+              if (execId != null) {
+                logDebug("ShuffleMapTask finished on " + execId)
+                if (failedEpoch.contains(execId) && smt.epoch <= failedEpoch(execId)) {
+                  logInfo(s"Ignoring possibly bogus $smt completion from executor $execId")
+                } else {
+                  // The epoch of the task is acceptable (i.e., the task was launched after the most
+                  // recent failure we're aware of for the executor), so mark the task's output as
+                  // available.
+                  mapOutputTracker.registerMapOutput(
+                    shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
+                }
               } else {
-                // The epoch of the task is acceptable (i.e., the task was launched after the most
-                // recent failure we're aware of for the executor), so mark the task's output as
-                // available.
                 mapOutputTracker.registerMapOutput(
                   shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
               }
@@ -1485,28 +1490,6 @@ private[spark] class DAGScheduler(
             val shuffleStage = stage.asInstanceOf[ShuffleMapStage]
             shuffleStage.pendingPartitions -= task.partitionId
             val status = event.result.asInstanceOf[MapStatus]
-            if (status.location != null && status.location.executorId != null) {
-              val execId = status.location.executorId
-              if (execId != null) {
-                logDebug("ShuffleMapTask finished on " + execId)
-                if (failedEpoch.contains(execId) && smt.epoch <= failedEpoch(execId)) {
-                  logInfo(s"Ignoring possibly bogus $smt completion from executor $execId")
-                } else {
-                  // The epoch of the task is acceptable (i.e., the task was launched after the most
-                  // recent failure we're aware of for the executor), so mark the task's output as
-                  // available.
-                  mapOutputTracker.registerMapOutput(
-                    shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
-                }
-              } else {
-                mapOutputTracker.registerMapOutput(
-                  shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
-              }
-            } else {
-              mapOutputTracker.registerMapOutput(
-                shuffleStage.shuffleDep.shuffleId, smt.partitionId, status)
-            }
-
             if (runningStages.contains(shuffleStage) && shuffleStage.pendingPartitions.isEmpty) {
               markStageAsFinished(shuffleStage)
               logInfo("looking for newly runnable stages")

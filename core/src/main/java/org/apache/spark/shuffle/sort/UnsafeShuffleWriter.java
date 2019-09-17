@@ -295,6 +295,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
   private MapOutputWriterCommitMessage mergeSpillsUsingStandardWriter(
       SpillInfo[] spills) throws IOException {
+    assert (spills.length >= 2);
     MapOutputWriterCommitMessage commitMessage;
     final boolean compressionEnabled = (boolean) sparkConf.get(package$.MODULE$.SHUFFLE_COMPRESS());
     final CompressionCodec compressionCodec = CompressionCodec$.MODULE$.createCodec(sparkConf);
