@@ -507,7 +507,6 @@ final class ShuffleBlockFetcherIterator(
       throw new NoSuchElementException()
     }
     currentResult = result.asInstanceOf[SuccessFetchResult]
-    val blockId = currentResult.blockId.asInstanceOf[ShuffleBlockId]
     new BufferReleasingInputStream(input, this)
   }
 
