@@ -42,7 +42,8 @@ import org.apache.spark.scheduler.{LiveListenerBus, OutputCommitCoordinator}
 import org.apache.spark.scheduler.OutputCommitCoordinator.OutputCommitCoordinatorEndpoint
 import org.apache.spark.security.CryptoStreamUtils
 import org.apache.spark.serializer.{JavaSerializer, Serializer, SerializerManager}
-import org.apache.spark.shuffle.ShuffleManager
+import org.apache.spark.shuffle.{ShuffleDataIOUtils, ShuffleManager}
+import org.apache.spark.shuffle.api.ShuffleDataIO
 import org.apache.spark.storage._
 import org.apache.spark.util.{RpcUtils, Utils}
 
@@ -71,6 +72,7 @@ class SparkEnv (
     val metricsSystem: MetricsSystem,
     val memoryManager: MemoryManager,
     val outputCommitCoordinator: OutputCommitCoordinator,
+    val shuffleDataIo: ShuffleDataIO,
     val conf: SparkConf) extends Logging {
 
   private[spark] var isStopped = false
@@ -340,8 +342,10 @@ object SparkEnv extends Logging {
 
     val broadcastManager = new BroadcastManager(isDriver, conf, securityManager)
 
+    val shuffleDataIo = ShuffleDataIOUtils.loadShuffleDataIO(conf)
+
     val mapOutputTracker = if (isDriver) {
-      new MapOutputTrackerMaster(conf, broadcastManager, isLocal)
+      new MapOutputTrackerMaster(conf, broadcastManager, isLocal, shuffleDataIo.driver())
     } else {
       new MapOutputTrackerWorker(conf)
     }
@@ -419,6 +423,7 @@ object SparkEnv extends Logging {
       metricsSystem,
       memoryManager,
       outputCommitCoordinator,
+      shuffleDataIo,
       conf)
 
     // Add a reference to tmp dir created by driver, we will delete this tmp dir when stop() is

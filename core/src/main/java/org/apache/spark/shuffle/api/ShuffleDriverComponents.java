@@ -19,6 +19,8 @@ package org.apache.spark.shuffle.api;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
+import org.apache.spark.storage.BlockManagerId;
 
 public interface ShuffleDriverComponents {
 
@@ -41,5 +43,9 @@ public interface ShuffleDriverComponents {
 
   default MapOutputUnregistrationStrategy unregistrationStrategyOnFetchFailure() {
     return MapOutputUnregistrationStrategy.EXECUTOR;
+  }
+
+  default boolean isMapOutputLostWhenMapperLost(int shuffleId, int mapId, Optional<BlockManagerId> mapperLocation) {
+    return true;
   }
 }

@@ -51,6 +51,8 @@ import org.apache.spark.scheduler.LiveListenerBus
 import org.apache.spark.security.{CryptoStreamUtils, EncryptionFunSuite}
 import org.apache.spark.serializer.{JavaSerializer, KryoSerializer, SerializerManager}
 import org.apache.spark.shuffle.sort.SortShuffleManager
+import org.apache.spark.shuffle.sort.io.LocalDiskShuffleDataIO
+import org.apache.spark.shuffle.sort.lifecycle.LocalDiskShuffleDriverComponents
 import org.apache.spark.storage.BlockManagerMessages._
 import org.apache.spark.util._
 import org.apache.spark.util.io.ChunkedByteBuffer
@@ -70,7 +72,13 @@ class BlockManagerSuite extends SparkFunSuite with Matchers with BeforeAndAfterE
   var master: BlockManagerMaster = null
   val securityMgr = new SecurityManager(new SparkConf(false))
   val bcastManager = new BroadcastManager(true, new SparkConf(false), securityMgr)
-  val mapOutputTracker = new MapOutputTrackerMaster(new SparkConf(false), bcastManager, true)
+  val driverComponents = {
+    val comp = new LocalDiskShuffleDataIO(new SparkConf(false)).driver()
+    comp.initializeApplication()
+    comp
+  }
+  val mapOutputTracker = new MapOutputTrackerMaster(
+    new SparkConf(false), bcastManager, true, driverComponents)
   val shuffleManager = new SortShuffleManager(new SparkConf(false))
 
   // Reuse a serializer across tests to avoid creating a new thread-local buffer on each test

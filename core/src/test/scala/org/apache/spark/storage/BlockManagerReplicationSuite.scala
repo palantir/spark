@@ -27,8 +27,8 @@ import scala.language.postfixOps
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfter, Matchers}
 import org.scalatest.concurrent.Eventually._
-
 import org.apache.spark._
+
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
@@ -40,6 +40,7 @@ import org.apache.spark.rpc.RpcEnv
 import org.apache.spark.scheduler.LiveListenerBus
 import org.apache.spark.serializer.{KryoSerializer, SerializerManager}
 import org.apache.spark.shuffle.sort.SortShuffleManager
+import org.apache.spark.shuffle.sort.io.LocalDiskShuffleDataIO
 import org.apache.spark.storage.StorageLevel._
 import org.apache.spark.util.Utils
 
@@ -54,7 +55,13 @@ trait BlockManagerReplicationBehavior extends SparkFunSuite
   protected var master: BlockManagerMaster = null
   protected lazy val securityMgr = new SecurityManager(conf)
   protected lazy val bcastManager = new BroadcastManager(true, conf, securityMgr)
-  protected lazy val mapOutputTracker = new MapOutputTrackerMaster(conf, bcastManager, true)
+  protected lazy val driverComponents = {
+    val comp = new LocalDiskShuffleDataIO(conf).driver()
+    comp.initializeApplication()
+    comp
+  }
+  protected lazy val mapOutputTracker = new MapOutputTrackerMaster(
+    conf, bcastManager, true, driverComponents)
   protected lazy val shuffleManager = new SortShuffleManager(conf)
 
   // List of block manager created during an unit test, so that all of the them can be stopped
