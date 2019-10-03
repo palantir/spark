@@ -30,6 +30,7 @@ import scala.concurrent.duration._
 import scala.language.existentials
 import scala.language.postfixOps
 import scala.util.control.NonFatal
+
 import org.apache.commons.lang3.SerializationUtils
 
 import org.apache.spark._
