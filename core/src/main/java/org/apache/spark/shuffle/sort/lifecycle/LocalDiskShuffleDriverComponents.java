@@ -52,6 +52,11 @@ public class LocalDiskShuffleDriverComponents implements ShuffleDriverComponents
     return shouldUnregisterOutputOnHostOnFetchFailure;
   }
 
+  @Override
+  public boolean shouldUnregisterOutputOnExecutorOnFetchFailure() {
+    return true;
+  }
+
   private void checkInitialized() {
     if (blockManagerMaster == null) {
       throw new IllegalStateException("Driver components must be initialized before using");

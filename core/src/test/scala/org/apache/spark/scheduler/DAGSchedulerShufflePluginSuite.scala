@@ -62,6 +62,30 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
     (reduceRdd, shuffleId)
   }
 
+  test("Test async") {
+    val (reduceRdd, shuffleId) = setupTest()
+    submit(reduceRdd, Array(0, 1))
+
+    // Perform map task
+    val mapStatus1 = makeMapStatus("exec1", "hostA")
+    val mapStatus2 = makeMapStatus("exec1", "hostA")
+    complete(taskSets(0), Seq((Success, mapStatus1), (Success, mapStatus2)))
+    assertMapShuffleLocations(shuffleId, Seq(mapStatus1, mapStatus2))
+
+
+    // perform reduce task
+    complete(taskSets(1), Seq((Success, 42),
+      (FetchFailed(BlockManagerId("exec1", "hostA", 1234), shuffleId, 1, 0, "ignored"), null)))
+    assertMapShuffleLocations(shuffleId, Seq(mapStatus1, null))
+
+    scheduler.resubmitFailedStages()
+    complete(taskSets(2), Seq((Success, mapStatus2)))
+
+    complete(taskSets(3), Seq((Success, 43)))
+    assert(results === Map(0 -> 42, 1 -> 43))
+    assertDataStructuresEmpty()
+  }
+
   test("Test simple file server") {
     val (reduceRdd, shuffleId) = setupTest()
     submit(reduceRdd, Array(0, 1))

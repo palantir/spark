@@ -36,4 +36,8 @@ public interface ShuffleDriverComponents {
   default boolean shouldUnregisterOutputOnHostOnFetchFailure() {
     return false;
   }
+
+  default boolean shouldUnregisterOutputOnExecutorOnFetchFailure() {
+    return false;
+  }
 }

@@ -1863,8 +1863,10 @@ private[spark] class DAGScheduler(
             logInfo("Shuffle files lost for host: %s (epoch %d)".format(host, currentEpoch))
             mapOutputTracker.removeOutputsOnHost(host)
           case None =>
-            logInfo("Shuffle files lost for executor: %s (epoch %d)".format(execId, currentEpoch))
-            mapOutputTracker.removeOutputsOnExecutor(execId)
+            if (shuffleDriverComponents.shouldUnregisterOutputOnExecutorOnFetchFailure()) {
+              logInfo("Shuffle files lost for executor: %s (epoch %d)".format(execId, currentEpoch))
+              mapOutputTracker.removeOutputsOnExecutor(execId)
+            }
         }
         clearCacheLocs()
 
