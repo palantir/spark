@@ -22,7 +22,6 @@ import org.apache.spark.{FetchFailed, HashPartitioner, ShuffleDependency, SparkC
 import org.apache.spark.internal.config
 import org.apache.spark.rdd.RDD
 import org.apache.spark.shuffle.api.{ShuffleDataIO, ShuffleDriverComponents, ShuffleExecutorComponents}
-import org.apache.spark.shuffle.api.ShuffleDriverComponents.MapOutputUnregistrationStrategy
 import org.apache.spark.shuffle.sort.io.LocalDiskShuffleDataIO
 import org.apache.spark.storage.BlockManagerId
 
@@ -45,42 +44,16 @@ class PluginShuffleDriverComponents(delegate: ShuffleDriverComponents)
   override def removeShuffle(shuffleId: Int, blocking: Boolean): Unit =
     delegate.removeShuffle(shuffleId, blocking)
 
-  override def unregistrationStrategyOnFetchFailure():
-      ShuffleDriverComponents.MapOutputUnregistrationStrategy =
-    MapOutputUnregistrationStrategy.HOST
-}
-
-class AsyncShuffleDataIO(sparkConf: SparkConf) extends ShuffleDataIO {
-  val localDiskShuffleDataIO = new LocalDiskShuffleDataIO(sparkConf)
-  override def driver(): ShuffleDriverComponents =
-    new AsyncShuffleDriverComponents(localDiskShuffleDataIO.driver())
-
-  override def executor(): ShuffleExecutorComponents = localDiskShuffleDataIO.executor()
-}
-
-class AsyncShuffleDriverComponents(delegate: ShuffleDriverComponents)
-  extends ShuffleDriverComponents {
-  override def initializeApplication(): util.Map[String, String] =
-    delegate.initializeApplication()
-
-  override def cleanupApplication(): Unit =
-    delegate.cleanupApplication()
-
-  override def removeShuffle(shuffleId: Int, blocking: Boolean): Unit =
-    delegate.removeShuffle(shuffleId, blocking)
-
-  override def unregistrationStrategyOnFetchFailure():
-  ShuffleDriverComponents.MapOutputUnregistrationStrategy =
-    MapOutputUnregistrationStrategy.MAP_OUTPUT_ONLY
+  override def shouldUnregisterOutputOnHostOnFetchFailure(): Boolean = true
 }
 
 class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
 
-  private def setupTest(pluginClass: Class[_]): (RDD[_], Int) = {
+  private def setupTest(): (RDD[_], Int) = {
     afterEach()
     val conf = new SparkConf()
     // unregistering all outputs on a host is enabled for the individual file server case
-    conf.set(config.SHUFFLE_IO_PLUGIN_CLASS, pluginClass.getName)
+    conf.set(config.SHUFFLE_IO_PLUGIN_CLASS, classOf[PluginShuffleDataIO].getName)
     init(conf)
     val shuffleMapRdd = new MyRDD(sc, 2, Nil)
     val shuffleDep = new ShuffleDependency(shuffleMapRdd, new HashPartitioner(2))
@@ -89,32 +62,8 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
     (reduceRdd, shuffleId)
   }
 
-  test("Test async") {
-    val (reduceRdd, shuffleId) = setupTest(classOf[AsyncShuffleDataIO])
-    submit(reduceRdd, Array(0, 1))
-
-    // Perform map task
-    val mapStatus1 = makeMapStatus("exec1", "hostA")
-    val mapStatus2 = makeMapStatus("exec1", "hostA")
-    complete(taskSets(0), Seq((Success, mapStatus1), (Success, mapStatus2)))
-    assertMapShuffleLocations(shuffleId, Seq(mapStatus1, mapStatus2))
-
-
-    // perform reduce task
-    complete(taskSets(1), Seq((Success, 42),
-      (FetchFailed(BlockManagerId("exec1", "hostA", 1234), shuffleId, 1, 0, "ignored"), null)))
-    assertMapShuffleLocations(shuffleId, Seq(mapStatus1, null))
-
-    scheduler.resubmitFailedStages()
-    complete(taskSets(2), Seq((Success, mapStatus2)))
-
-    complete(taskSets(3), Seq((Success, 43)))
-    assert(results === Map(0 -> 42, 1 -> 43))
-    assertDataStructuresEmpty()
-  }
-
   test("Test simple file server") {
-    val (reduceRdd, shuffleId) = setupTest(classOf[PluginShuffleDataIO])
+    val (reduceRdd, shuffleId) = setupTest()
     submit(reduceRdd, Array(0, 1))
 
     // Perform map task
@@ -130,7 +79,7 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
   }
 
   test("Test simple file server fetch failure") {
-    val (reduceRdd, shuffleId) = setupTest(classOf[PluginShuffleDataIO])
+    val (reduceRdd, shuffleId) = setupTest()
     submit(reduceRdd, Array(0, 1))
 
     // Perform map task
@@ -151,7 +100,7 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
   }
 
   test("Test simple file fetch server - duplicate host") {
-    val (reduceRdd, shuffleId) = setupTest(classOf[PluginShuffleDataIO])
+    val (reduceRdd, shuffleId) = setupTest()
     submit(reduceRdd, Array(0, 1))
 
     // Perform map task
@@ -172,7 +121,7 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
   }
 
   test("Test DFS case - empty BlockManagerId") {
-    val (reduceRdd, shuffleId) = setupTest(classOf[PluginShuffleDataIO])
+    val (reduceRdd, shuffleId) = setupTest()
     submit(reduceRdd, Array(0, 1))
 
     val mapStatus = makeEmptyMapStatus()
@@ -186,7 +135,7 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
   }
 
   test("Test DFS case - fetch failure") {
-    val (reduceRdd, shuffleId) = setupTest(classOf[PluginShuffleDataIO])
+    val (reduceRdd, shuffleId) = setupTest()
     submit(reduceRdd, Array(0, 1))
 
     // Perform map task
