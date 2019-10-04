@@ -27,8 +27,8 @@ import scala.language.postfixOps
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfter, Matchers}
 import org.scalatest.concurrent.Eventually._
-import org.apache.spark._
 
+import org.apache.spark._
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._

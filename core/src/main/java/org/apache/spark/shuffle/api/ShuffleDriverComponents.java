@@ -35,11 +35,8 @@ public interface ShuffleDriverComponents {
 
   default void removeShuffle(int shuffleId, boolean blocking) throws IOException {}
 
-  default boolean shouldUnregisterOutputOnHostOnFetchFailure() {
-    return false;
-  }
-
-  default boolean isMapOutputLostWhenMapperLost(int shuffleId, int mapId, Optional<BlockManagerId> mapperLocation) {
+  default boolean isMapOutputLostWhenMapperLost(
+      int shuffleId, int mapId, Optional<BlockManagerId> mapperLocation) {
     return true;
   }
 }

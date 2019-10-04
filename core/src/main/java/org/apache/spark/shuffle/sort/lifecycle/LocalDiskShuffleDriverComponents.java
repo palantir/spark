@@ -17,27 +17,29 @@
 
 package org.apache.spark.shuffle.sort.lifecycle;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.api.ShuffleDriverComponents;
-import org.apache.spark.internal.config.package$;
 import org.apache.spark.storage.BlockManagerMaster;
 
 public class LocalDiskShuffleDriverComponents implements ShuffleDriverComponents {
 
   private BlockManagerMaster blockManagerMaster;
-  private boolean shouldUnregisterOutputOnHostOnFetchFailure;
+
+  public LocalDiskShuffleDriverComponents() {}
+
+  @VisibleForTesting
+  public LocalDiskShuffleDriverComponents(BlockManagerMaster blockManagerMaster) {
+    this.blockManagerMaster = blockManagerMaster;
+  }
 
   @Override
   public Map<String, String> initializeApplication() {
     blockManagerMaster = SparkEnv.get().blockManager().master();
-    this.shouldUnregisterOutputOnHostOnFetchFailure =
-        SparkEnv.get().blockManager().externalShuffleServiceEnabled()
-            && (boolean) SparkEnv.get().conf()
-            .get(package$.MODULE$.UNREGISTER_OUTPUT_ON_HOST_ON_FETCH_FAILURE());
     return ImmutableMap.of();
   }
 
@@ -45,11 +47,6 @@ public class LocalDiskShuffleDriverComponents implements ShuffleDriverComponents
   public void removeShuffle(int shuffleId, boolean blocking) {
     checkInitialized();
     blockManagerMaster.removeShuffle(shuffleId, blocking);
-  }
-
-  @Override
-  public boolean shouldUnregisterOutputOnHostOnFetchFailure() {
-    return shouldUnregisterOutputOnHostOnFetchFailure;
   }
 
   private void checkInitialized() {

@@ -16,7 +16,7 @@
  */
 package org.apache.spark.scheduler
 
-import java.util
+import java.util.{Map => JMap, Optional => JOptional}
 
 import org.apache.spark.{FetchFailed, HashPartitioner, ShuffleDependency, SparkConf, Success}
 import org.apache.spark.internal.config
@@ -35,7 +35,8 @@ class PluginShuffleDataIO(sparkConf: SparkConf) extends ShuffleDataIO {
 
 class PluginShuffleDriverComponents(delegate: ShuffleDriverComponents)
   extends ShuffleDriverComponents {
-  override def initializeApplication(): util.Map[String, String] =
+
+  override def initializeApplication(): JMap[String, String] =
     delegate.initializeApplication()
 
   override def cleanupApplication(): Unit =
@@ -44,14 +45,17 @@ class PluginShuffleDriverComponents(delegate: ShuffleDriverComponents)
   override def removeShuffle(shuffleId: Int, blocking: Boolean): Unit =
     delegate.removeShuffle(shuffleId, blocking)
 
-  override def shouldUnregisterOutputOnHostOnFetchFailure(): Boolean = true
+  override def isMapOutputLostWhenMapperLost(
+      shuffleId: Int, mapId: Int, mapperLocation: JOptional[BlockManagerId]): Boolean = {
+    mapperLocation.isPresent
+  }
 }
 
 class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
 
   private def setupTest(): (RDD[_], Int) = {
     afterEach()
-    val conf = new SparkConf()
+    val conf = new SparkConf().set(config.UNREGISTER_OUTPUT_ON_HOST_ON_FETCH_FAILURE, true)
     // unregistering all outputs on a host is enabled for the individual file server case
     conf.set(config.SHUFFLE_IO_PLUGIN_CLASS, classOf[PluginShuffleDataIO].getName)
     init(conf)
@@ -164,6 +168,6 @@ class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
 
   def assertMapShuffleLocations(shuffleId: Int, set: Seq[MapStatus]): Unit = {
     val actualShuffleLocations = mapOutputTracker.shuffleStatuses(shuffleId).mapStatuses
-    assert(set === actualShuffleLocations.toSeq)
+    assert(actualShuffleLocations.toSeq === set)
   }
 }

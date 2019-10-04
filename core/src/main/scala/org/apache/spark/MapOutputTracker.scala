@@ -355,7 +355,7 @@ private[spark] class MapOutputTrackerMaster(
     conf: SparkConf,
     broadcastManager: BroadcastManager,
     isLocal: Boolean,
-    shuffleDriverComponents: ShuffleDriverComponents)
+    val shuffleDriverComponents: ShuffleDriverComponents)
   extends MapOutputTracker(conf) {
 
   // The size at which we use Broadcast to send the map output statuses to the executors
