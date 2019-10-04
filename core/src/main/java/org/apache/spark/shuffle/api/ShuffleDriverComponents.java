@@ -35,8 +35,14 @@ public interface ShuffleDriverComponents {
 
   default void removeShuffle(int shuffleId, boolean blocking) throws IOException {}
 
-  default boolean isMapOutputAvailableWhenLocationLost(
-      int shuffleId, int mapId, Optional<BlockManagerId> location) {
+  /**
+   * Indicates whether or not the data stored for the given map output is available outside
+   * of the host of the mapper executor.
+   *
+   * @return true if it can be verified that the map output is stored outside of the mapper
+   *         AND if the map output is available in such an external location; false otherwise.
+   */
+  default boolean checkIfMapOutputStoredOutsideExecutor(int shuffleId, int mapId) {
     return false;
   }
 

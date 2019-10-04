@@ -18,7 +18,6 @@
 package org.apache.spark
 
 import java.io._
-import java.util.{Optional => JOptional}
 import java.util.concurrent.{ConcurrentHashMap, LinkedBlockingQueue, ThreadPoolExecutor}
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
@@ -518,8 +517,7 @@ private[spark] class MapOutputTrackerMaster(
       shuffleStatus.removeOutputsByFilter(
         (mapId, location) => {
           location.host == host &&
-            !shuffleDriverComponents.isMapOutputAvailableWhenLocationLost(
-              shuffleId, mapId, JOptional.ofNullable(location))
+            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(shuffleId, mapId)
         })
     }
     incrementEpoch()
@@ -535,8 +533,7 @@ private[spark] class MapOutputTrackerMaster(
       shuffleStatus.removeOutputsByFilter(
         (mapId, location) => {
           location.executorId == execId &&
-            !shuffleDriverComponents.isMapOutputAvailableWhenLocationLost(
-              shuffleId, mapId, JOptional.ofNullable(location))
+            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(shuffleId, mapId)
         })
     }
     incrementEpoch()
