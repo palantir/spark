@@ -50,8 +50,8 @@ import org.apache.spark.rpc.RpcEnv
 import org.apache.spark.scheduler.LiveListenerBus
 import org.apache.spark.security.{CryptoStreamUtils, EncryptionFunSuite}
 import org.apache.spark.serializer.{JavaSerializer, KryoSerializer, SerializerManager}
+import org.apache.spark.shuffle.api.ShuffleDriverComponents
 import org.apache.spark.shuffle.sort.SortShuffleManager
-import org.apache.spark.shuffle.sort.io.LocalDiskShuffleDataIO
 import org.apache.spark.shuffle.sort.lifecycle.LocalDiskShuffleDriverComponents
 import org.apache.spark.storage.BlockManagerMessages._
 import org.apache.spark.util._
@@ -70,15 +70,10 @@ class BlockManagerSuite extends SparkFunSuite with Matchers with BeforeAndAfterE
   val allStores = ArrayBuffer[BlockManager]()
   var rpcEnv: RpcEnv = null
   var master: BlockManagerMaster = null
+  var driverComponents: ShuffleDriverComponents = null
+  var mapOutputTracker: MapOutputTrackerMaster = null
   val securityMgr = new SecurityManager(new SparkConf(false))
   val bcastManager = new BroadcastManager(true, new SparkConf(false), securityMgr)
-  val driverComponents = {
-    val comp = new LocalDiskShuffleDataIO(new SparkConf(false)).driver()
-    comp.initializeApplication()
-    comp
-  }
-  val mapOutputTracker = new MapOutputTrackerMaster(
-    new SparkConf(false), bcastManager, true, driverComponents)
   val shuffleManager = new SortShuffleManager(new SparkConf(false))
 
   // Reuse a serializer across tests to avoid creating a new thread-local buffer on each test
@@ -138,6 +133,9 @@ class BlockManagerSuite extends SparkFunSuite with Matchers with BeforeAndAfterE
     master = new BlockManagerMaster(rpcEnv.setupEndpoint("blockmanager",
       new BlockManagerMasterEndpoint(rpcEnv, true, conf,
         new LiveListenerBus(conf))), conf, true)
+    driverComponents = new LocalDiskShuffleDriverComponents(master)
+    mapOutputTracker = new MapOutputTrackerMaster(
+      new SparkConf(false), bcastManager, true, driverComponents)
 
     val initialize = PrivateMethod[Unit]('initialize)
     SizeEstimator invokePrivate initialize()
