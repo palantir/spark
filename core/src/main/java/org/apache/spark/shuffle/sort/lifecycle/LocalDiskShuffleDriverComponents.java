@@ -17,11 +17,12 @@
 
 package org.apache.spark.shuffle.sort.lifecycle;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
+import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.api.ShuffleDriverComponents;
 import org.apache.spark.storage.BlockManagerMaster;
@@ -29,11 +30,22 @@ import org.apache.spark.storage.BlockManagerMaster;
 public class LocalDiskShuffleDriverComponents implements ShuffleDriverComponents {
 
   private BlockManagerMaster blockManagerMaster;
+  private final SparkConf sparkConf;
 
-  public LocalDiskShuffleDriverComponents() {}
+  public LocalDiskShuffleDriverComponents(SparkConf sparkConf) {
+    this.sparkConf = sparkConf;
+  }
 
   @VisibleForTesting
   public LocalDiskShuffleDriverComponents(BlockManagerMaster blockManagerMaster) {
+    this.sparkConf = new SparkConf(false);
+    this.blockManagerMaster = blockManagerMaster;
+  }
+
+  @VisibleForTesting
+  public LocalDiskShuffleDriverComponents(
+      SparkConf sparkConf, BlockManagerMaster blockManagerMaster) {
+    this.sparkConf = sparkConf;
     this.blockManagerMaster = blockManagerMaster;
   }
 
@@ -47,6 +59,23 @@ public class LocalDiskShuffleDriverComponents implements ShuffleDriverComponents
   public void removeShuffle(int shuffleId, boolean blocking) {
     checkInitialized();
     blockManagerMaster.removeShuffle(shuffleId, blocking);
+  }
+
+  @Override
+  public boolean unregisterOutputOnHostOnFetchFailure() {
+    boolean unregisterOutputOnHostOnFetchFailure = Boolean.parseBoolean(
+        sparkConf.get(
+            org.apache.spark.internal.config.package$.MODULE$
+                .UNREGISTER_OUTPUT_ON_HOST_ON_FETCH_FAILURE().key(),
+            org.apache.spark.internal.config.package$.MODULE$
+                .UNREGISTER_OUTPUT_ON_HOST_ON_FETCH_FAILURE().defaultValueString()));
+    boolean externalShuffleServiceEnabled = Boolean.parseBoolean(
+        sparkConf.get(
+            org.apache.spark.internal.config.package$.MODULE$
+                .SHUFFLE_SERVICE_ENABLED().key(),
+            org.apache.spark.internal.config.package$.MODULE$
+                .SHUFFLE_SERVICE_ENABLED().defaultValueString()));
+    return unregisterOutputOnHostOnFetchFailure && externalShuffleServiceEnabled;
   }
 
   private void checkInitialized() {

@@ -39,7 +39,8 @@ class MapOutputTrackerSuite extends SparkFunSuite {
     val broadcastManager = new BroadcastManager(true, sparkConf,
       new SecurityManager(sparkConf))
     val driverComponents = mock(classOf[ShuffleDriverComponents])
-    when(driverComponents.isMapOutputLostWhenMapperLost(any(), any(), any())).thenReturn(true)
+    when(driverComponents.isMapOutputAvailableWhenLocationLost(any(), any(), any()))
+      .thenReturn(false)
     new MapOutputTrackerMaster(sparkConf, broadcastManager, true, driverComponents)
   }
 

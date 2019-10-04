@@ -16,49 +16,27 @@
  */
 package org.apache.spark.scheduler
 
-import java.util.{Map => JMap, Optional => JOptional}
+import java.util.{Collections, Map => JMap}
 
 import org.apache.spark.{FetchFailed, HashPartitioner, ShuffleDependency, SparkConf, Success}
-import org.apache.spark.internal.config
 import org.apache.spark.rdd.RDD
-import org.apache.spark.shuffle.api.{ShuffleDataIO, ShuffleDriverComponents, ShuffleExecutorComponents}
-import org.apache.spark.shuffle.sort.io.LocalDiskShuffleDataIO
+import org.apache.spark.shuffle.api.ShuffleDriverComponents
 import org.apache.spark.storage.BlockManagerId
 
-class PluginShuffleDataIO(sparkConf: SparkConf) extends ShuffleDataIO {
-  val localDiskShuffleDataIO = new LocalDiskShuffleDataIO(sparkConf)
-  override def driver(): ShuffleDriverComponents =
-    new PluginShuffleDriverComponents(localDiskShuffleDataIO.driver())
+class PluginShuffleDriverComponents extends ShuffleDriverComponents {
 
-  override def executor(): ShuffleExecutorComponents = localDiskShuffleDataIO.executor()
-}
+  override def initializeApplication(): JMap[String, String] = Collections.emptyMap()
 
-class PluginShuffleDriverComponents(delegate: ShuffleDriverComponents)
-  extends ShuffleDriverComponents {
-
-  override def initializeApplication(): JMap[String, String] =
-    delegate.initializeApplication()
-
-  override def cleanupApplication(): Unit =
-    delegate.cleanupApplication()
-
-  override def removeShuffle(shuffleId: Int, blocking: Boolean): Unit =
-    delegate.removeShuffle(shuffleId, blocking)
-
-  override def isMapOutputLostWhenMapperLost(
-      shuffleId: Int, mapId: Int, mapperLocation: JOptional[BlockManagerId]): Boolean = {
-    mapperLocation.isPresent
-  }
+  override def unregisterOutputOnHostOnFetchFailure(): Boolean = true
 }
 
 class DAGSchedulerShufflePluginSuite extends DAGSchedulerSuite {
 
   private def setupTest(): (RDD[_], Int) = {
     afterEach()
-    val conf = new SparkConf().set(config.UNREGISTER_OUTPUT_ON_HOST_ON_FETCH_FAILURE, true)
+    val conf = new SparkConf()
     // unregistering all outputs on a host is enabled for the individual file server case
-    conf.set(config.SHUFFLE_IO_PLUGIN_CLASS, classOf[PluginShuffleDataIO].getName)
-    init(conf)
+    init(conf, (_, _) => new PluginShuffleDriverComponents)
     val shuffleMapRdd = new MyRDD(sc, 2, Nil)
     val shuffleDep = new ShuffleDependency(shuffleMapRdd, new HashPartitioner(2))
     val shuffleId = shuffleDep.shuffleId

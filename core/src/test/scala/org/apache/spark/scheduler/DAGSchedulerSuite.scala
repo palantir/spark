@@ -35,6 +35,8 @@ import org.apache.spark.internal.config
 import org.apache.spark.rdd.{DeterministicLevel, RDD}
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.shuffle.{FetchFailedException, MetadataFetchFailedException}
+import org.apache.spark.shuffle.api.ShuffleDriverComponents
+import org.apache.spark.shuffle.sort.lifecycle.LocalDiskShuffleDriverComponents
 import org.apache.spark.storage.{BlockId, BlockManagerId, BlockManagerMaster}
 import org.apache.spark.util._
 
@@ -195,6 +197,7 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
   var securityMgr: SecurityManager = null
   var scheduler: DAGScheduler = null
   var dagEventProcessLoopTester: DAGSchedulerEventProcessLoop = null
+  var shuffleDriverComponents: ShuffleDriverComponents = null
 
   /**
    * Set of cache locations to return from our mock BlockManagerMaster.
@@ -236,7 +239,13 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
     init(new SparkConf())
   }
 
-  def init(testConf: SparkConf): Unit = {
+  def init(testConf: SparkConf) {
+    init(testConf, (conf, bmMaster) => new LocalDiskShuffleDriverComponents(conf, bmMaster))
+  }
+
+  def init(
+      testConf: SparkConf,
+      shuffleDriverComponents: (SparkConf, BlockManagerMaster) => ShuffleDriverComponents): Unit = {
     sc = new SparkContext("local[2]", "DAGSchedulerSuite", testConf)
     sparkListener.submittedStageInfos.clear()
     sparkListener.successfulStages.clear()
@@ -262,7 +271,8 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
       sc.listenerBus,
       mapOutputTracker,
       blockManagerMaster,
-      sc.env)
+      sc.env,
+      shuffleDriverComponents(testConf, blockManagerMaster))
     dagEventProcessLoopTester = new DAGSchedulerEventProcessLoopTester(scheduler)
   }
 
@@ -675,7 +685,8 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
       sc.listenerBus,
       mapOutputTracker,
       blockManagerMaster,
-      sc.env)
+      sc.env,
+      shuffleDriverComponents)
     dagEventProcessLoopTester = new DAGSchedulerEventProcessLoopTester(noKillScheduler)
     val jobId = submit(new MyRDD(sc, 1, Nil), Array(0))
     cancel(jobId)

@@ -518,7 +518,7 @@ private[spark] class MapOutputTrackerMaster(
       shuffleStatus.removeOutputsByFilter(
         (mapId, location) => {
           location.host == host &&
-            shuffleDriverComponents.isMapOutputLostWhenMapperLost(
+            !shuffleDriverComponents.isMapOutputAvailableWhenLocationLost(
               shuffleId, mapId, JOptional.ofNullable(location))
         })
     }
@@ -535,7 +535,7 @@ private[spark] class MapOutputTrackerMaster(
       shuffleStatus.removeOutputsByFilter(
         (mapId, location) => {
           location.executorId == execId &&
-            shuffleDriverComponents.isMapOutputLostWhenMapperLost(
+            !shuffleDriverComponents.isMapOutputAvailableWhenLocationLost(
               shuffleId, mapId, JOptional.ofNullable(location))
         })
     }
