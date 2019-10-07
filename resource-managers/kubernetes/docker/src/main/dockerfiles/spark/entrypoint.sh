@@ -98,7 +98,7 @@ case "$1" in
     shift 1
     CMD=(
       "$SPARK_HOME/bin/spark-submit"
-      --master local
+      --master 'local[*]'
       --deploy-mode client
       "$@"
     )
