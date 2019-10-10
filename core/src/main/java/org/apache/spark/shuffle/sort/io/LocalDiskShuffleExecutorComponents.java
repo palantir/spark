@@ -17,26 +17,19 @@
 
 package org.apache.spark.shuffle.sort.io;
 
-import java.io.InputStream;
-import java.util.Map;
-import java.util.Optional;
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.spark.MapOutputTracker;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.serializer.SerializerManager;
-import org.apache.spark.shuffle.api.ShuffleBlockInfo;
-import org.apache.spark.shuffle.api.ShuffleExecutorComponents;
-import org.apache.spark.shuffle.api.ShuffleMapOutputWriter;
 import org.apache.spark.shuffle.IndexShuffleBlockResolver;
-import org.apache.spark.shuffle.api.SingleSpillShuffleMapOutputWriter;
+import org.apache.spark.shuffle.api.*;
 import org.apache.spark.shuffle.io.LocalDiskShuffleReadSupport;
-import org.apache.spark.storage.BlockId;
 import org.apache.spark.storage.BlockManager;
 import org.apache.spark.storage.BlockManagerId;
-import scala.Tuple2;
+
+import java.util.Map;
+import java.util.Optional;
 
 public class LocalDiskShuffleExecutorComponents implements ShuffleExecutorComponents {
 
@@ -113,7 +106,7 @@ public class LocalDiskShuffleExecutorComponents implements ShuffleExecutorCompon
   }
 
   @Override
-  public Iterable<Tuple2<BlockId, InputStream>> getPartitionReaders(
+  public Iterable<ShuffleBlockInputStream> getPartitionReaders(
       Iterable<ShuffleBlockInfo> blockMetadata) {
     if (blockResolver == null) {
       throw new IllegalStateException(
