@@ -113,7 +113,8 @@ public class LocalDiskShuffleExecutorComponents implements ShuffleExecutorCompon
   }
 
   @Override
-  public Iterable<Tuple2<BlockId, InputStream>> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata) {
+  public Iterable<Tuple2<BlockId, InputStream>> getPartitionReaders(
+      Iterable<ShuffleBlockInfo> blockMetadata) {
     if (blockResolver == null) {
       throw new IllegalStateException(
           "Executor components must be initialized before getting readers.");
