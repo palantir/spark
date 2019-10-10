@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.apache.spark.annotation.Private;
+import org.apache.spark.storage.BlockId;
+import scala.Tuple2;
 
 /**
  * :: Private ::
@@ -61,7 +63,7 @@ public interface ShuffleExecutorComponents {
    * Returns an underlying {@link Iterable<InputStream>} that will iterate
    * through shuffle data, given an iterable for the shuffle blocks to fetch.
    */
-  Iterable<InputStream> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
+  Iterable<Tuple2<BlockId, InputStream>> getPartitionReaders(Iterable<ShuffleBlockInfo> blockMetadata)
       throws IOException;
 
   default boolean shouldWrapPartitionReaderStream() {

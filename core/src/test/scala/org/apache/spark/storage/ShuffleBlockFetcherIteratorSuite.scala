@@ -124,8 +124,7 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
 
     for (i <- 0 until 5) {
       assert(iterator.hasNext, s"iterator should have 5 elements but actually has $i elements")
-      val inputStream = iterator.next()
-      val blockId = iterator.getCurrentBlock()
+      val (blockId, inputStream) = iterator.next()
 
       // Make sure we release buffers when a wrapped input stream is closed.
       val mockBuf = localBlocks.getOrElse(blockId, remoteBlocks(blockId))
@@ -200,11 +199,11 @@ class ShuffleBlockFetcherIteratorSuite extends SparkFunSuite with PrivateMethodT
       taskContext.taskMetrics.createTempShuffleReadMetrics())
 
     verify(blocks(ShuffleBlockId(0, 0, 0)), times(0)).release()
-    iterator.next().close() // close() first block's input stream
+    iterator.next()._2.close() // close() first block's input stream
     verify(blocks(ShuffleBlockId(0, 0, 0)), times(1)).release()
 
     // Get the 2nd block but do not exhaust the iterator
-    val subIter = iterator.next()
+    val subIter = iterator.next()._2
 
     // Complete the task; then the 2nd block buffer should be exhausted
     verify(blocks(ShuffleBlockId(0, 1, 0)), times(0)).release()

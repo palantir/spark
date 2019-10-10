@@ -27,6 +27,7 @@ import org.apache.spark.{LocalSparkContext, SparkConf, SparkContext, SparkFunSui
 import org.apache.spark.internal.config.SHUFFLE_IO_PLUGIN_CLASS
 import org.apache.spark.shuffle.api.{ShuffleBlockInfo, ShuffleDataIO, ShuffleDriverComponents, ShuffleExecutorComponents, ShuffleMapOutputWriter}
 import org.apache.spark.shuffle.sort.io.LocalDiskShuffleExecutorComponents
+import org.apache.spark.storage.BlockId
 
 class ShuffleDriverComponentsSuite extends SparkFunSuite with LocalSparkContext {
   test(s"test serialization of shuffle initialization conf to executors") {
@@ -74,7 +75,7 @@ class TestShuffleExecutorComponents(sparkConf: SparkConf) extends ShuffleExecuto
   }
 
   override def getPartitionReaders(
-      blockMetadata: JIterable[ShuffleBlockInfo]): JIterable[InputStream] = {
+      blockMetadata: JIterable[ShuffleBlockInfo]): JIterable[(BlockId, InputStream)] = {
     delegate.getPartitionReaders(blockMetadata)
   }
 
