@@ -17,7 +17,6 @@
 
 package org.apache.spark.shuffle
 
-import java.io.InputStream
 import java.lang.{Iterable => JIterable}
 import java.util.{Map => JMap}
 
@@ -27,7 +26,6 @@ import org.apache.spark.{LocalSparkContext, SparkConf, SparkContext, SparkFunSui
 import org.apache.spark.internal.config.SHUFFLE_IO_PLUGIN_CLASS
 import org.apache.spark.shuffle.api.{ShuffleBlockInfo, ShuffleBlockInputStream, ShuffleDataIO, ShuffleDriverComponents, ShuffleExecutorComponents, ShuffleMapOutputWriter}
 import org.apache.spark.shuffle.sort.io.LocalDiskShuffleExecutorComponents
-import org.apache.spark.storage.BlockId
 
 class ShuffleDriverComponentsSuite extends SparkFunSuite with LocalSparkContext {
   test(s"test serialization of shuffle initialization conf to executors") {
