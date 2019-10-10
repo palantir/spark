@@ -20,7 +20,6 @@ package org.apache.spark.shuffle.api;
 import org.apache.spark.annotation.Private;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Map;
 import java.util.Optional;
 
@@ -58,7 +57,7 @@ public interface ShuffleExecutorComponents {
       int numPartitions) throws IOException;
 
   /**
-   * Returns an underlying {@link Iterable<InputStream>} that will iterate
+   * Returns an underlying {@link Iterable<java.io.InputStream>} that will iterate
    * through shuffle data, given an iterable for the shuffle blocks to fetch.
    */
   Iterable<ShuffleBlockInputStream> getPartitionReaders(
