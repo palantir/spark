@@ -24,7 +24,7 @@ import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
 import org.apache.spark.shuffle.api.{ShuffleBlockInfo, ShuffleBlockInputStream}
-import org.apache.spark.storage.{BlockManager, ShuffleBlockAttemptId, ShuffleBlockFetcherIterator, ShuffleBlockId}
+import org.apache.spark.storage.{BlockId, BlockManager, ShuffleBlockFetcherIterator, ShuffleBlockId}
 
 class LocalDiskShuffleReadSupport(
     blockManager: BlockManager,
@@ -45,11 +45,6 @@ class LocalDiskShuffleReadSupport(
     val iterableToReturn = if (blockMetadata.asScala.isEmpty) {
       Iterable.empty
     } else {
-      val (minReduceId, maxReduceId) = blockMetadata.asScala.map(block => block.getReduceId)
-        .foldLeft(Int.MaxValue, 0) {
-          case ((min, max), elem) => (math.min(min, elem), math.max(max, elem))
-        }
-      val shuffleId = blockMetadata.asScala.head.getShuffleId
       new ShuffleBlockFetcherIterable(
         TaskContext.get(),
         blockManager,
@@ -60,9 +55,7 @@ class LocalDiskShuffleReadSupport(
         maxReqSizeShuffleToMem,
         detectCorrupt,
         shuffleMetrics = TaskContext.get().taskMetrics().createTempShuffleReadMetrics(),
-        minReduceId,
-        maxReduceId,
-        shuffleId,
+        blockMetadata,
         mapOutputTracker
       )
     }
@@ -80,9 +73,7 @@ private class ShuffleBlockFetcherIterable(
     maxReqSizeShuffleToMem: Long,
     detectCorruption: Boolean,
     shuffleMetrics: ShuffleReadMetricsReporter,
-    minReduceId: Int,
-    maxReduceId: Int,
-    shuffleId: Int,
+    blockMetadata: java.lang.Iterable[ShuffleBlockInfo],
     mapOutputTracker: MapOutputTracker) extends Iterable[ShuffleBlockInputStream] {
 
   override def iterator: Iterator[ShuffleBlockInputStream] = {
@@ -90,13 +81,18 @@ private class ShuffleBlockFetcherIterable(
       context,
       blockManager.shuffleClient,
       blockManager,
-      mapOutputTracker.getMapSizesByExecutorId(shuffleId, minReduceId, maxReduceId + 1)
-        .map(loc => (
-          loc._1.get,
-          loc._2.map { case(shuffleBlockAttemptId, size) =>
-            val block = shuffleBlockAttemptId.asInstanceOf[ShuffleBlockAttemptId]
-            (ShuffleBlockId(block.shuffleId, block.mapId, block.reduceId), size)
-          })),
+      blockMetadata.asScala
+        .groupBy(shuffleBlockInfo => shuffleBlockInfo.getShuffleLocation.get())
+        .map{ case (blockManagerId, shuffleBlockInfos) =>
+          (blockManagerId,
+            shuffleBlockInfos.map(info =>
+              (ShuffleBlockId(
+                info.getShuffleId,
+                info.getMapId,
+                info.getReduceId).asInstanceOf[BlockId],
+                info.getLength)).toSeq)
+        }
+        .iterator,
       serializerManager.wrapStream,
       maxBytesInFlight,
       maxReqsInFlight,
