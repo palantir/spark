@@ -200,7 +200,7 @@ spire_2.12-0.13.0.jar
 stax-api-1.0-2.jar
 stax2-api-3.1.4.jar
 stream-2.9.6.jar
-univocity-parsers-2.7.3.jar
+univocity-parsers-2.8.3.jar
 validation-api-1.1.0.Final.jar
 wildfly-openssl-1.0.7.Final.jar
 woodstox-core-5.0.3.jar
