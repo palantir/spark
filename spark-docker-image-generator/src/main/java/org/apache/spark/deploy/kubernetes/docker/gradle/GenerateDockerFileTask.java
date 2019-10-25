@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.gradle.api.DefaultTask;
@@ -73,8 +74,11 @@ public class GenerateDockerFileTask extends DefaultTask {
             File currentDestDockerFile = getDestDockerFile();
             List<String> fileLines;
             try (Stream<String> rawLines = Files.lines(currentSrcDockerFile.toPath(), StandardCharsets.UTF_8)) {
+                AtomicBoolean isFirstCommand = new AtomicBoolean(true);
                 fileLines = rawLines.map(line -> {
-                    if (line.equals("FROM openjdk:8-alpine")) {
+                    // The first command in any valid dockerfile must be a from instruction
+                    if (isFirstCommand.get() && line.startsWith("FROM ")) {
+                        isFirstCommand.set(false);
                         return String.format("FROM %s", baseImage.get());
                     } else {
                         return line;
