@@ -74,10 +74,10 @@ public class GenerateDockerFileTask extends DefaultTask {
             File currentDestDockerFile = getDestDockerFile();
             List<String> fileLines;
             try (Stream<String> rawLines = Files.lines(currentSrcDockerFile.toPath(), StandardCharsets.UTF_8)) {
-                AtomicBoolean isFirstCommand = new AtomicBoolean(true);
+                AtomicBoolean isFirstFromCommand = new AtomicBoolean(true);
                 fileLines = rawLines.map(line -> {
                     // The first command in any valid dockerfile must be a from instruction
-                    if (isFirstCommand.getAndSet(false) && line.startsWith("FROM ")) {
+                    if (line.startsWith("FROM ") && isFirstFromCommand.getAndSet(false)) {
                         return String.format("FROM %s", baseImage.get());
                     } else {
                         return line;
