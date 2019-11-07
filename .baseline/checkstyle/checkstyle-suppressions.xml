@@ -26,5 +26,4 @@
 
     <!-- Generated code should not be subjected to checkstyle. -->
     <suppress files="[/\\].*[/\\]generated.*[/\\]" checks="." />
-    <suppress files="[/\\].*[/\\]docker-resources.*[/\\]" checks="." />
 </suppressions>
