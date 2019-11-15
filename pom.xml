@@ -219,9 +219,9 @@
     <commons-crypto.version>1.0.0</commons-crypto.version>
     <!--
     If you are changing Arrow version specification, please check ./python/pyspark/sql/utils.py,
-    ./python/run-tests.py and ./python/setup.py too.
+    and ./python/setup.py too.
     -->
-    <arrow.version>0.12.0</arrow.version>
+    <arrow.version>0.15.1</arrow.version>
 
     <!-- Async shuffle upload plugin dependency versions -->
     <safe-logging.version>1.13.0</safe-logging.version>
