@@ -507,6 +507,15 @@ package object config {
     .toSequence
     .createWithDefault(Nil)
 
+  private[spark] val CONDA_BOOTSTRAP_PACKAGE_URLS =
+    ConfigBuilder("spark.conda.bootstrapPackageUrls")
+      .doc("The exact package urls that will be added to the conda environment. "
+        + "Only relevant when main class is CondaRunner."
+        + "Takes precedence over spark.conda.bootstrapPackages.")
+      .stringConf
+      .toSequence
+      .createWithDefault(Nil)
+
   private[spark] val CONDA_CHANNEL_URLS = ConfigBuilder("spark.conda.channelUrls")
     .doc("The URLs the Conda channels to use when resolving the conda packages. "
       + "Only relevant when main class is CondaRunner.")
