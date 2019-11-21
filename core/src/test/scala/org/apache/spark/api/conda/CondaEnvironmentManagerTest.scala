@@ -95,10 +95,6 @@ class CondaEnvironmentManagerTest extends org.apache.spark.SparkFunSuite with Te
       Seq("fakeChannel"))
   }
 
-  test("CondaEnvironmentManager.createWithBoth") {
-
-  }
-
   private[this] def createTestCondaEnvironmentManager(
                                    fakeCondaContent: String): CondaEnvironmentManager = {
     val fakeCondaInfo =
