@@ -18,8 +18,6 @@ package org.apache.spark.api.conda
 
 import java.nio.file.Files
 
-import scala.collection.JavaConverters._
-
 import org.apache.spark.util.TempDirectory
 
 class CondaEnvironmentManagerTest extends org.apache.spark.SparkFunSuite with TempDirectory {
@@ -45,70 +43,4 @@ class CondaEnvironmentManagerTest extends org.apache.spark.SparkFunSuite with Te
       "[http://us_r:<password>@yy.bar:222"
     assert(CondaEnvironmentManager.redactCredentials(original) == redacted)
   }
-
-  test("CondaEnvironmentManager.create") {
-    val verifyCondaArgsCommand =
-      """EXPECTED_ARGS=( "create" "-n" "conda-env" "-y" "--no-default-packages"
-         |"--" "packageA" "packageB" )
-         |ARGS=( "$@" )
-         |if [ "${EXPECTED_ARGS[*]}" != "${ARGS[*]}" ]
-         |then
-         |    echo "Arguments do not match expected arguments."
-         |    echo "Expected: ${EXPECTED_ARGS[*]}"
-         |    echo "Args: $@"
-         |    exit 1
-         |fi
-      """.stripMargin
-
-    val condaEnvironmentManager = createTestCondaEnvironmentManager(verifyCondaArgsCommand)
-    condaEnvironmentManager.create(
-      tempDir.toString,
-      Seq("packageA", "packageB"),
-      Seq.empty,
-      Seq("fakeChannel"))
-  }
-
-  test("CondaEnvironmentManager.createWithFile") {
-    val verifyCondaArgsCommand =
-      """EXPECTED_ARGS=( "create" "-n" "conda-env" "-y" "--no-default-packages" "--file" )
-         |ARGS=( "${@:0:7}" )
-         |if [ "${EXPECTED_ARGS[*]}" != "${ARGS[*]}" ]
-         |then
-         |    echo "Arguments do not match expected arguments."
-         |    echo "Expected: ${EXPECTED_ARGS[*]}"
-         |    echo "Args: $@"
-         |    exit 1
-         |fi
-         |
-         |if [[ "$7" != */spec-file ]]
-         |then
-         |    echo "Last argument $7 is not the spec file."
-         |    exit 1
-         |fi
-      """.stripMargin
-
-    val condaEnvironmentManager = createTestCondaEnvironmentManager(verifyCondaArgsCommand)
-    condaEnvironmentManager.create(
-      tempDir.toString,
-      Seq.empty,
-      Seq("https://urlA", "https://urlB"),
-      Seq("fakeChannel"))
-  }
-
-  private[this] def createTestCondaEnvironmentManager(
-                                   fakeCondaContent: String): CondaEnvironmentManager = {
-    val fakeCondaInfo =
-      """#!/bin/bash
-        |if [ $1 == "info" ]
-        |then
-        |    echo "{\"pkgs_dirs\": [\"/dummy/pkg/dir\"]}"
-        |    exit 0
-        |fi
-      """.stripMargin
-
-    val fakeCondaPath = tempDir.toPath.resolve("conda")
-    Files.write(fakeCondaPath, List(fakeCondaInfo, fakeCondaContent).asJava)
-    new CondaEnvironmentManager(fakeCondaPath.toString)
-  }
-
 }
