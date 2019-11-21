@@ -98,7 +98,8 @@ class CondaEnvironmentManagerTest extends org.apache.spark.SparkFunSuite with Te
   private[this] def createTestCondaEnvironmentManager(
                                    fakeCondaContent: String): CondaEnvironmentManager = {
     val fakeCondaInfo =
-      """if [ $1 == "info" ]
+      """#!/bin/bash
+        |if [ $1 == "info" ]
         |then
         |    echo "{\"pkgs_dirs\": [\"/dummy/pkg/dir\"]}"
         |    exit 0
