@@ -100,6 +100,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       Files.write(specFilePath, ("@EXPLICIT" +: condaPackageUrls).asJava)
 
       runCondaCreate(
+        condaPackages,
         condaPackageUrls,
         List("--file", specFilePath.toString),
         condaChannelUrls,
@@ -112,6 +113,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       logInfo("Using conda packages to run conda create.")
       runCondaCreate(
         condaPackages,
+        condaPackageUrls,
         "--" :: condaPackages.toList,
         condaChannelUrls,
         condaExtraArgs,
@@ -124,6 +126,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
 
   private[this] def runCondaCreate(
                                condaPackages: Seq[String],
+                               condaPackageUrls: Seq[String],
                                packagesCommandArgs: List[String],
                                condaChannelUrls: Seq[String],
                                condaExtraArgs: Seq[String],
@@ -145,7 +148,14 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       envVars = condaEnvVars
     )
 
-    new CondaEnvironment(this, linkedBaseDir, name, condaPackages, condaChannelUrls, condaExtraArgs)
+    new CondaEnvironment(
+      this,
+      linkedBaseDir,
+      name,
+      condaPackages,
+      condaPackageUrls,
+      condaChannelUrls,
+      condaExtraArgs)
   }
 
   /**
