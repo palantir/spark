@@ -145,8 +145,16 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
         ::: packagesCommandArgs,
       description = description,
       channels = condaChannelUrls.toList,
-      envVars = condaEnvVars
-    )
+      envVars = condaEnvVars)
+
+    // TODO(jeremyliu): remove this after testing.
+    // Run conda list explicit to retrieve env details
+    runCondaProcess(
+      linkedBaseDir,
+      List("list", "--explicit"),
+      description = "conda list explicit",
+      channels = condaChannelUrls.toList,
+      envVars = condaEnvVars)
 
     new CondaEnvironment(
       this,
