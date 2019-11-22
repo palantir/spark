@@ -151,7 +151,10 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     // Run conda list explicit to retrieve env details
     runCondaProcess(
       linkedBaseDir,
-      List("list", "-n", name, "--explicit"),
+      List("list", "-n", name)
+        ::: condaExtraArgs.toList
+        ::: verbosityFlags
+        ::: List("--explicit"),
       description = "conda list explicit",
       channels = condaChannelUrls.toList,
       envVars = condaEnvVars)
