@@ -229,11 +229,41 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
   }
 
   test("run Python application within Conda in yarn-client mode") {
-    testCondaPySpark(true)
+    val extraConf: Map[String, String] = Map(
+      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
+      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
+      "spark.conda.bootstrapPackages" -> "python=3.6"
+    )
+    testCondaPySpark(true, extraConf = extraConf)
   }
 
   test("run Python application within Conda in yarn-cluster mode") {
-    testCondaPySpark(false)
+    val extraConf: Map[String, String] = Map(
+      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
+      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
+      "spark.conda.bootstrapPackages" -> "python=3.6"
+    )
+    testCondaPySpark(false, extraConf = extraConf)
+  }
+
+  test("run Python application within Conda in yarn-client mode with spec file") {
+    val extraConf: Map[String, String] = Map(
+      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
+      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
+      "spark.conda.bootstrapPackageUrls" ->
+        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2"
+    )
+    testCondaPySpark(true, extraConf = extraConf)
+  }
+
+  test("run Python application within Conda in yarn-cluster mode with spec file") {
+    val extraConf: Map[String, String] = Map(
+      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
+      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
+      "spark.conda.bootstrapPackageUrls" ->
+        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2"
+    )
+    testCondaPySpark(false, extraConf = extraConf)
   }
 
   test("run Python application in yarn-cluster mode using " +
@@ -368,6 +398,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
 
   private def testCondaPySpark(
       clientMode: Boolean,
+      extraConf: Map[String, String] = Map(),
       extraEnv: Map[String, String] = Map()): Unit = {
     val primaryPyFile = new File(tempDir, "test.py")
     Files.write(TEST_CONDA_PYFILE, primaryPyFile, StandardCharsets.UTF_8)
@@ -382,12 +413,6 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val extraEnvVars = Map(
       "PYSPARK_ARCHIVES_PATH" -> pythonPath.map("local:" + _).mkString(File.pathSeparator),
       "PYTHONPATH" -> pythonPath.mkString(File.pathSeparator)) ++ extraEnv
-
-    val extraConf: Map[String, String] = Map(
-      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
-      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6"
-    )
 
     val moduleDir =
       if (clientMode) {
