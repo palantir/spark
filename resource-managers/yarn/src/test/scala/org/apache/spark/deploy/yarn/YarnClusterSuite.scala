@@ -252,8 +252,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6",
-      "spark.conda.verbosity" -> "1"
+      "spark.conda.bootstrapPackages" -> "python=3.6"
     )
     testCondaPySpark(true, TEST_CONDA_PYFILE, extraConf = extraConf)
   }
@@ -262,8 +261,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6",
-      "spark.conda.verbosity" -> "1"
+      "spark.conda.bootstrapPackages" -> "python=3.6"
     )
     testCondaPySpark(false, TEST_CONDA_PYFILE, extraConf = extraConf)
   }
@@ -272,8 +270,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackageUrls" -> BOOTSTRAP_PACKAGE_URLS.mkString(","),
-      "spark.conda.verbosity" -> "1"
+      "spark.conda.bootstrapPackageUrls" -> BOOTSTRAP_PACKAGE_URLS.mkString(",")
     )
     testCondaPySpark(true, TEST_PYFILE, extraConf = extraConf)
   }
@@ -282,8 +279,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackageUrls" -> BOOTSTRAP_PACKAGE_URLS.mkString(","),
-      "spark.conda.verbosity" -> "1"
+      "spark.conda.bootstrapPackageUrls" -> BOOTSTRAP_PACKAGE_URLS.mkString(",")
     )
     testCondaPySpark(false, TEST_PYFILE, extraConf = extraConf)
   }
