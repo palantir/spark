@@ -229,7 +229,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
   }
 
   test("run Python application within Conda in yarn-client mode") {
-    val extraConf: Map[String, Object] = Map(
+    val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
       "spark.conda.bootstrapPackages" -> "python=3.6",
