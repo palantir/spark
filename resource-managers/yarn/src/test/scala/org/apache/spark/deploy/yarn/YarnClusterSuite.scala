@@ -114,38 +114,30 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |    sc.stop()
   """.stripMargin
 
-  private val TEST_CONDA_SPEC_FILE_PYFILE = """
-    |import mod1, mod2
-    |import sys
-    |from operator import add
-    |
-    |from pyspark import SparkConf , SparkContext
-    |if __name__ == "__main__":
-    |    if len(sys.argv) != 2:
-    |        print >> sys.stderr, "Usage: test.py [result file]"
-    |        exit(-1)
-    |    sc = SparkContext(conf=SparkConf())
-    |
-    |    status = open(sys.argv[1],'w')
-    |
-    |    def numpy_multiply(x):
-    |        numpy.multiply(x, mod1.func() * mod2.func())
-    |
-    |    rdd = sc.parallelize(range(10)).map(numpy_multiply)
-    |    cnt = rdd.count()
-    |    if cnt == 10:
-    |        result = "success"
-    |    else:
-    |        result = "failure"
-    |    status.write(result)
-    |    status.close()
-    |    sc.stop()
-    """.stripMargin
-
   private val TEST_PYMODULE = """
     |def func():
     |    return 42
     """.stripMargin
+
+  private val BOOTSTRAP_PACKAGE_URLS = List(
+    "https://repo.continuum.io/pkgs/main/linux-64/_libgcc_mutex-0.1-main.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/ca-certificates-2019.10.16-0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/libstdcxx-ng-9.1.0-hdf63c60_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/libgcc-ng-9.1.0-hdf63c60_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/libffi-3.2.1-hd88cf55_4.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/ncurses-6.1-he6710b0_1.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/openssl-1.1.1d-h7b6447c_3.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/xz-5.2.4-h14c3975_4.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/zlib-1.2.11-h7b6447c_3.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/libedit-3.1.20181209-hc058e9b_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/readline-7.0-h7b6447c_5.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/tk-8.6.8-hbc83047_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/sqlite-3.30.1-h7b6447c_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/python-3.6.9-h265db76_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/certifi-2019.9.11-py36_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/setuptools-41.6.0-py36_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/wheel-0.33.6-py36_0.tar.bz2",
+    "https://repo.continuum.io/pkgs/main/linux-64/pip-19.3.1-py36_0.tar.bz2")
 
   test("run Spark in yarn-client mode") {
     testBasicYarnApp(true)
@@ -270,51 +262,30 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6,numpy=1.14.0",
+      "spark.conda.bootstrapPackages" -> "python=3.6",
       "spark.conda.verbosity" -> "1"
     )
     testCondaPySpark(false, TEST_CONDA_PYFILE, extraConf = extraConf)
   }
 
   test("run Python application within Conda in yarn-client mode with spec file") {
-    val bootstrapPackageUrls = List(
-      "https://repo.continuum.io/pkgs/main/linux-64/_libgcc_mutex-0.1-main.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/ca-certificates-2019.10.16-0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/libstdcxx-ng-9.1.0-hdf63c60_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/libgcc-ng-9.1.0-hdf63c60_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/libffi-3.2.1-hd88cf55_4.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/ncurses-6.1-he6710b0_1.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/openssl-1.1.1d-h7b6447c_3.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/xz-5.2.4-h14c3975_4.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/zlib-1.2.11-h7b6447c_3.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/libedit-3.1.20181209-hc058e9b_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/readline-7.0-h7b6447c_5.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/tk-8.6.8-hbc83047_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/sqlite-3.30.1-h7b6447c_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/python-3.6.9-h265db76_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/certifi-2019.9.11-py36_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/setuptools-41.6.0-py36_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/wheel-0.33.6-py36_0.tar.bz2",
-      "https://repo.continuum.io/pkgs/main/linux-64/pip-19.3.1-py36_0.tar.bz2")
-
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackageUrls" -> bootstrapPackageUrls.mkString(","),
+      "spark.conda.bootstrapPackageUrls" -> BOOTSTRAP_PACKAGE_URLS.mkString(","),
       "spark.conda.verbosity" -> "1"
     )
-    testCondaPySpark(true, TEST_CONDA_SPEC_FILE_PYFILE, extraConf = extraConf)
+    testCondaPySpark(true, TEST_PYFILE, extraConf = extraConf)
   }
 
   test("run Python application within Conda in yarn-cluster mode with spec file") {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackageUrls" ->
-        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2",
+      "spark.conda.bootstrapPackageUrls" -> BOOTSTRAP_PACKAGE_URLS.mkString(","),
       "spark.conda.verbosity" -> "1"
     )
-    testCondaPySpark(false, TEST_CONDA_SPEC_FILE_PYFILE, extraConf = extraConf)
+    testCondaPySpark(false, TEST_PYFILE, extraConf = extraConf)
   }
 
   test("run Python application in yarn-cluster mode using " +

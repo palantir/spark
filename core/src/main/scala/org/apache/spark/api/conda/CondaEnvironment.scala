@@ -20,10 +20,11 @@ import java.io.File
 import java.net.URI
 import java.nio.file.Path
 import java.util.{Map => JMap}
+
 import javax.ws.rs.core.UriBuilder
+import org.apache.spark.SparkException
 
 import scala.collection.mutable
-
 import org.apache.spark.internal.Logging
 
 /**
@@ -73,6 +74,11 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
   }
 
   def installPackages(packages: Seq[String]): Unit = {
+    if (packageUrls.nonEmpty) {
+      throw new SparkException("Install packages is not supported if" +
+        "CondaEnvironment was created with packageUrls.")
+    }
+
     manager.runCondaProcess(rootPath,
       List("install", "-n", envName, "-y")
         ::: extraArgs.toList
