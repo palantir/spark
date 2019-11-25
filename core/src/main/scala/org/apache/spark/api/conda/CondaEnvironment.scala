@@ -20,11 +20,11 @@ import java.io.File
 import java.net.URI
 import java.nio.file.Path
 import java.util.{Map => JMap}
-
 import javax.ws.rs.core.UriBuilder
-import org.apache.spark.SparkException
 
 import scala.collection.mutable
+
+import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
 
 /**
