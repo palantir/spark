@@ -114,6 +114,34 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |    sc.stop()
   """.stripMargin
 
+  private val TEST_CONDA_SPEC_FILE_PYFILE = """
+    |import mod1, mod2
+    |import sys
+    |from operator import add
+    |
+    |from pyspark import SparkConf , SparkContext
+    |if __name__ == "__main__":
+    |    if len(sys.argv) != 2:
+    |        print >> sys.stderr, "Usage: test.py [result file]"
+    |        exit(-1)
+    |    sc = SparkContext(conf=SparkConf())
+    |
+    |    status = open(sys.argv[1],'w')
+    |
+    |    def numpy_multiply(x):
+    |        numpy.multiply(x, mod1.func() * mod2.func())
+    |
+    |    rdd = sc.parallelize(range(10)).map(numpy_multiply)
+    |    cnt = rdd.count()
+    |    if cnt == 10:
+    |        result = "success"
+    |    else:
+    |        result = "failure"
+    |    status.write(result)
+    |    status.close()
+    |    sc.stop()
+    """.stripMargin
+
   private val TEST_PYMODULE = """
     |def func():
     |    return 42
@@ -235,17 +263,17 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
       "spark.conda.bootstrapPackages" -> "python=3.6",
       "spark.conda.verbosity" -> "1"
     )
-    testCondaPySpark(true, extraConf = extraConf)
+    testCondaPySpark(true, TEST_CONDA_PYFILE, extraConf = extraConf)
   }
 
   test("run Python application within Conda in yarn-cluster mode") {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6",
+      "spark.conda.bootstrapPackages" -> "python=3.6,numpy=1.14.0",
       "spark.conda.verbosity" -> "1"
     )
-    testCondaPySpark(false, extraConf = extraConf)
+    testCondaPySpark(false, TEST_CONDA_PYFILE, extraConf = extraConf)
   }
 
   test("run Python application within Conda in yarn-client mode with spec file") {
@@ -275,7 +303,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
       "spark.conda.bootstrapPackageUrls" -> bootstrapPackageUrls.mkString(","),
       "spark.conda.verbosity" -> "1"
     )
-    testCondaPySpark(true, extraConf = extraConf)
+    testCondaPySpark(true, TEST_CONDA_SPEC_FILE_PYFILE, extraConf = extraConf)
   }
 
   test("run Python application within Conda in yarn-cluster mode with spec file") {
@@ -286,7 +314,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
         "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2",
       "spark.conda.verbosity" -> "1"
     )
-    testCondaPySpark(false, extraConf = extraConf)
+    testCondaPySpark(false, TEST_CONDA_SPEC_FILE_PYFILE, extraConf = extraConf)
   }
 
   test("run Python application in yarn-cluster mode using " +
@@ -421,10 +449,11 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
 
   private def testCondaPySpark(
       clientMode: Boolean,
+      testFile: String,
       extraConf: Map[String, String] = Map(),
       extraEnv: Map[String, String] = Map()): Unit = {
     val primaryPyFile = new File(tempDir, "test.py")
-    Files.write(TEST_CONDA_PYFILE, primaryPyFile, StandardCharsets.UTF_8)
+    Files.write(testFile, primaryPyFile, StandardCharsets.UTF_8)
 
     // When running tests, let's not assume the user has built the assembly module, which also
     // creates the pyspark archive. Instead, let's use PYSPARK_ARCHIVES_PATH to point at the
