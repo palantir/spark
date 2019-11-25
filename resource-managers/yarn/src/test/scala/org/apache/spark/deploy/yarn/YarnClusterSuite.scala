@@ -249,11 +249,30 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
   }
 
   test("run Python application within Conda in yarn-client mode with spec file") {
+    val bootstrapPackageUrls = List(
+      "https://repo.continuum.io/pkgs/main/linux-64/_libgcc_mutex-0.1-main.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/ca-certificates-2019.10.16-0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/libstdcxx-ng-9.1.0-hdf63c60_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/libgcc-ng-9.1.0-hdf63c60_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/libffi-3.2.1-hd88cf55_4.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/ncurses-6.1-he6710b0_1.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/openssl-1.1.1d-h7b6447c_3.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/xz-5.2.4-h14c3975_4.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/zlib-1.2.11-h7b6447c_3.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/libedit-3.1.20181209-hc058e9b_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/readline-7.0-h7b6447c_5.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/tk-8.6.8-hbc83047_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/sqlite-3.30.1-h7b6447c_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/python-3.6.9-h265db76_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/certifi-2019.9.11-py36_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/setuptools-41.6.0-py36_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/wheel-0.33.6-py36_0.tar.bz2",
+      "https://repo.continuum.io/pkgs/main/linux-64/pip-19.3.1-py36_0.tar.bz2")
+
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackageUrls" ->
-        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2",
+      "spark.conda.bootstrapPackageUrls" -> bootstrapPackageUrls.mkString(","),
       "spark.conda.verbosity" -> "1"
     )
     testCondaPySpark(true, extraConf = extraConf)
