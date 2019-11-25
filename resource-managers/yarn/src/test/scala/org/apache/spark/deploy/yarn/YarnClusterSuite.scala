@@ -229,10 +229,11 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
   }
 
   test("run Python application within Conda in yarn-client mode") {
-    val extraConf: Map[String, String] = Map(
+    val extraConf: Map[String, Object] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6"
+      "spark.conda.bootstrapPackages" -> "python=3.6",
+      "spark.conda.verbosity" -> "1"
     )
     testCondaPySpark(true, extraConf = extraConf)
   }
@@ -241,7 +242,8 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     val extraConf: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6"
+      "spark.conda.bootstrapPackages" -> "python=3.6",
+      "spark.conda.verbosity" -> "1"
     )
     testCondaPySpark(false, extraConf = extraConf)
   }
@@ -251,7 +253,8 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
       "spark.conda.bootstrapPackageUrls" ->
-        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2"
+        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2",
+      "spark.conda.verbosity" -> "1"
     )
     testCondaPySpark(true, extraConf = extraConf)
   }
@@ -261,7 +264,8 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
       "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
       "spark.conda.bootstrapPackageUrls" ->
-        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2"
+        "https://repo.anaconda.com/pkgs/main/noarch/packaging-19.2-py_0.tar.bz2",
+      "spark.conda.verbosity" -> "1"
     )
     testCondaPySpark(false, extraConf = extraConf)
   }
