@@ -275,61 +275,11 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
   }
 
   test("run Python application within Conda in yarn-client mode") {
-    // step 1 run conda normally and save spec file contents into a file
-    val specFile = new File(tempDir, "specFile")
-    val extraConfForCreate: Map[String, String] = Map(
-      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
-      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6"
-    )
-    val extraEnvForCreate: Map[String, String] = Map(
-      "TEMP_SPEC_FILE" -> specFile.getAbsolutePath
-    )
-    testCondaPySpark(
-      clientMode = true,
-      TEST_CONDA_PYFILE,
-      extraConf = extraConfForCreate,
-      extraEnv = extraEnvForCreate)
-
-    // step 2 read spec file contents
-    val bootstrapPackageUrls = Source.fromFile(specFile).getLines().toList
-
-    // step 3 run conda with bootstrap urls from spec file contents
-    val extraConfForFile: Map[String, String] = Map(
-      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
-      "spark.conda.bootstrapMode" -> "file",
-      "spark.conda.bootstrapPackageUrls" -> bootstrapPackageUrls.mkString(",")
-    )
-    testCondaPySpark(clientMode = true, TEST_CONDA_NO_ADD_PYFILE, extraConf = extraConfForFile)
+    testCondaPySparkAllModes(clientMode = true)
   }
 
   test("run Python application within Conda in yarn-cluster mode") {
-    // step 1 run conda normally and save spec file contents into a file
-    val specFile = new File(tempDir, "specFile")
-    val extraConfForCreate: Map[String, String] = Map(
-      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
-      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
-      "spark.conda.bootstrapPackages" -> "python=3.6"
-    )
-    val extraEnvForCreate: Map[String, String] = Map(
-      "TEMP_SPEC_FILE" -> specFile.getAbsolutePath
-    )
-    testCondaPySpark(
-      clientMode = false,
-      TEST_CONDA_PYFILE,
-      extraConf = extraConfForCreate,
-      extraEnv = extraEnvForCreate)
-
-    // step 2 read spec file contents
-    val bootstrapPackageUrls = Source.fromFile(specFile).getLines().toList
-
-    // step 3 run conda with bootstrap urls from spec file contents
-    val extraConfForFile: Map[String, String] = Map(
-      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
-      "spark.conda.bootstrapMode" -> "file",
-      "spark.conda.bootstrapPackageUrls" -> bootstrapPackageUrls.mkString(",")
-    )
-    testCondaPySpark(clientMode = false, TEST_CONDA_NO_ADD_PYFILE, extraConf = extraConfForFile)
+    testCondaPySparkAllModes(clientMode = false)
   }
 
   test("run Python application in yarn-cluster mode using " +
@@ -507,6 +457,35 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
       outFile = outFile,
       timeoutDuration = 4.minutes) // give it a bit longer
     checkResult(finalState, result, outFile = outFile)
+  }
+
+  private def testCondaPySparkAllModes(clientMode: Boolean): Unit = {
+    // step 1 run conda normally and save spec file contents into a file
+    val specFile = new File(tempDir, "specFile")
+    val extraConfForCreate: Map[String, String] = Map(
+      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
+      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
+      "spark.conda.bootstrapPackages" -> "python=3.6"
+    )
+    val extraEnvForCreate: Map[String, String] = Map(
+      "TEMP_SPEC_FILE" -> specFile.getAbsolutePath
+    )
+    testCondaPySpark(
+      clientMode = clientMode,
+      TEST_CONDA_PYFILE,
+      extraConf = extraConfForCreate,
+      extraEnv = extraEnvForCreate)
+
+    // step 2 read spec file contents
+    val bootstrapPackageUrls = Source.fromFile(specFile).getLines().toList
+
+    // step 3 run conda with bootstrap urls from spec file contents
+    val extraConfForFile: Map[String, String] = Map(
+      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
+      "spark.conda.bootstrapMode" -> "file",
+      "spark.conda.bootstrapPackageUrls" -> bootstrapPackageUrls.mkString(",")
+    )
+    testCondaPySpark(clientMode, TEST_CONDA_NO_ADD_PYFILE, extraConf = extraConfForFile)
   }
 
   private def testUseClassPathFirst(clientMode: Boolean): Unit = {
