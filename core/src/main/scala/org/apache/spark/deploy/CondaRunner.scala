@@ -21,8 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
-import org.apache.spark.api.conda.CondaEnvironment
-import org.apache.spark.api.conda.CondaEnvironmentManager
+import org.apache.spark.api.conda.{CondaBootstrapMode, CondaEnvironment, CondaEnvironmentManager}
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
 import org.apache.spark.util.Utils
@@ -51,6 +50,7 @@ object CondaRunner {
    */
   def setupCondaEnvironmentAutomatically(sparkConf: SparkConf): Option[CondaEnvironment] = {
     if (CondaEnvironmentManager.isConfigured(sparkConf)) {
+      val condaBootstrapMode = CondaBootstrapMode.withName(sparkConf.get(CONDA_BOOTSTRAP_MODE))
       val condaBootstrapDeps = sparkConf.get(CONDA_BOOTSTRAP_PACKAGES)
       val condaBootstrapDepUrls = sparkConf.get(CONDA_BOOTSTRAP_PACKAGE_URLS)
       val condaChannelUrls = sparkConf.get(CONDA_CHANNEL_URLS)
@@ -59,8 +59,9 @@ object CondaRunner {
       val condaBaseDir = Utils.createTempDir(Utils.getLocalDir(sparkConf), "conda").getAbsolutePath
       val condaEnvironmentManager = CondaEnvironmentManager.fromConf(sparkConf)
       val environment =
-        condaEnvironmentManager.create(
+        condaEnvironmentManager.createWithMode(
           condaBaseDir,
+          condaBootstrapMode,
           condaBootstrapDeps,
           condaBootstrapDepUrls,
           condaChannelUrls,

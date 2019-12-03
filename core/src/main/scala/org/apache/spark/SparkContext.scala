@@ -1867,6 +1867,10 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     condaEnvironmentOrFail().installPackages(packages)
   }
 
+  def getCondaPackagesExplicit(): List[String] = {
+    condaEnvironmentOrFail().getPackagesExplicit()
+  }
+
   def addCondaChannel(url: String): Unit = {
     condaEnvironmentOrFail().addChannel(url)
   }

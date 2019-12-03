@@ -19,6 +19,7 @@ package org.apache.spark.internal
 
 import java.util.concurrent.TimeUnit
 
+import org.apache.spark.api.conda.CondaBootstrapMode
 import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.scheduler.{EventLoggingListener, SchedulingMode}
@@ -500,6 +501,14 @@ package object config {
     .stringConf
     .createOptional
 
+  private[spark] val CONDA_BOOTSTRAP_MODE =
+    ConfigBuilder("spark.conda.bootstrapMode")
+      .doc("The conda create mode that will be used to make the conda environment."
+        + "Only relevant when main class is CondaRunner.")
+      .stringConf
+      .checkValues(CondaBootstrapMode.values.map(value => value.toString))
+      .createWithDefault("solve")
+
   private[spark] val CONDA_BOOTSTRAP_PACKAGES = ConfigBuilder("spark.conda.bootstrapPackages")
     .doc("The packages that will be added to the conda environment. "
       + "Only relevant when main class is CondaRunner.")
@@ -510,8 +519,7 @@ package object config {
   private[spark] val CONDA_BOOTSTRAP_PACKAGE_URLS =
     ConfigBuilder("spark.conda.bootstrapPackageUrls")
       .doc("The exact package urls that will be added to the conda environment. "
-        + "Only relevant when main class is CondaRunner."
-        + "Takes precedence over spark.conda.bootstrapPackages.")
+        + "Only relevant when main class is CondaRunner.")
       .stringConf
       .toSequence
       .createWithDefault(Nil)

@@ -945,6 +945,9 @@ class SparkContext(object):
         """
         self._jsc.addCondaPackages(packages)
 
+    def getCondaPackagesExplicit(self):
+        return self._jsc.sc().getCondaPackagesExplicit()
+
     def addCondaChannel(self, url):
         self._jsc.sc().addCondaChannel(url)
 

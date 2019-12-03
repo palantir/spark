@@ -25,6 +25,7 @@ import javax.ws.rs.core.UriBuilder
 import scala.collection.mutable
 
 import org.apache.spark.SparkException
+import org.apache.spark.api.conda.CondaBootstrapMode.CondaBootstrapMode
 import org.apache.spark.internal.Logging
 
 /**
@@ -37,6 +38,7 @@ import org.apache.spark.internal.Logging
 final class CondaEnvironment(val manager: CondaEnvironmentManager,
                              val rootPath: Path,
                              val envName: String,
+                             bootstrapMode: CondaBootstrapMode,
                              bootstrapPackages: Seq[String],
                              bootstrapPackageUrls: Seq[String],
                              bootstrapChannels: Seq[String],
@@ -46,7 +48,6 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
   import CondaEnvironment._
 
   private[this] val packages = mutable.Buffer(bootstrapPackages: _*)
-  private[this] val packageUrls = bootstrapPackageUrls
   private[this] val channels = bootstrapChannels.iterator.map(AuthenticatedChannel.apply).toBuffer
 
   val condaEnvDir: Path = rootPath.resolve("envs").resolve(envName)
@@ -73,10 +74,14 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
     channels ++= urls.iterator.map(AuthenticatedChannel.apply)
   }
 
+  def getPackagesExplicit(): List[String] = {
+    manager.listPackagesExplicit(condaEnvDir.toAbsolutePath.toString)
+  }
+
   def installPackages(packages: Seq[String]): Unit = {
-    if (packageUrls.nonEmpty) {
+    if (bootstrapMode.equals(CondaBootstrapMode.file)) {
       throw new SparkException("Install packages is not supported if" +
-        "CondaEnvironment was created with packageUrls.")
+        "CondaEnvironment was created with file.")
     }
 
     manager.runCondaProcess(rootPath,
@@ -106,7 +111,13 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
    * This is for sending the instructions to the executors so they can replicate the same steps.
    */
   def buildSetupInstructions: CondaSetupInstructions = {
-    CondaSetupInstructions(packages.toList, packageUrls.toList, channels.toList, extraArgs, envVars)
+    CondaSetupInstructions(
+      bootstrapMode,
+      packages.toList,
+      bootstrapPackageUrls,
+      channels.toList,
+      extraArgs,
+      envVars)
   }
 }
 
@@ -163,14 +174,20 @@ object CondaEnvironment {
    * Note that only the first parameter list is used by implementations of toString, equals etc.
    */
   case class CondaSetupInstructions(
+         mode: CondaBootstrapMode,
          packages: Seq[String],
          packageUrls: Seq[String],
          unauthenticatedChannels: Seq[UnauthenticatedChannel],
          extraArgs: Seq[String],
          envVars: Map[String, String])
         (userInfos: Map[UnauthenticatedChannel, String]) {
-    require(unauthenticatedChannels.nonEmpty)
-    require(packages.nonEmpty || packageUrls.nonEmpty)
+    mode match {
+      case CondaBootstrapMode.solve =>
+        require(unauthenticatedChannels.nonEmpty)
+        require(packages.nonEmpty)
+      case CondaBootstrapMode.file =>
+        require(packageUrls.nonEmpty)
+    }
 
     /**
      * Channels with authentication applied.
@@ -179,14 +196,15 @@ object CondaEnvironment {
   }
 
   object CondaSetupInstructions {
-    def apply(packages: Seq[String],
+    def apply(mode: CondaBootstrapMode,
+              packages: Seq[String],
               packageUrls: Seq[String],
               channels: Seq[AuthenticatedChannel],
               extraArgs: Seq[String],
               envVars: Map[String, String])
         : CondaSetupInstructions = {
       val ChannelsWithCreds(unauthed, userInfos) = unauthenticateChannels(channels)
-      CondaSetupInstructions(packages, packageUrls, unauthed, extraArgs, envVars)(userInfos)
+      CondaSetupInstructions(mode, packages, packageUrls, unauthed, extraArgs, envVars)(userInfos)
     }
   }
 }

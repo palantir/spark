@@ -39,6 +39,7 @@ import org.json4s.jackson.JsonMethods
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkEnv
 import org.apache.spark.SparkException
+import org.apache.spark.api.conda.CondaBootstrapMode.CondaBootstrapMode
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.CONDA_BINARY_PATH
@@ -69,16 +70,38 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     defaultInfo("pkgs_dirs").extract[List[String]]
   }
 
+  def listPackagesExplicit(envDir: String): List[String] = {
+    logInfo("Retrieving a conda environment's list of installed packages")
+    val command = Process(List(condaBinaryPath, "list", "-p", envDir, "--explicit"), None)
+
+    val out = runOrFail(command, "retrieving the conda installation's list of installed packages")
+    out.split("\n").filterNot(line => line.startsWith("#") || line.startsWith("@")).toList
+  }
+
+  def createWithMode(baseDir: String,
+                     condaMode: CondaBootstrapMode,
+                     condaPackages: Seq[String],
+                     condaPackageUrls: Seq[String],
+                     condaChannelUrls: Seq[String],
+                     condaExtraArgs: Seq[String] = Nil,
+                     condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
+    condaMode match {
+      case CondaBootstrapMode.solve =>
+        create(baseDir, condaPackages, condaChannelUrls, condaExtraArgs, condaEnvVars)
+      case CondaBootstrapMode.file =>
+        createWithFile(baseDir, condaPackageUrls, condaExtraArgs, condaEnvVars)
+    }
+  }
+
   def create(
               baseDir: String,
               condaPackages: Seq[String],
-              condaPackageUrls: Seq[String],
               condaChannelUrls: Seq[String],
               condaExtraArgs: Seq[String] = Nil,
               condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
-    require(condaPackages.nonEmpty || condaChannelUrls.nonEmpty,
-      "Expected at least one conda package or package url.")
+    require(condaPackages.nonEmpty, "Expected at least one conda package.")
     require(condaChannelUrls.nonEmpty, "Can't have an empty list of conda channel URLs")
+    val name = "conda-env"
 
     // must link in /tmp to reduce path length in case baseDir is very long...
     // If baseDir path is too long, this breaks conda's 220 character limit for binary replacement.
@@ -89,52 +112,49 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
 
     val verbosityFlags = 0.until(verbosity).map(_ => "-v").toList
 
-    if (condaPackageUrls.nonEmpty) {
-      logInfo("Using conda package urls and spec file to run conda create.")
-      if (condaPackages.nonEmpty) {
-        logWarning("Conda package urls will override requested conda packages.")
-      }
+    // Attempt to create environment
+    runCondaProcess(
+      linkedBaseDir,
+      List("create", "-n", name, "-y", "--no-default-packages")
+        ::: condaExtraArgs.toList
+        ::: verbosityFlags
+        ::: "--" :: condaPackages.toList,
+      description = "create conda env",
+      channels = condaChannelUrls.toList,
+      envVars = condaEnvVars
+    )
 
-      // Create spec file with URLs
-      val specFilePath = linkedBaseDir.resolve("spec-file")
-      Files.write(specFilePath, ("@EXPLICIT" +: condaPackageUrls).asJava)
-
-      runCondaCreate(
-        condaPackages,
-        condaPackageUrls,
-        List("--file", specFilePath.toString),
-        condaChannelUrls,
-        condaExtraArgs,
-        condaEnvVars,
-        linkedBaseDir,
-        verbosityFlags,
-        "create conda env with file")
-    } else {
-      logInfo("Using conda packages to run conda create.")
-      runCondaCreate(
-        condaPackages,
-        condaPackageUrls,
-        "--" :: condaPackages.toList,
-        condaChannelUrls,
-        condaExtraArgs,
-        condaEnvVars,
-        linkedBaseDir,
-        verbosityFlags,
-        "create conda env")
-    }
+    new CondaEnvironment(
+      this,
+      linkedBaseDir,
+      name,
+      CondaBootstrapMode.solve,
+      condaPackages,
+      Nil,
+      condaChannelUrls,
+      condaExtraArgs)
   }
 
-  private[this] def runCondaCreate(
-                               condaPackages: Seq[String],
-                               condaPackageUrls: Seq[String],
-                               packagesCommandArgs: List[String],
-                               condaChannelUrls: Seq[String],
-                               condaExtraArgs: Seq[String],
-                               condaEnvVars: Map[String, String],
-                               linkedBaseDir: Path,
-                               verbosityFlags: List[String],
-                               description: String): CondaEnvironment = {
+  def createWithFile(
+              baseDir: String,
+              condaPackageUrls: Seq[String],
+              condaExtraArgs: Seq[String] = Nil,
+              condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
+    require(condaPackageUrls.nonEmpty, "Expected at least one conda package url.")
     val name = "conda-env"
+
+    // must link in /tmp to reduce path length in case baseDir is very long...
+    // If baseDir path is too long, this breaks conda's 220 character limit for binary replacement.
+    // Don't even try to use java.io.tmpdir - yarn sets this to a very long path
+    val linkedBaseDir = Utils.createTempDir("/tmp", "conda").toPath.resolve("real")
+    logInfo(s"Creating symlink $linkedBaseDir -> $baseDir")
+    Files.createSymbolicLink(linkedBaseDir, Paths.get(baseDir))
+
+    val verbosityFlags = 0.until(verbosity).map(_ => "-v").toList
+
+    // Create spec file with URLs
+    val specFilePath = linkedBaseDir.resolve("spec-file")
+    Files.write(specFilePath, ("@EXPLICIT" +: condaPackageUrls).asJava)
 
     // Attempt to create environment
     runCondaProcess(
@@ -142,18 +162,20 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       List("create", "-n", name, "-y", "--no-default-packages")
         ::: condaExtraArgs.toList
         ::: verbosityFlags
-        ::: packagesCommandArgs,
-      description = description,
-      channels = condaChannelUrls.toList,
-      envVars = condaEnvVars)
+        ::: List("--file", specFilePath.toString),
+      description = "create conda env with file",
+      channels = Nil,
+      envVars = condaEnvVars
+    )
 
     new CondaEnvironment(
       this,
       linkedBaseDir,
       name,
-      condaPackages,
+      CondaBootstrapMode.file,
+      Nil,
       condaPackageUrls,
-      condaChannelUrls,
+      Nil,
       condaExtraArgs)
   }
 
@@ -300,8 +322,9 @@ object CondaEnvironmentManager extends Logging {
       val dirId = hash % localDirs.length
       Utils.createTempDir(localDirs(dirId).getAbsolutePath, "conda").getAbsolutePath
     }
-    condaEnvManager.create(
+    condaEnvManager.createWithMode(
       envDir,
+      instructions.mode,
       condaPackages,
       condaPackageUrls,
       instructions.channels,
