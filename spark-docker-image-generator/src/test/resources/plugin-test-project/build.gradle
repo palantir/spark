@@ -43,7 +43,7 @@ dependencies {
 }
 
 sparkDocker {
-  baseImage 'anapsix/alpine-java:8'
+  baseImage 'openjdk:8-jdk-slim'
   imageName 'docker.palantir.test/spark/spark-test-app'
   tags System.getProperty('docker-tag')
 }
