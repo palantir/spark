@@ -50,7 +50,7 @@ object CondaRunner {
    */
   def setupCondaEnvironmentAutomatically(sparkConf: SparkConf): Option[CondaEnvironment] = {
     if (CondaEnvironmentManager.isConfigured(sparkConf)) {
-      val condaBootstrapMode = CondaBootstrapMode.withName(sparkConf.get(CONDA_BOOTSTRAP_MODE))
+      val condaBootstrapMode = CondaBootstrapMode.fromString(sparkConf.get(CONDA_BOOTSTRAP_MODE))
       val condaBootstrapDeps = sparkConf.get(CONDA_BOOTSTRAP_PACKAGES)
       val condaBootstrapDepUrls = sparkConf.get(CONDA_BOOTSTRAP_PACKAGE_URLS)
       val condaChannelUrls = sparkConf.get(CONDA_CHANNEL_URLS)

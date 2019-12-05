@@ -104,7 +104,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |    if spec_file_path:
     |        sys.stderr.write("Inside conditional\n")
     |        spec_file = open(spec_file_path, 'w')
-    |        package_urls = sc.getCondaPackagesExplicit()
+    |        package_urls = sc.getTransitiveCondaPackageUrls()
     |        py_package_urls = [package_urls.apply(i) for i in range(package_urls.size())]
     |        sys.stderr.write(str(py_package_urls))
     |        for package_url in py_package_urls:
@@ -482,7 +482,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     // step 3 run conda with bootstrap urls from spec file contents
     val extraConfForFile: Map[String, String] = Map(
       "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
-      "spark.conda.bootstrapMode" -> "file",
+      "spark.conda.bootstrapMode" -> "File",
       "spark.conda.bootstrapPackageUrls" -> bootstrapPackageUrls.mkString(",")
     )
     testCondaPySpark(clientMode, TEST_CONDA_NO_ADD_PYFILE, extraConf = extraConfForFile)

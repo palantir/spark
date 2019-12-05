@@ -506,8 +506,8 @@ package object config {
       .doc("The conda create mode that will be used to make the conda environment."
         + "Only relevant when main class is CondaRunner.")
       .stringConf
-      .checkValues(CondaBootstrapMode.values.map(value => value.toString))
-      .createWithDefault("solve")
+      .checkValues(CondaBootstrapMode.values().map(_.toString).toSet)
+      .createWithDefault("Solve")
 
   private[spark] val CONDA_BOOTSTRAP_PACKAGES = ConfigBuilder("spark.conda.bootstrapPackages")
     .doc("The packages that will be added to the conda environment. "

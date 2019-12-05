@@ -25,7 +25,6 @@ import javax.ws.rs.core.UriBuilder
 import scala.collection.mutable
 
 import org.apache.spark.SparkException
-import org.apache.spark.api.conda.CondaBootstrapMode.CondaBootstrapMode
 import org.apache.spark.internal.Logging
 
 /**
@@ -74,14 +73,14 @@ final class CondaEnvironment(val manager: CondaEnvironmentManager,
     channels ++= urls.iterator.map(AuthenticatedChannel.apply)
   }
 
-  def getPackagesExplicit(): List[String] = {
+  def getTransitivePackageUrls(): List[String] = {
     manager.listPackagesExplicit(condaEnvDir.toAbsolutePath.toString)
   }
 
   def installPackages(packages: Seq[String]): Unit = {
-    if (bootstrapMode.equals(CondaBootstrapMode.file)) {
-      throw new SparkException("Install packages is not supported if" +
-        "CondaEnvironment was created with file.")
+    if (bootstrapMode.equals(CondaBootstrapMode.File)) {
+      throw new SparkException(
+        "Install packages is not supported if CondaEnvironment was created with file.")
     }
 
     manager.runCondaProcess(rootPath,
@@ -182,10 +181,10 @@ object CondaEnvironment {
          envVars: Map[String, String])
         (userInfos: Map[UnauthenticatedChannel, String]) {
     mode match {
-      case CondaBootstrapMode.solve =>
+      case CondaBootstrapMode.Solve =>
         require(unauthenticatedChannels.nonEmpty)
         require(packages.nonEmpty)
-      case CondaBootstrapMode.file =>
+      case CondaBootstrapMode.File =>
         require(packageUrls.nonEmpty)
     }
 

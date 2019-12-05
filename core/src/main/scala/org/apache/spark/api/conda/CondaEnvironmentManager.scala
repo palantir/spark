@@ -39,7 +39,6 @@ import org.json4s.jackson.JsonMethods
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkEnv
 import org.apache.spark.SparkException
-import org.apache.spark.api.conda.CondaBootstrapMode.CondaBootstrapMode
 import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.CONDA_BINARY_PATH
@@ -86,9 +85,9 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
                      condaExtraArgs: Seq[String] = Nil,
                      condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
     condaMode match {
-      case CondaBootstrapMode.solve =>
+      case CondaBootstrapMode.Solve =>
         create(baseDir, condaPackages, condaChannelUrls, condaExtraArgs, condaEnvVars)
-      case CondaBootstrapMode.file =>
+      case CondaBootstrapMode.File =>
         createWithFile(baseDir, condaPackageUrls, condaExtraArgs, condaEnvVars)
     }
   }
@@ -128,7 +127,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       this,
       linkedBaseDir,
       name,
-      CondaBootstrapMode.solve,
+      CondaBootstrapMode.Solve,
       condaPackages,
       Nil,
       condaChannelUrls,
@@ -172,7 +171,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       this,
       linkedBaseDir,
       name,
-      CondaBootstrapMode.file,
+      CondaBootstrapMode.File,
       Nil,
       condaPackageUrls,
       Nil,

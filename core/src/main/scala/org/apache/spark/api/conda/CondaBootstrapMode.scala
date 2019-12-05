@@ -19,7 +19,25 @@ package org.apache.spark.api.conda
 /**
  * Determines the conda create mode run to bootstrap the conda environment.
  */
-object CondaBootstrapMode extends Enumeration {
-  type CondaBootstrapMode = Value
-  val solve, file = Value
+sealed trait CondaBootstrapMode
+
+object CondaBootstrapMode {
+
+  /**
+   * Solve mode runs conda create using the SAT solver.
+   */
+  case object Solve extends CondaBootstrapMode
+
+  /**
+   * File mode runs conda create using a spec file that specifies the package urls to install.
+   */
+  case object File extends CondaBootstrapMode
+
+  def fromString(value: String): CondaBootstrapMode = {
+    values().find(_.toString == value).get
+  }
+
+  def values(): Vector[CondaBootstrapMode] = {
+    Vector(Solve, File)
+  }
 }
