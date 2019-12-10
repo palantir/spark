@@ -34,15 +34,16 @@ import org.apache.spark.internal.Logging
  * @param rootPath  The root path under which envs/ and pkgs/ are located.
  * @param envName   The name of the environment.
  */
-final class CondaEnvironment(val manager: CondaEnvironmentManager,
-                             val rootPath: Path,
-                             val envName: String,
-                             bootstrapMode: CondaBootstrapMode,
-                             bootstrapPackages: Seq[String],
-                             bootstrapPackageUrls: Seq[String],
-                             bootstrapChannels: Seq[String],
-                             extraArgs: Seq[String] = Nil,
-                             envVars: Map[String, String] = Map.empty) extends Logging {
+final class CondaEnvironment(
+    val manager: CondaEnvironmentManager,
+    val rootPath: Path,
+    val envName: String,
+    bootstrapMode: CondaBootstrapMode,
+    bootstrapPackages: Seq[String],
+    bootstrapPackageUrls: Seq[String],
+    bootstrapChannels: Seq[String],
+    extraArgs: Seq[String] = Nil,
+    envVars: Map[String, String] = Map.empty) extends Logging {
 
   import CondaEnvironment._
 
@@ -173,13 +174,13 @@ object CondaEnvironment {
    * Note that only the first parameter list is used by implementations of toString, equals etc.
    */
   case class CondaSetupInstructions(
-         mode: CondaBootstrapMode,
-         packages: Seq[String],
-         packageUrls: Seq[String],
-         unauthenticatedChannels: Seq[UnauthenticatedChannel],
-         extraArgs: Seq[String],
-         envVars: Map[String, String])
-        (userInfos: Map[UnauthenticatedChannel, String]) {
+      mode: CondaBootstrapMode,
+      packages: Seq[String],
+      packageUrls: Seq[String],
+      unauthenticatedChannels: Seq[UnauthenticatedChannel],
+      extraArgs: Seq[String],
+      envVars: Map[String, String])
+      (userInfos: Map[UnauthenticatedChannel, String]) {
     mode match {
       case CondaBootstrapMode.Solve =>
         require(unauthenticatedChannels.nonEmpty)
@@ -195,13 +196,13 @@ object CondaEnvironment {
   }
 
   object CondaSetupInstructions {
-    def apply(mode: CondaBootstrapMode,
-              packages: Seq[String],
-              packageUrls: Seq[String],
-              channels: Seq[AuthenticatedChannel],
-              extraArgs: Seq[String],
-              envVars: Map[String, String])
-        : CondaSetupInstructions = {
+    def apply(
+        mode: CondaBootstrapMode,
+        packages: Seq[String],
+        packageUrls: Seq[String],
+        channels: Seq[AuthenticatedChannel],
+        extraArgs: Seq[String],
+        envVars: Map[String, String]): CondaSetupInstructions = {
       val ChannelsWithCreds(unauthed, userInfos) = unauthenticateChannels(channels)
       CondaSetupInstructions(mode, packages, packageUrls, unauthed, extraArgs, envVars)(userInfos)
     }

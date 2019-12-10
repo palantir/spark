@@ -34,7 +34,9 @@ object CondaBootstrapMode {
   case object File extends CondaBootstrapMode
 
   def fromString(value: String): CondaBootstrapMode = {
-    values().find(_.toString == value).get
+    values().find(_.toString == value).getOrElse(
+      throw new IllegalArgumentException(
+        s"Unable to construct CondaBootStrapMode from string $value"))
   }
 
   def values(): Vector[CondaBootstrapMode] = {

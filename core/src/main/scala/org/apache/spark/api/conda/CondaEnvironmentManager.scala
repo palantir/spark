@@ -77,13 +77,14 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     out.split("\n").filterNot(line => line.startsWith("#") || line.startsWith("@")).toList
   }
 
-  def createWithMode(baseDir: String,
-                     condaMode: CondaBootstrapMode,
-                     condaPackages: Seq[String],
-                     condaPackageUrls: Seq[String],
-                     condaChannelUrls: Seq[String],
-                     condaExtraArgs: Seq[String] = Nil,
-                     condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
+  def createWithMode(
+      baseDir: String,
+      condaMode: CondaBootstrapMode,
+      condaPackages: Seq[String],
+      condaPackageUrls: Seq[String],
+      condaChannelUrls: Seq[String],
+      condaExtraArgs: Seq[String] = Nil,
+      condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
     condaMode match {
       case CondaBootstrapMode.Solve =>
         create(baseDir, condaPackages, condaChannelUrls, condaExtraArgs, condaEnvVars)
@@ -93,11 +94,11 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
   }
 
   def create(
-              baseDir: String,
-              condaPackages: Seq[String],
-              condaChannelUrls: Seq[String],
-              condaExtraArgs: Seq[String] = Nil,
-              condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
+      baseDir: String,
+      condaPackages: Seq[String],
+      condaChannelUrls: Seq[String],
+      condaExtraArgs: Seq[String] = Nil,
+      condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
     require(condaPackages.nonEmpty, "Expected at least one conda package.")
     require(condaChannelUrls.nonEmpty, "Can't have an empty list of conda channel URLs")
     val name = "conda-env"
@@ -135,10 +136,10 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
   }
 
   def createWithFile(
-              baseDir: String,
-              condaPackageUrls: Seq[String],
-              condaExtraArgs: Seq[String] = Nil,
-              condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
+      baseDir: String,
+      condaPackageUrls: Seq[String],
+      condaExtraArgs: Seq[String] = Nil,
+      condaEnvVars: Map[String, String] = Map.empty): CondaEnvironment = {
     require(condaPackageUrls.nonEmpty, "Expected at least one conda package url.")
     val name = "conda-env"
 
