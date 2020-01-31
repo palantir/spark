@@ -16,9 +16,12 @@
  */
 package org.apache.spark.sql.execution
 
+import scala.collection.mutable
+
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.SparkConf
+import org.apache.spark.scheduler.{SparkListener, SparkListenerTaskEnd}
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSQLContext
@@ -99,4 +102,30 @@ class DataSourceScanExecRedactionSuite extends QueryTest with SharedSQLContext {
     }
   }
 
+  test("SPARK-30362: test input metrics for DSV2") {
+    Seq("json", "orc", "parquet").foreach { format =>
+      withTempPath { path =>
+        val dir = path.getCanonicalPath
+        spark.range(0, 10).write.format(format).save(dir)
+        val df = spark.read.format(format).load(dir)
+        val bytesReads = new mutable.ArrayBuffer[Long]()
+        val recordsRead = new mutable.ArrayBuffer[Long]()
+        val bytesReadListener = new SparkListener() {
+          override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {
+            bytesReads += taskEnd.taskMetrics.inputMetrics.bytesRead
+            recordsRead += taskEnd.taskMetrics.inputMetrics.recordsRead
+          }
+        }
+        sparkContext.addSparkListener(bytesReadListener)
+        try {
+          df.collect()
+          sparkContext.listenerBus.waitUntilEmpty()
+          assert(bytesReads.sum > 0)
+          assert(recordsRead.sum == 10)
+        } finally {
+          sparkContext.removeSparkListener(bytesReadListener)
+        }
+      }
+    }
+  }
 }
