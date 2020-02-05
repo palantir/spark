@@ -114,6 +114,10 @@
     <module>sql/hive</module>
     <module>streaming</module>
     <module>tools</module>
+
+    <!-- Async shuffle upload modules-->
+    <module>async-shuffle-upload/immutables</module>
+    <module>async-shuffle-upload/async-shuffle-upload-api</module>
     <!-- See additional modules enabled by profiles below -->
   </modules>
 
@@ -215,6 +219,9 @@
     ./python/run-tests.py and ./python/setup.py too.
     -->
     <arrow.version>0.12.0</arrow.version>
+
+    <!-- Async shuffle upload plugin dependency versions -->
+    <safe-logging.version>1.13.0</safe-logging.version>
 
     <test.java.home>${java.home}</test.java.home>
     <test.exclude.tags></test.exclude.tags>
@@ -2304,6 +2311,30 @@
         <groupId>org.apache.kafka</groupId>
         <artifactId>kafka-clients</artifactId>
         <version>${kafka.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.palantir.safe-logging</groupId>
+        <artifactId>safe-logging</artifactId>
+        <version>${safe-logging.version}</version>
+      </dependency>
+
+      <!-- Dependencies required for the async shuffle upload plugin. -->
+      <dependency>
+        <groupId>org.immutables</groupId>
+        <artifactId>value</artifactId>
+        <version>2.8.2</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.palantir.safe-logging</groupId>
+        <artifactId>preconditions</artifactId>
+        <version>${safe-logging.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.assertj</groupId>
+        <artifactId>assertj-core</artifactId>
+        <version>3.15.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
