@@ -17,6 +17,9 @@ approval_rules:
       count: 1
       teams:
         - "palantir/spark"
+    if:
+      targets_branch:
+        pattern: "^(master|async-shuffle-upload-base)$"
 
   - name: excavator only touched build tooling or dependencies
     requires:
