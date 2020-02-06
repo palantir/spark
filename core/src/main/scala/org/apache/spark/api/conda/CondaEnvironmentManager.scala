@@ -235,9 +235,9 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       extraEnv: _*
     )
 
-    logInfo(s"About to execute $command with environment $extraEnv")
+    logInfo(s"About to execute $command")
     runOrFail(command, description)
-    logInfo(s"Successfully executed $command with environment $extraEnv")
+    logInfo(s"Successfully executed $command")
   }
 
   /**
