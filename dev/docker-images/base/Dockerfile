@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM buildpack-deps:cosmic
+FROM buildpack-deps:20.04
 
 # make Apt non-interactive
 RUN echo 'APT::Get::Assume-Yes "true";' > /etc/apt/apt.conf.d/90circleci \
@@ -28,11 +28,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p /usr/share/man/man1 \
   && apt-get update \
   && apt-get install -y \
-    git \
+    git python2 \
     locales sudo openssh-client ca-certificates tar gzip parallel \
     net-tools netcat unzip zip bzip2 gnupg curl wget \
     openjdk-8-jdk rsync pandoc pandoc-citeproc flake8 tzdata \
   && rm -rf /var/lib/apt/lists/*
+
+# Make python command default to python2
+RUN sudo update-alternatives --install /usr/bin/python python /usr/bin/python2 0
 
 # If you update java, make sure this aligns
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -59,13 +62,13 @@ RUN JQ_URL="https://circle-downloads.s3.amazonaws.com/circleci-images/cache/linu
 # The output looks like this:
 
 #>    # To install, run the following commands as root:
-#>    curl -fsSLO https://download.docker.com/linux/static/stable/x86_64/docker-17.05.0-ce.tgz && tar --strip-components=1 -xvzf docker-17.05.0-ce.tgz -C /usr/local/bin
+#>    curl -fsSLO https://download.docker.com/linux/static/stable/x86_64/docker-17.05.0.tgz && tar --strip-components=1 -xvzf docker-17.05.0.tgz -C /usr/local/bin
 #>
 #>    # Then start docker in daemon mode:
 #>    /usr/local/bin/dockerd
 
 RUN set -ex \
-  && export DOCKER_VERSION=$(curl --silent --fail --retry 3 https://download.docker.com/linux/static/stable/x86_64/ | grep -o -e 'docker-[.0-9]*-ce\.tgz' | sort -r | head -n 1) \
+  && export DOCKER_VERSION=$(curl --silent --fail --retry 3 https://download.docker.com/linux/static/stable/x86_64/ | grep -o -e 'docker-[.0-9]*\.tgz' | sort -r | head -n 1) \
   && DOCKER_URL="https://download.docker.com/linux/static/stable/x86_64/${DOCKER_VERSION}" \
   && echo Docker URL: $DOCKER_URL \
   && curl --silent --show-error --location --fail --retry 3 --output /tmp/docker.tgz "${DOCKER_URL}" \
@@ -109,9 +112,10 @@ WORKDIR $CIRCLE_HOME
 ENV CONDA_ROOT=$CIRCLE_HOME/miniconda
 ENV CONDA_BIN=$CIRCLE_HOME/miniconda/bin/conda
 ENV MINICONDA2_VERSION=4.5.11
-RUN curl -sO https://repo.continuum.io/miniconda/Miniconda2-${MINICONDA2_VERSION}-Linux-x86_64.sh \
+
+RUN curl -sO https://repo.anaconda.com/miniconda/Miniconda2-${MINICONDA2_VERSION}-Linux-x86_64.sh \
   && bash Miniconda2-${MINICONDA2_VERSION}-Linux-x86_64.sh -b -p ${CONDA_ROOT} \
-  && $CONDA_BIN clean --all \
+  && $CONDA_BIN clean --all --yes \
   && sudo mkdir -m 777 /home/.conda \
   && rm -f Miniconda2-${MINICONDA2_VERSION}-Linux-x86_64.sh
 

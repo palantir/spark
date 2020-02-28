@@ -37,5 +37,5 @@ RUN pyenv global our-miniconda/envs/python2 our-miniconda/envs/python3 \
 # Expose pyenv globally
 ENV PATH=$CIRCLE_HOME/.pyenv/shims:$PATH
 
-RUN PYENV_VERSION=our-miniconda/envs/python2 $CIRCLE_HOME/.pyenv/shims/pip install unishark unittest-xml-reporting \
- && PYENV_VERSION=our-miniconda/envs/python3 $CIRCLE_HOME/.pyenv/shims/pip install unishark unittest-xml-reporting
+RUN PYENV_VERSION=our-miniconda/envs/python2 $CIRCLE_HOME/.pyenv/shims/pip install unishark "unittest-xml-reporting<3"
+RUN PYENV_VERSION=our-miniconda/envs/python3 $CIRCLE_HOME/.pyenv/shims/pip install unishark unittest-xml-reporting
