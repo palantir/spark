@@ -27,8 +27,8 @@ RUN curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-instal
 # A version I've tested earlier that I know it breaks with is 1.14.1
 RUN mkdir -p $(pyenv root)/versions \
   && ln -s $CONDA_ROOT $(pyenv root)/versions/our-miniconda \
-  && $CONDA_BIN create -y -n python2 -c anaconda -c conda-forge python==2.7.15 numpy=1.14.0 pyarrow==0.8.0 pandas nomkl \
-  && $CONDA_BIN create -y -n python3 -c anaconda -c conda-forge python=3.6 numpy=1.14.0 pyarrow==0.8.0 pandas nomkl \
+  && $CONDA_BIN create -y -n python2 -c anaconda -c conda-forge python==2.7.15 numpy=1.14.0 pyarrow==0.12.1 pandas nomkl \
+  && $CONDA_BIN create -y -n python3 -c anaconda -c conda-forge python=3.6 numpy=1.14.0 pyarrow==0.12.1 pandas nomkl \
   && $CONDA_BIN clean --all
 
 RUN pyenv global our-miniconda/envs/python2 our-miniconda/envs/python3 \
@@ -37,5 +37,5 @@ RUN pyenv global our-miniconda/envs/python2 our-miniconda/envs/python3 \
 # Expose pyenv globally
 ENV PATH=$CIRCLE_HOME/.pyenv/shims:$PATH
 
-RUN PYENV_VERSION=our-miniconda/envs/python2 $CIRCLE_HOME/.pyenv/shims/pip install unishark unittest-xml-reporting \
- && PYENV_VERSION=our-miniconda/envs/python3 $CIRCLE_HOME/.pyenv/shims/pip install unishark unittest-xml-reporting
+RUN PYENV_VERSION=our-miniconda/envs/python2 $CIRCLE_HOME/.pyenv/shims/pip install unishark "unittest-xml-reporting<3"
+RUN PYENV_VERSION=our-miniconda/envs/python3 $CIRCLE_HOME/.pyenv/shims/pip install unishark unittest-xml-reporting
