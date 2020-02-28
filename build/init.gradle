@@ -11,3 +11,17 @@ allprojects {
         }
     }
 }
+/*
+ * (c) Copyright 2019 Palantir Technologies Inc. All rights reserved.
+ */
+
+allprojects {
+    pluginManager.withPlugin('com.palantir.baseline-error-prone') {
+        pluginManager.withPlugin('java') {
+            baselineErrorProne {
+                // https://github.com/palantir/gradle-baseline/blob/develop/gradle-baseline-java/src/main/groovy/com/palantir/baseline/extensions/BaselineErrorProneExtension.java
+                patchChecks = ['PreferCollectionConstructors']
+            }
+        }
+    }
+}
