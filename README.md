@@ -1,3 +1,7 @@
+<p align="right">
+<a href="https://autorelease.general.dmz.palantir.tech/palantir/spark"><img src="https://img.shields.io/badge/Perform%20an-Autorelease-success.svg" alt="Autorelease"></a>
+</p>
+
 # Palantir distribution of Apache Spark
 
 [ ![Download](https://api.bintray.com/packages/palantir/releases/spark/images/download.svg) ](https://bintray.com/palantir/releases/spark/_latestVersion)
