@@ -542,6 +542,13 @@ class SparkSession(object):
         from pandas.api.types import is_datetime64_dtype, is_datetime64tz_dtype
         import pyarrow as pa
 
+        if sys.version < '3' and LooseVersion(pa.__version__) >= LooseVersion("0.10.0"):
+            str_cols = self._get_str_columns(pdf)
+            if len(str_cols) > 0:
+                pdf = pdf.copy()
+            for str_col in str_cols:
+                pdf[str_col] = pdf[str_col].astype("unicode")
+
         # Create the Spark schema from list of names passed in with Arrow types
         if isinstance(schema, (list, tuple)):
             if LooseVersion(pa.__version__) < LooseVersion("0.12.0"):
@@ -591,6 +598,10 @@ class SparkSession(object):
         df = DataFrame(jdf, self._wrapped)
         df._schema = schema
         return df
+
+    def _get_str_columns(self, pandas_df):
+        import pandas as pd
+        return [col for col in pandas_df.columns if pd.api.types.infer_dtype(pandas_df[col], skipna=True) == "string"]
 
     @staticmethod
     def _create_shell_session():

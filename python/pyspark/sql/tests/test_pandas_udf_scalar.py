@@ -215,9 +215,19 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
     def test_pandas_python2_string(self):
         import pandas as pd
         self.spark.conf.set("spark.sql.execution.arrow.enabled", "true")
-        pdf = pd.DataFrame([['a', 'b']], columns = ["col1", "col2"])
+        self.spark.conf.set("spark.sql.execution.arrow.fallback.enabled", "false")
+        pdf = pd.DataFrame([['a']], columns = ["col1"])
         sdf = self.spark.createDataFrame(pdf)
-        sdf2 = self.spark.createDataFrame([['a', 'b']], schema=['col1', 'col2'])
+        sdf2 = self.spark.createDataFrame([['a']], schema=['col1'])
+        self.assertEquals(sdf.dtypes, sdf2.dtypes)
+
+    def test_pandas_python2_nested_string(self):
+        import pandas as pd
+        self.spark.conf.set("spark.sql.execution.arrow.enabled", "true")
+        self.spark.conf.set("spark.sql.execution.arrow.fallback.enabled", "true")
+        pdf = pd.DataFrame([[['a']]], columns = ["col1"])
+        sdf = self.spark.createDataFrame(pdf)
+        sdf2 = self.spark.createDataFrame([[['a']]], schema=['col1'])
         self.assertEquals(sdf.dtypes, sdf2.dtypes)
 
     def test_vectorized_udf_datatype_string(self):
