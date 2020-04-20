@@ -212,6 +212,12 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
         expected = df.select(col('id').cast('string'))
         self.assertEquals(expected.collect(), actual.collect())
 
+    def test_pandas_python2_string(self):
+        pdf = pd.DataFrame([['a', 'b']], columns = ["col1", "col2"])
+        sdf = self.spark.createDataFrame(pdf)
+        sdf2 = self.spark.createDataFrame([['a', 'b']], schema=['col1', 'col2'])
+        self.assertEquals(sdf.dtypes, sdf2.dtypes) # i think this should fail with python2
+
     def test_vectorized_udf_datatype_string(self):
         df = self.spark.range(10).select(
             col('id').cast('string').alias('str'),
