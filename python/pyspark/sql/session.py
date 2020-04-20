@@ -532,7 +532,8 @@ class SparkSession(object):
         """
         from distutils.version import LooseVersion
         from pyspark.serializers import ArrowStreamPandasSerializer
-        from pyspark.sql.types import from_arrow_type, to_arrow_type, TimestampType
+        from pyspark.sql.types import from_arrow_type, to_arrow_type, TimestampType, \
+            _infer_binary_columns_as_arrow_string
         from pyspark.sql.utils import require_minimum_pandas_version, \
             require_minimum_pyarrow_version
 
@@ -549,6 +550,11 @@ class SparkSession(object):
                 arrow_schema = temp_batch.schema
             else:
                 arrow_schema = pa.Schema.from_pandas(pdf, preserve_index=False)
+
+            # TODO(rshkv): Remove when we stop supporting Python 2 (#678)
+            if sys.version < '3':
+                arrow_schema = _infer_binary_columns_as_arrow_string(arrow_schema, pdf)
+
             struct = StructType()
             for name, field in zip(schema, arrow_schema):
                 struct.add(name, from_arrow_type(field.type), nullable=field.nullable)

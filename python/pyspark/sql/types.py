@@ -1618,6 +1618,10 @@ def to_arrow_type(dt):
     elif type(dt) == ArrayType:
         if type(dt.elementType) in [StructType, TimestampType]:
             raise TypeError("Unsupported type in conversion to Arrow: " + str(dt))
+        # TODO(rshkv): Support binary type when we move off Python 2 (#678)
+        if sys.version < '3' and type(dt.elementType) == BinaryType:
+            raise TypeError("Unsupported type in conversion to Arrow: " + str(dt) +
+                            "\nPlease use Python3 for support of BinaryType in arrays.")
         arrow_type = pa.list_(to_arrow_type(dt.elementType))
     elif type(dt) == StructType:
         if any(type(field.dataType) == StructType for field in dt):
@@ -1746,6 +1750,19 @@ def _arrow_table_to_pandas(table, schema):
             return table.to_pandas()
     else:
         return table.to_pandas(date_as_object=True)
+
+
+def _infer_binary_columns_as_arrow_string(schema, pandas_df):
+    import pandas as pd
+    import pyarrow as pa
+
+    for field_index, field in enumerate(schema):
+        if field.type == pa.binary() and \
+                pd.api.types.infer_dtype(pandas_df.iloc[:, field_index]) == "string":
+            field_as_string = pa.field(field.name, pa.string())
+            schema = schema.set(field_index, field_as_string)
+
+    return schema
 
 
 def _get_local_timezone():
