@@ -314,7 +314,7 @@ jobs:
       - store_test_results:
           path: target/test-reports
       - store_artifacts:
-          path: python/unit-tests.log
+          path: target/test-reports
 
 
   run-r-tests:
