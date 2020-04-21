@@ -103,7 +103,7 @@ if (in_spark):
 # If you are changing the versions here, please also change ./python/pyspark/sql/utils.py and
 # ./python/run-tests.py. In case of Arrow, you should also check ./pom.xml.
 _minimum_pandas_version = "0.19.2"
-_minimum_pyarrow_version = "0.8.0"
+_minimum_pyarrow_version = "0.12.1"
 
 try:
     # We copy the shell script to be under pyspark/python/pyspark so that the launcher scripts
