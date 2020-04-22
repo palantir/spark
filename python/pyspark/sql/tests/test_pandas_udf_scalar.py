@@ -216,7 +216,7 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
         import pandas as pd
         self.spark.conf.set("spark.sql.execution.arrow.enabled", "true")
         self.spark.conf.set("spark.sql.execution.arrow.fallback.enabled", "false")
-        pdf = pd.DataFrame([['a']], columns = ["col1"])
+        pdf = pd.DataFrame([['a']], columns=["col1"])
         sdf = self.spark.createDataFrame(pdf)
         sdf2 = self.spark.createDataFrame([['a']], schema=['col1'])
         self.assertEquals(sdf.dtypes, sdf2.dtypes)
@@ -225,7 +225,7 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
         import pandas as pd
         self.spark.conf.set("spark.sql.execution.arrow.enabled", "true")
         self.spark.conf.set("spark.sql.execution.arrow.fallback.enabled", "true")
-        pdf = pd.DataFrame([[['a']]], columns = ["col1"])
+        pdf = pd.DataFrame([[['a']]], columns=["col1"])
         sdf = self.spark.createDataFrame(pdf)
         sdf2 = self.spark.createDataFrame([[['a']]], schema=['col1'])
         self.assertEquals(sdf.dtypes, sdf2.dtypes)

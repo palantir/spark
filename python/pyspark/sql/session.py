@@ -601,7 +601,8 @@ class SparkSession(object):
 
     def _get_str_columns(self, pandas_df):
         import pandas as pd
-        return [col for col in pandas_df.columns if pd.api.types.infer_dtype(pandas_df[col], skipna=True) == "string"]
+        return [col for col in pandas_df.columns
+                if pd.api.types.infer_dtype(pandas_df[col], skipna=True) == "string"]
 
     @staticmethod
     def _create_shell_session():
