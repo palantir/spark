@@ -215,7 +215,6 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
     def test_pandas_python2_string(self):
         import pandas as pd
         self.spark.conf.set("spark.sql.execution.arrow.enabled", "true")
-        self.spark.conf.set("spark.sql.execution.arrow.fallback.enabled", "true")
         pdf = pd.DataFrame([['a', 'b']], columns = ["col1", "col2"])
         sdf = self.spark.createDataFrame(pdf)
         sdf2 = self.spark.createDataFrame([['a', 'b']], schema=['col1', 'col2'])
@@ -246,8 +245,8 @@ class ScalarPandasUDFTests(ReusedSQLTestCase):
 
     def test_vectorized_udf_null_binary(self):
         import pyarrow as pa
-        print(sys.version)
-        if LooseVersion(pa.__version__) < LooseVersion("0.10.0") or sys.version < '3':
+
+        if LooseVersion(pa.__version__) < LooseVersion("0.10.0"):
             with QuietTest(self.sc):
                 with self.assertRaisesRegexp(
                         NotImplementedError,
