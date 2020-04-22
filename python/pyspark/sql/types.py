@@ -1609,6 +1609,8 @@ def to_arrow_type(dt):
         if LooseVersion(pa.__version__) < LooseVersion("0.10.0"):
             raise TypeError("Unsupported type in conversion to Arrow: " + str(dt) +
                             "\nPlease install pyarrow >= 0.10.0 for BinaryType support.")
+        if sys.version < '3':
+            raise TypeError("Unsupported type in conversion to Arrow for python2: " + str(dt))
         arrow_type = pa.binary()
     elif type(dt) == DateType:
         arrow_type = pa.date32()
@@ -1668,6 +1670,8 @@ def from_arrow_type(at):
         if LooseVersion(pa.__version__) < LooseVersion("0.10.0"):
             raise TypeError("Unsupported type in conversion from Arrow: " + str(at) +
                             "\nPlease install pyarrow >= 0.10.0 for BinaryType support.")
+        if sys.version < '3':
+            raise TypeError("Unsupported type in conversion to Arrow for python2: " + str(dt))
         spark_type = BinaryType()
     elif types.is_date32(at):
         spark_type = DateType()
