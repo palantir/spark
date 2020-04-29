@@ -299,11 +299,12 @@ object SQLConf {
 
   val SHUFFLE_MIN_NUM_POSTSHUFFLE_PARTITIONS =
     buildConf("spark.sql.adaptive.minNumPostShufflePartitions")
-      .doc("The advisory minimum number of post-shuffle partitions used in adaptive execution.")
+      .doc("The advisory minimum number of post-shuffle partitions used in adaptive execution. " +
+        "If not set, the default value is the default parallelism of the Spark cluster.")
       .intConf
       .checkValue(_ > 0, "The minimum shuffle partition number " +
         "must be a positive integer.")
-      .createWithDefault(1)
+      .createOptional
 
   val SHUFFLE_MAX_NUM_POSTSHUFFLE_PARTITIONS =
     buildConf("spark.sql.adaptive.maxNumPostShufflePartitions")
@@ -1829,9 +1830,6 @@ class SQLConf extends Serializable with Logging {
     getConf(NON_EMPTY_PARTITION_RATIO_FOR_BROADCAST_JOIN)
 
   def reducePostShufflePartitionsEnabled: Boolean = getConf(REDUCE_POST_SHUFFLE_PARTITIONS_ENABLED)
-
-  def minNumPostShufflePartitions: Int =
-    getConf(SHUFFLE_MIN_NUM_POSTSHUFFLE_PARTITIONS)
 
   def maxNumPostShufflePartitions: Int =
     getConf(SHUFFLE_MAX_NUM_POSTSHUFFLE_PARTITIONS).getOrElse(numShufflePartitions)

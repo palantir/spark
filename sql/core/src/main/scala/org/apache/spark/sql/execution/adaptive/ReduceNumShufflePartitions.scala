@@ -23,6 +23,7 @@ import scala.concurrent.duration.Duration
 import org.apache.spark.MapOutputStatistics
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.physical.{Partitioning, UnknownPartitioning}
@@ -52,7 +53,8 @@ import org.apache.spark.util.ThreadUtils
  *  - post-shuffle partition 2: pre-shuffle partition 2 (size 170 MiB)
  *  - post-shuffle partition 3: pre-shuffle partition 3 and 4 (size 50 MiB)
  */
-case class ReduceNumShufflePartitions(conf: SQLConf) extends Rule[SparkPlan] {
+case class ReduceNumShufflePartitions(session: SparkSession) extends Rule[SparkPlan] {
+  private def conf = session.sessionState.conf
 
   override def apply(plan: SparkPlan): SparkPlan = {
     if (!conf.reducePostShufflePartitionsEnabled) {
@@ -89,10 +91,14 @@ case class ReduceNumShufflePartitions(conf: SQLConf) extends Rule[SparkPlan] {
       val distinctNumPreShufflePartitions =
         validMetrics.map(stats => stats.bytesByPartitionId.length).distinct
       if (validMetrics.nonEmpty && distinctNumPreShufflePartitions.length == 1) {
-        val partitionStartIndices = estimatePartitionStartIndices(
+        // We fall back to Spark default parallelism if the minimum number of coalesced partitions
+        // is not set, so to avoid perf regressions compared to no coalescing.
+        val minPartitionNum = conf.getConf(SQLConf.SHUFFLE_MIN_NUM_POSTSHUFFLE_PARTITIONS)
+          .getOrElse(session.sparkContext.defaultParallelism)
+        val partitionStartIndices = ReduceNumShufflePartitions.estimatePartitionStartIndices(
           validMetrics.toArray,
           conf.targetPostShuffleInputSize,
-          conf.minNumPostShufflePartitions)
+          minPartitionNum)
         // This transformation adds new nodes, so we must use `transformUp` here.
         plan.transformUp {
           // even for shuffle exchange whose input RDD has 0 partition, we should still update its
