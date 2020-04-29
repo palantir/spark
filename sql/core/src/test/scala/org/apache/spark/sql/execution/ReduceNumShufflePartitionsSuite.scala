@@ -264,7 +264,8 @@ class ReduceNumShufflePartitionsSuite extends SparkFunSuite with BeforeAndAfterA
   def withSparkSession(
       f: SparkSession => Unit,
       targetPostShuffleInputSize: Int,
-      minNumPostShufflePartitions: Option[Int]): Unit = {
+      minNumPostShufflePartitions: Option[Int],
+      unsetMinMax: Boolean = false): Unit = {
     val sparkConf =
       new SparkConf(false)
         .setMaster("local[*]")
@@ -282,6 +283,11 @@ class ReduceNumShufflePartitionsSuite extends SparkFunSuite with BeforeAndAfterA
         sparkConf.set(SQLConf.SHUFFLE_MIN_NUM_POSTSHUFFLE_PARTITIONS.key, numPartitions.toString)
       case None =>
         sparkConf.set(SQLConf.SHUFFLE_MIN_NUM_POSTSHUFFLE_PARTITIONS.key, "1")
+    }
+
+    if (unsetMinMax) {
+      sparkConf.remove(SQLConf.SHUFFLE_MAX_NUM_POSTSHUFFLE_PARTITIONS.key)
+      sparkConf.remove(SQLConf.SHUFFLE_MIN_NUM_POSTSHUFFLE_PARTITIONS.key)
     }
 
     val spark = SparkSession.builder()
@@ -517,6 +523,38 @@ class ReduceNumShufflePartitionsSuite extends SparkFunSuite with BeforeAndAfterA
       }
       withSparkSession(test, 12000, minNumPostShufflePartitions)
     }
+  }
+
+  // TODO(rshkv): Remove after taking SPARK-31124
+  test("number of reducers is lower-bound by default parallelism without configured minimum") {
+    val test = { spark: SparkSession =>
+      val df =
+        spark
+          .range(0, 1000, 1, numInputPartitions)
+          .selectExpr("id % 20 as key", "id as value")
+      val agg = df.groupBy("key").count()
+
+      agg.collect()
+
+      val finalPlan = agg.queryExecution.executedPlan
+        .asInstanceOf[AdaptiveSparkPlanExec].executedPlan
+      val shuffleReaders = finalPlan.collect {
+        case reader: CoalescedShuffleReaderExec => reader
+      }
+
+      assert(shuffleReaders.length === 1)
+      shuffleReaders.foreach { reader =>
+        // Assert that there is no configured minimum
+        assert(!spark.conf.contains(SQLConf.SHUFFLE_MIN_NUM_POSTSHUFFLE_PARTITIONS.key))
+        // The number of output partitions will be slightly larger than defaultParallelism because
+        // input partitions don't exactly fit. Key here is that have more than one partition.
+        assert(reader.outputPartitioning.numPartitions >= spark.sparkContext.defaultParallelism)
+      }
+    }
+    // Pick an advisory partition size such that we'd have one partition
+    // if min = defaultParallelism didn't work
+    val targetSizeForOnePartition = 1000000000
+    withSparkSession(test, targetSizeForOnePartition, None, unsetMinMax = true)
   }
 
   test("SPARK-24705 adaptive query execution works correctly when exchange reuse enabled") {
