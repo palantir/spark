@@ -525,7 +525,7 @@ class ReduceNumShufflePartitionsSuite extends SparkFunSuite with BeforeAndAfterA
     }
   }
 
-  // TODO(rshkv): Remove after taking SPARK-31124
+  // TODO(rshkv): Remove after taking SPARK-31124 (#676)
   test("number of reducers is lower-bound by default parallelism without configured minimum") {
     val test = { spark: SparkSession =>
       val df =
