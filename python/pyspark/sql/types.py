@@ -1618,10 +1618,6 @@ def to_arrow_type(dt):
     elif type(dt) == ArrayType:
         if type(dt.elementType) in [StructType, TimestampType]:
             raise TypeError("Unsupported type in conversion to Arrow: " + str(dt))
-        # TODO(rshkv): Support binary type when we move off Python 2 (#678)
-        if sys.version < '3' and type(dt.elementType) == BinaryType:
-            raise TypeError("Unsupported type in conversion to Arrow: " + str(dt) +
-                            "\nPlease use Python3 for support of BinaryType in arrays.")
         arrow_type = pa.list_(to_arrow_type(dt.elementType))
     elif type(dt) == StructType:
         if any(type(field.dataType) == StructType for field in dt):
@@ -1680,6 +1676,12 @@ def from_arrow_type(at):
     elif types.is_list(at):
         if types.is_timestamp(at.value_type):
             raise TypeError("Unsupported type in conversion from Arrow: " + str(at))
+
+        # TODO(rshkv): Support binary type when we move off Python 2 (#678)
+        if sys.version < '3' and types.is_binary(at.value_type):
+            raise TypeError("Unsupported type in conversion from Arrow: " + str(at) +
+                            "\nPlease use Python3 for support of BinaryType in arrays.")
+
         spark_type = ArrayType(from_arrow_type(at.value_type))
     elif types.is_struct(at):
         # TODO: remove version check once minimum pyarrow version is 0.10.0
