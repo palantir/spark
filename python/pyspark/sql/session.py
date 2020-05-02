@@ -550,9 +550,10 @@ class SparkSession(object):
                 arrow_schema = temp_batch.schema
             else:
                 arrow_schema = pa.Schema.from_pandas(pdf, preserve_index=False)
-                # TODO(rshkv): Remove when we stop supporting Python 2 (#678)
-                if sys.version < '3':
-                    arrow_schema = _infer_binary_columns_as_arrow_string(arrow_schema, pdf)
+
+            # TODO(rshkv): Remove when we stop supporting Python 2 (#678)
+            if sys.version < '3' and LooseVersion(pa.__version__) >= LooseVersion("0.10.0"):
+                arrow_schema = _infer_binary_columns_as_arrow_string(arrow_schema, pdf)
 
             struct = StructType()
             for name, field in zip(schema, arrow_schema):
