@@ -119,7 +119,7 @@ class DataSourceScanExecRedactionSuite extends QueryTest with SharedSQLContext {
         sparkContext.addSparkListener(bytesReadListener)
         try {
           df.collect()
-          sparkContext.listenerBus.waitUntilEmpty()
+          sparkContext.listenerBus.waitUntilEmpty(10 * 1000)
           assert(bytesReads.sum > 0)
           assert(recordsRead.sum == 10)
         } finally {
