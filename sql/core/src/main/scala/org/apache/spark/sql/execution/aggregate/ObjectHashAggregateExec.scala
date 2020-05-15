@@ -65,7 +65,7 @@ case class ObjectHashAggregateExec(
     initialInputBufferOffset: Int,
     resultExpressions: Seq[NamedExpression],
     child: SparkPlan)
-  extends UnaryExecNode {
+  extends BaseAggregateExec {
 
   private[this] val aggregateBufferAttributes = {
     aggregateExpressions.flatMap(_.aggregateFunction.aggBufferAttributes)
@@ -121,7 +121,7 @@ case class ObjectHashAggregateExec(
             resultExpressions,
             (expressions, inputSchema) =>
               newMutableProjection(expressions, inputSchema, subexpressionEliminationEnabled),
-            child.output,
+            inputAttributes,
             iter,
             fallbackCountThreshold,
             numOutputRows)
