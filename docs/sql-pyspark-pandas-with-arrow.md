@@ -7,7 +7,7 @@ displayTitle: PySpark Usage Guide for Pandas with Apache Arrow
 * Table of contents
 {:toc}
 
-## Apache Arrow in Spark
+## Apache Arrow in PySpark
 
 Apache Arrow is an in-memory columnar data format that is used in Spark to efficiently transfer
 data between JVM and Python processes. This currently is most beneficial to Python users that
@@ -20,7 +20,7 @@ working with Arrow-enabled data.
 
 If you install PySpark using pip, then PyArrow can be brought in as an extra dependency of the
 SQL module with the command `pip install pyspark[sql]`. Otherwise, you must ensure that PyArrow
-is installed and available on all cluster nodes. The current supported version is 0.8.0.
+is installed and available on all cluster nodes. The current supported version is 0.12.1.
 You can install using pip or conda from the conda-forge channel. See PyArrow
 [installation](https://arrow.apache.org/docs/python/install.html) for details.
 
@@ -128,8 +128,7 @@ For detailed usage, please see [`pyspark.sql.functions.pandas_udf`](api/python/p
 ### Supported SQL Types
 
 Currently, all Spark SQL data types are supported by Arrow-based conversion except `MapType`,
-`ArrayType` of `TimestampType`, and nested `StructType`. `BinaryType` is supported only when
-installed PyArrow is equal to or higher than 0.10.0.
+`ArrayType` of `TimestampType`, and nested `StructType`.
 
 ### Setting Arrow Batch Size
 

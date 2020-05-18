@@ -545,11 +545,7 @@ class SparkSession(object):
 
         # Create the Spark schema from list of names passed in with Arrow types
         if isinstance(schema, (list, tuple)):
-            if LooseVersion(pa.__version__) < LooseVersion("0.12.0"):
-                temp_batch = pa.RecordBatch.from_pandas(pdf[0:100], preserve_index=False)
-                arrow_schema = temp_batch.schema
-            else:
-                arrow_schema = pa.Schema.from_pandas(pdf, preserve_index=False)
+            arrow_schema = pa.Schema.from_pandas(pdf, preserve_index=False)
 
             # TODO(rshkv): Remove when we stop supporting Python 2 (#678)
             if sys.version < '3' and LooseVersion(pa.__version__) >= LooseVersion("0.10.0"):
