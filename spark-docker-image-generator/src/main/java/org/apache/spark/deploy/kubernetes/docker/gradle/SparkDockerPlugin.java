@@ -56,7 +56,7 @@ public final class SparkDockerPlugin implements Plugin<Project> {
                 project.getConfigurations().maybeCreate(SPARK_DOCKER_RUNTIME_CONFIGURATION_NAME);
         File dockerFile = new File(dockerBuildDirectory, "Dockerfile");
         project.getPluginManager().withPlugin("java", plugin -> {
-            Configuration runtimeConfiguration = project.getConfigurations().findByName("runtimeElements");
+            Configuration runtimeConfiguration = project.getConfigurations().findByName("runtimeClasspath");
             if (runtimeConfiguration == null) {
                 log.warn("No runtime configuration was found for a reference configuration for building"
                         + " your Spark application's docker images.");
