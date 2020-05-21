@@ -152,4 +152,29 @@ class SparkSessionBuilderSuite extends SparkFunSuite with BeforeAndAfterEach {
       session.sparkContext.hadoopConfiguration.unset(mySpecialKey)
     }
   }
+
+  test("SPARK-31354: SparkContext only register one SparkSession ApplicationEnd listener") {
+    val conf = new SparkConf()
+      .setMaster("local")
+      .setAppName("test-app-SPARK-31354-1")
+    val context = new SparkContext(conf)
+    SparkSession
+      .builder()
+      .sparkContext(context)
+      .master("local")
+      .getOrCreate()
+    val postFirstCreation = context.listenerBus.listeners.size()
+    SparkSession.clearActiveSession()
+    SparkSession.clearDefaultSession()
+
+    SparkSession
+      .builder()
+      .sparkContext(context)
+      .master("local")
+      .getOrCreate()
+    val postSecondCreation = context.listenerBus.listeners.size()
+    SparkSession.clearActiveSession()
+    SparkSession.clearDefaultSession()
+    assert(postFirstCreation == postSecondCreation)
+  }
 }
