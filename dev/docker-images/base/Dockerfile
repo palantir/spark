@@ -111,7 +111,7 @@ WORKDIR $CIRCLE_HOME
 # Install miniconda, we are using it to test conda support and a bunch of tests expect CONDA_BIN to be set
 ENV CONDA_ROOT=$CIRCLE_HOME/miniconda
 ENV CONDA_BIN=$CIRCLE_HOME/miniconda/bin/conda
-ENV MINICONDA2_VERSION=4.5.11
+ENV MINICONDA2_VERSION=4.7.12.1
 
 RUN curl -sO https://repo.anaconda.com/miniconda/Miniconda2-${MINICONDA2_VERSION}-Linux-x86_64.sh \
   && bash Miniconda2-${MINICONDA2_VERSION}-Linux-x86_64.sh -b -p ${CONDA_ROOT} \
