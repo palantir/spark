@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM palantirtechnologies/circle-spark-base
+FROM palantirtechnologies/circle-spark-base:0.2.3
 
 USER root
 
