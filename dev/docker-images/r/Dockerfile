@@ -17,29 +17,15 @@
 
 FROM palantirtechnologies/circle-spark-base:0.2.3
 
+# Install R and SparkR dependencies
+RUN $CONDA_BIN install --yes --channel r \
+    r-base=3.4.3 r-knitr r-rmarkdown r-e1071 r-survival r-testthat r-lintr r-roxygen2 r-devtools
+
+# Install qpdf (used for SparkR documentation, required in R tests)
 USER root
-
-# We install r-base-dev via apt-get, and then r-base via Conda. We can't do both via apt-get, because we need older R
-# versions and CRAN's Ubuntu channels don't satisfy old dependencies. We can't do both via Conda, because "official"
-# channels (anaconda and forge) don't have dev builds of R. Hence this suboptimal split. The versions don't even match.
-
-# Install r-base-dev to get shared libraries to compile R packages
-# Also install qpdf (rendering of SparkR docs), and third-party dependencies libcurl and libgit
-RUN apt-get update && apt-get install r-base-dev qpdf libcurl4-openssl-dev libgit2-dev
-# Install R via Conda so we can control the R version
-RUN $CONDA_BIN install --yes r-base=3.4.3 gxx_linux-64
-ENV R_HOME=$CONDA_ROOT/lib/R
-
-# Need gxx_linux-64 binaries on the path to compile R packages
-ENV PATH="$CONDA_ROOT/bin:$PATH"
-
-# Install SparkR dependencies (find list in R/pkg/DESCRIPTION)
-# Need to provide path to pkgconfig otherwise the installer gets confused between the system pkgconfig and the Conda pkgconfig
-RUN R -e "install.packages(c('knitr', 'rmarkdown', 'e1071', 'survival'), repos='https://cloud.r-project.org', configure.vars='PKG_CONFIG_PATH=$CONDA_ROOT/lib/pkgconfig')"
-
-# Install build dependencies
-# Need to install 'curl' separately
-RUN R -e "install.packages('curl', repos='https://cloud.r-project.org', configure.vars='PKG_CONFIG_PATH=$CONDA_ROOT/lib/pkgconfig')"
-RUN R -e "install.packages(c('devtools', 'roxygen2', 'lintr', 'testthat'), repos='https://cloud.r-project.org', configure.vars='PKG_CONFIG_PATH=$CONDA_ROOT/lib/pkgconfig')"
-
+RUN apt-get update && apt-get install qpdf
 USER circleci
+
+# Add conda-installed R to path
+ENV PATH="$CONDA_ROOT/bin:$PATH"
+ENV R_HOME=$CONDA_ROOT/lib/R
