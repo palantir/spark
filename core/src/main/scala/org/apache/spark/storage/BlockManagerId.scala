@@ -70,12 +70,7 @@ class BlockManagerId private (
   }
 
   override def writeExternal(out: ObjectOutput): Unit = Utils.tryOrIOException {
-    if (executorId_ != null) {
-      out.writeBoolean(true)
-      out.writeUTF(executorId_)
-    } else {
-      out.writeBoolean(false)
-    }
+    out.writeUTF(executorId_)
     out.writeUTF(host_)
     out.writeInt(port_)
     out.writeBoolean(topologyInfo_.isDefined)
@@ -84,9 +79,7 @@ class BlockManagerId private (
   }
 
   override def readExternal(in: ObjectInput): Unit = Utils.tryOrIOException {
-    if (in.readBoolean()) {
-      executorId_ = in.readUTF()
-    }
+    executorId_ = in.readUTF()
     host_ = in.readUTF()
     port_ = in.readInt()
     val isTopologyInfoAvailable = in.readBoolean()
@@ -98,13 +91,8 @@ class BlockManagerId private (
 
   override def toString: String = s"BlockManagerId($executorId, $host, $port, $topologyInfo)"
 
-  override def hashCode: Int = {
-    if (executorId != null) {
-      ((executorId.hashCode * 41 + host.hashCode) * 41 + port) * 41 + topologyInfo.hashCode
-    } else {
-      (host.hashCode * 41 + port) * 41 + topologyInfo.hashCode
-    }
-  }
+  override def hashCode: Int =
+    ((executorId.hashCode * 41 + host.hashCode) * 41 + port) * 41 + topologyInfo.hashCode
 
   override def equals(that: Any): Boolean = that match {
     case id: BlockManagerId =>
@@ -138,9 +126,6 @@ private[spark] object BlockManagerId {
       port: Int,
       topologyInfo: Option[String] = None): BlockManagerId =
     getCachedBlockManagerId(new BlockManagerId(execId, host, port, topologyInfo))
-
-  def apply(host: String, port: Int): BlockManagerId =
-    getCachedBlockManagerId(new BlockManagerId(null, host, port, None))
 
   def apply(in: ObjectInput): BlockManagerId = {
     val obj = new BlockManagerId()

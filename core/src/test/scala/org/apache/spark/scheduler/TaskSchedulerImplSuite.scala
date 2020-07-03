@@ -1068,7 +1068,7 @@ class TaskSchedulerImplSuite extends SparkFunSuite with LocalSparkContext with B
       WorkerOffer("exec3", "host3", 2) // unknown
     )
     val makeMapStatus = (offer: WorkerOffer) =>
-      MapStatus(BlockManagerId(offer.executorId, offer.host, 1), Array(10), 0L)
+      MapStatus(BlockManagerId(offer.executorId, offer.host, 1), Array(10))
     val mapOutputTracker = sc.env.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]
     mapOutputTracker.registerShuffle(0, 2)
     mapOutputTracker.registerShuffle(1, 1)

@@ -156,11 +156,10 @@ class ShuffledRowRDD(
 
   override def compute(split: Partition, context: TaskContext): Iterator[InternalRow] = {
     val shuffledRowPartition = split.asInstanceOf[ShuffledRowRDDPartition]
+    val tempMetrics = context.taskMetrics().createTempShuffleReadMetrics()
     // `SQLShuffleReadMetricsReporter` will update its own metrics for SQL exchange operator,
     // as well as the `tempMetrics` for basic shuffle metrics.
-    context.taskMetrics().decorateTempShuffleReadMetrics(
-      tempMetrics => new SQLShuffleReadMetricsReporter(tempMetrics, metrics))
-    val tempMetrics = context.taskMetrics().createTempShuffleReadMetrics()
+    val sqlMetricsReporter = new SQLShuffleReadMetricsReporter(tempMetrics, metrics)
     // The range of pre-shuffle partitions that we are fetching at here is
     // [startPreShufflePartitionIndex, endPreShufflePartitionIndex - 1].
     val reader =
@@ -169,7 +168,7 @@ class ShuffledRowRDD(
         shuffledRowPartition.startPreShufflePartitionIndex,
         shuffledRowPartition.endPreShufflePartitionIndex,
         context,
-        tempMetrics)
+        sqlMetricsReporter)
     reader.read().asInstanceOf[Iterator[Product2[Int, InternalRow]]].map(_._2)
   }
 

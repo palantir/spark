@@ -36,7 +36,7 @@ import org.apache.spark.internal.config._
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.shuffle.MetadataFetchFailedException
-import org.apache.spark.storage.{BlockId, BlockManagerId, ShuffleBlockAttemptId, ShuffleBlockId}
+import org.apache.spark.storage.{BlockId, BlockManagerId, ShuffleBlockId}
 import org.apache.spark.util._
 
 /**
@@ -148,8 +148,7 @@ private class ShuffleStatus(numPartitions: Int) {
    */
   def removeOutputsByFilter(f: (BlockManagerId) => Boolean): Unit = synchronized {
     for (mapId <- 0 until mapStatuses.length) {
-      if (mapStatuses(mapId) != null && mapStatuses(mapId).location != null
-          && f(mapStatuses(mapId).location)) {
+      if (mapStatuses(mapId) != null && f(mapStatuses(mapId).location)) {
         decrementNumAvailableOutputs(mapStatuses(mapId).location)
         mapStatuses(mapId) = null
         invalidateSerializedMapOutputStatusCache()
@@ -218,21 +217,17 @@ private class ShuffleStatus(numPartitions: Int) {
   }
 
   private[this] def incrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
-    if (bmAddress != null) {
-      _numOutputsPerExecutorId(bmAddress.executorId) += 1
-    }
+    _numOutputsPerExecutorId(bmAddress.executorId) += 1
     _numAvailableOutputs += 1
   }
 
   private[this] def decrementNumAvailableOutputs(bmAddress: BlockManagerId): Unit = synchronized {
-    if (bmAddress != null) {
-      assert(_numOutputsPerExecutorId(bmAddress.executorId) >= 1,
-        s"Tried to remove non-existent output from ${bmAddress.executorId}")
-      if (_numOutputsPerExecutorId(bmAddress.executorId) == 1) {
-        _numOutputsPerExecutorId.remove(bmAddress.executorId)
-      } else {
-        _numOutputsPerExecutorId(bmAddress.executorId) -= 1
-      }
+    assert(_numOutputsPerExecutorId(bmAddress.executorId) >= 1,
+      s"Tried to remove non-existent output from ${bmAddress.executorId}")
+    if (_numOutputsPerExecutorId(bmAddress.executorId) == 1) {
+      _numOutputsPerExecutorId.remove(bmAddress.executorId)
+    } else {
+      _numOutputsPerExecutorId(bmAddress.executorId) -= 1
     }
     _numAvailableOutputs -= 1
   }
@@ -327,7 +322,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
 
   // For testing
   def getMapSizesByExecutorId(shuffleId: Int, reduceId: Int)
-      : Iterator[(Option[BlockManagerId], Seq[(BlockId, Long)])] = {
+      : Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
     getMapSizesByExecutorId(shuffleId, reduceId, reduceId + 1)
   }
 
@@ -341,7 +336,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
    *         describing the shuffle blocks that are stored at that block manager.
    */
   def getMapSizesByExecutorId(shuffleId: Int, startPartition: Int, endPartition: Int)
-      : Iterator[(Option[BlockManagerId], Seq[(BlockId, Long)])]
+      : Iterator[(BlockManagerId, Seq[(BlockId, Long)])]
 
   /**
    * Deletes map output status information for the specified shuffle stage.
@@ -668,7 +663,7 @@ private[spark] class MapOutputTrackerMaster(
 
   /**
    * Return a list of locations that each have fraction of map output greater than the specified
-   * threshold. Ignores shuffle blocks without location or executor id.
+   * threshold.
    *
    * @param shuffleId id of the shuffle
    * @param reducerId id of the reduce task
@@ -697,8 +692,7 @@ private[spark] class MapOutputTrackerMaster(
             // array with null entries for each output, and registerMapOutputs, which populates it
             // with valid status entries. This is possible if one thread schedules a job which
             // depends on an RDD which is currently being computed by another thread.
-            // This also ignores locations that are not on executors.
-            if (status != null && status.location != null && status.location.executorId != null) {
+            if (status != null) {
               val blockSize = status.getSizeForBlock(reducerId)
               if (blockSize > 0) {
                 locs(status.location) = locs.getOrElse(status.location, 0L) + blockSize
@@ -737,7 +731,7 @@ private[spark] class MapOutputTrackerMaster(
   // Get blocks sizes by executor Id. Note that zero-sized blocks are excluded in the result.
   // This method is only called in local-mode.
   def getMapSizesByExecutorId(shuffleId: Int, startPartition: Int, endPartition: Int)
-      : Iterator[(Option[BlockManagerId], Seq[(BlockId, Long)])] = {
+      : Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
     logDebug(s"Fetching outputs for shuffle $shuffleId, partitions $startPartition-$endPartition")
     shuffleStatuses.get(shuffleId) match {
       case Some (shuffleStatus) =>
@@ -774,7 +768,7 @@ private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTr
 
   // Get blocks sizes by executor Id. Note that zero-sized blocks are excluded in the result.
   override def getMapSizesByExecutorId(shuffleId: Int, startPartition: Int, endPartition: Int)
-      : Iterator[(Option[BlockManagerId], Seq[(BlockId, Long)])] = {
+      : Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
     logDebug(s"Fetching outputs for shuffle $shuffleId, partitions $startPartition-$endPartition")
     val statuses = getStatuses(shuffleId)
     try {
@@ -965,9 +959,9 @@ private[spark] object MapOutputTracker extends SafeLogging {
       shuffleId: Int,
       startPartition: Int,
       endPartition: Int,
-      statuses: Array[MapStatus]): Iterator[(Option[BlockManagerId], Seq[(BlockId, Long)])] = {
+      statuses: Array[MapStatus]): Iterator[(BlockManagerId, Seq[(BlockId, Long)])] = {
     assert (statuses != null)
-    val splitsByAddress = new HashMap[Option[BlockManagerId], ListBuffer[(BlockId, Long)]]
+    val splitsByAddress = new HashMap[BlockManagerId, ListBuffer[(BlockId, Long)]]
     for ((status, mapId) <- statuses.iterator.zipWithIndex) {
       if (status == null) {
         val errorMessage = "Missing an output location for shuffle"
@@ -979,13 +973,8 @@ private[spark] object MapOutputTracker extends SafeLogging {
         for (part <- startPartition until endPartition) {
           val size = status.getSizeForBlock(part)
           if (size != 0) {
-            if (status.location != null) {
-              splitsByAddress.getOrElseUpdate(Option.apply(status.location), ListBuffer()) +=
-                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.mapTaskAttemptId), size))
-            } else {
-              splitsByAddress.getOrElseUpdate(Option.empty, ListBuffer()) +=
-                ((ShuffleBlockAttemptId(shuffleId, mapId, part, status.mapTaskAttemptId), size))
-            }
+            splitsByAddress.getOrElseUpdate(status.location, ListBuffer()) +=
+                ((ShuffleBlockId(shuffleId, mapId, part), size))
           }
         }
       }

@@ -20,19 +20,13 @@ package org.apache.spark.shuffle
 import java.io.{ByteArrayOutputStream, InputStream}
 import java.nio.ByteBuffer
 
-import org.mockito.{Mock, MockitoAnnotations}
-import org.mockito.Answers.RETURNS_SMART_NULLS
-import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
+import org.mockito.Mockito.{mock, when}
 
 import org.apache.spark._
 import org.apache.spark.internal.config
-import org.apache.spark.io.CompressionCodec
 import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
 import org.apache.spark.serializer.{JavaSerializer, SerializerManager}
-import org.apache.spark.shuffle.sort.io.LocalDiskShuffleExecutorComponents
-import org.apache.spark.storage.{BlockId, BlockManager, BlockManagerId, ShuffleBlockAttemptId, ShuffleBlockId}
+import org.apache.spark.storage.{BlockManager, BlockManagerId, ShuffleBlockId}
 
 /**
  * Wrapper for a managed buffer that keeps track of how many times retain and release are called.
@@ -61,14 +55,11 @@ class RecordingManagedBuffer(underlyingBuffer: NioManagedBuffer) extends Managed
 
 class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext {
 
-  @Mock(answer = RETURNS_SMART_NULLS) private var blockResolver: IndexShuffleBlockResolver = _
-
   /**
    * This test makes sure that, when data is read from a HashShuffleReader, the underlying
    * ManagedBuffers that contain the data are eventually released.
    */
   test("read() releases resources on completion") {
-    MockitoAnnotations.initMocks(this)
     val testConf = new SparkConf(false)
     // Create a SparkContext as a convenient way of setting SparkEnv (needed because some of the
     // shuffle code calls SparkEnv.get()).
@@ -87,14 +78,11 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
     // Create a buffer with some randomly generated key-value pairs to use as the shuffle data
     // from each mappers (all mappers return the same shuffle data).
     val byteOutputStream = new ByteArrayOutputStream()
-    val compressionCodec = CompressionCodec.createCodec(testConf)
-    val compressedOutputStream = compressionCodec.compressedOutputStream(byteOutputStream)
-    val serializationStream = serializer.newInstance().serializeStream(compressedOutputStream)
+    val serializationStream = serializer.newInstance().serializeStream(byteOutputStream)
     (0 until keyValuePairsPerMap).foreach { i =>
       serializationStream.writeKey(i)
       serializationStream.writeValue(2*i)
     }
-    compressedOutputStream.close()
 
     // Setup the mocked BlockManager to return RecordingManagedBuffers.
     val localBlockManagerId = BlockManagerId("test-client", "test-client", 1)
@@ -114,19 +102,15 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
     // Make a mocked MapOutputTracker for the shuffle reader to use to determine what
     // shuffle data to read.
     val mapOutputTracker = mock(classOf[MapOutputTracker])
-    when(mapOutputTracker.getMapSizesByExecutorId(shuffleId, reduceId, reduceId + 1))
-      .thenAnswer(new Answer[Iterator[(Option[BlockManagerId], Seq[(BlockId, Long)])]] {
-        def answer(invocationOnMock: InvocationOnMock):
-        Iterator[(Option[BlockManagerId], Seq[(BlockId, Long)])] = {
-          // Test a scenario where all data is local, to avoid creating a bunch of additional mocks
-          // for the code to read data over the network.
-          val shuffleBlockIdsAndSizes = (0 until numMaps).map { mapId =>
-            val shuffleBlockId = ShuffleBlockAttemptId(shuffleId, mapId, reduceId, 0)
-            (shuffleBlockId, byteOutputStream.size().toLong)
-          }
-          Seq((Some(localBlockManagerId), shuffleBlockIdsAndSizes)).toIterator
-        }
-    })
+    when(mapOutputTracker.getMapSizesByExecutorId(shuffleId, reduceId, reduceId + 1)).thenReturn {
+      // Test a scenario where all data is local, to avoid creating a bunch of additional mocks
+      // for the code to read data over the network.
+      val shuffleBlockIdsAndSizes = (0 until numMaps).map { mapId =>
+        val shuffleBlockId = ShuffleBlockId(shuffleId, mapId, reduceId)
+        (shuffleBlockId, byteOutputStream.size().toLong)
+      }
+      Seq((localBlockManagerId, shuffleBlockIdsAndSizes)).toIterator
+    }
 
     // Create a mocked shuffle handle to pass into HashShuffleReader.
     val shuffleHandle = {
@@ -140,29 +124,19 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
     val serializerManager = new SerializerManager(
       serializer,
       new SparkConf()
-        .set(config.SHUFFLE_COMPRESS, true)
+        .set(config.SHUFFLE_COMPRESS, false)
         .set(config.SHUFFLE_SPILL_COMPRESS, false))
 
     val taskContext = TaskContext.empty()
-    TaskContext.setTaskContext(taskContext)
     val metrics = taskContext.taskMetrics.createTempShuffleReadMetrics()
-
-    val shuffleExecutorComponents =
-      new LocalDiskShuffleExecutorComponents(
-        testConf,
-        blockManager,
-        mapOutputTracker,
-        serializerManager,
-        blockResolver,
-        localBlockManagerId)
     val shuffleReader = new BlockStoreShuffleReader(
       shuffleHandle,
       reduceId,
       reduceId + 1,
       taskContext,
       metrics,
-      shuffleExecutorComponents,
       serializerManager,
+      blockManager,
       mapOutputTracker)
 
     assert(shuffleReader.read().length === keyValuePairsPerMap * numMaps)
@@ -173,6 +147,5 @@ class BlockStoreShuffleReaderSuite extends SparkFunSuite with LocalSparkContext 
       assert(buffer.callsToRetain === 1)
       assert(buffer.callsToRelease === 1)
     }
-    TaskContext.unset()
   }
 }

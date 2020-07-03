@@ -17,15 +17,10 @@
 
 package org.apache.spark.shuffle
 
-import scala.collection.JavaConverters._
-
 import org.apache.spark._
-import org.apache.spark.api.java.Optional
 import org.apache.spark.internal.{config, Logging}
-import org.apache.spark.io.CompressionCodec
 import org.apache.spark.serializer.SerializerManager
-import org.apache.spark.shuffle.api.{ShuffleBlockInfo, ShuffleExecutorComponents}
-import org.apache.spark.storage.ShuffleBlockAttemptId
+import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
 
@@ -39,57 +34,33 @@ private[spark] class BlockStoreShuffleReader[K, C](
     endPartition: Int,
     context: TaskContext,
     readMetrics: ShuffleReadMetricsReporter,
-    shuffleExecutorComponents: ShuffleExecutorComponents,
     serializerManager: SerializerManager = SparkEnv.get.serializerManager,
-    mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker,
-    sparkConf: SparkConf = SparkEnv.get.conf)
+    blockManager: BlockManager = SparkEnv.get.blockManager,
+    mapOutputTracker: MapOutputTracker = SparkEnv.get.mapOutputTracker)
   extends ShuffleReader[K, C] with Logging {
 
   private val dep = handle.dependency
 
-  private val compressionCodec = CompressionCodec.createCodec(sparkConf)
-
-  private val compressShuffle = sparkConf.get(config.SHUFFLE_COMPRESS)
-
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
-    val streamsIterator =
-      shuffleExecutorComponents.getPartitionReaders(new Iterable[ShuffleBlockInfo] {
-        override def iterator: Iterator[ShuffleBlockInfo] = {
-          mapOutputTracker
-            .getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition)
-            .flatMap { shuffleLocationInfo =>
-              shuffleLocationInfo._2.map { blockInfo =>
-                val block = blockInfo._1.asInstanceOf[ShuffleBlockAttemptId]
-                new ShuffleBlockInfo(
-                  block.shuffleId,
-                  block.mapId,
-                  block.reduceId,
-                  blockInfo._2,
-                  block.mapTaskAttemptId,
-                  Optional.ofNullable(shuffleLocationInfo._1.orNull))
-              }
-            }
-        }
-      }.asJava).iterator()
-
-    val retryingWrappedStreams = streamsIterator.asScala.map(rawReaderStream => {
-      if (shuffleExecutorComponents.shouldWrapPartitionReaderStream()) {
-        if (compressShuffle) {
-          compressionCodec.compressedInputStream(
-            serializerManager.wrapForEncryption(rawReaderStream))
-        } else {
-          serializerManager.wrapForEncryption(rawReaderStream)
-        }
-      } else {
-        // The default implementation checks for corrupt streams, so it will already have
-        // decompressed/decrypted the bytes
-        rawReaderStream
-      }
-    })
+    val wrappedStreams = new ShuffleBlockFetcherIterator(
+      context,
+      blockManager.shuffleClient,
+      blockManager,
+      mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition),
+      serializerManager.wrapStream,
+      // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
+      SparkEnv.get.conf.get(config.REDUCER_MAX_SIZE_IN_FLIGHT) * 1024 * 1024,
+      SparkEnv.get.conf.get(config.REDUCER_MAX_REQS_IN_FLIGHT),
+      SparkEnv.get.conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS),
+      SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM),
+      SparkEnv.get.conf.get(config.SHUFFLE_DETECT_CORRUPT),
+      readMetrics).toCompletionIterator
 
     val serializerInstance = dep.serializer.newInstance()
-    val recordIter = retryingWrappedStreams.flatMap { wrappedStream =>
+
+    // Create a key/value iterator for each stream
+    val recordIter = wrappedStreams.flatMap { case (blockId, wrappedStream) =>
       // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
       // NextIterator. The NextIterator makes sure that close() is called on the
       // underlying InputStream when all records have been read.
