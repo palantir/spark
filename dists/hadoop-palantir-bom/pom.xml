@@ -149,28 +149,6 @@
                     </exclusion>
                 </exclusions>
             </dependency>
-
-            <!-- async shuffle upload modules -->
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-async-shuffle-upload-api_${scala.binary.version}</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-async-shuffle-upload-core_${scala.binary.version}</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-async-shuffle-upload-immutables_${scala.binary.version}</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.spark</groupId>
-                <artifactId>spark-async-shuffle-upload-scala_${scala.binary.version}</artifactId>
-                <version>${project.version}</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>

@@ -114,13 +114,6 @@
     <module>sql/hive</module>
     <module>streaming</module>
     <module>tools</module>
-
-    <!-- Async shuffle upload modules-->
-    <module>async-shuffle-upload/async-shuffle-upload-api</module>
-    <module>async-shuffle-upload/async-shuffle-upload-core</module>
-    <module>async-shuffle-upload/async-shuffle-upload-immutables</module>
-    <module>async-shuffle-upload/async-shuffle-upload-scala</module>
-    <module>async-shuffle-upload/async-shuffle-upload-scala-test-utils</module>
     <!-- See additional modules enabled by profiles below -->
   </modules>
 
@@ -223,7 +216,6 @@
     -->
     <arrow.version>0.15.1</arrow.version>
 
-    <!-- Async shuffle upload plugin dependency versions -->
     <safe-logging.version>1.13.0</safe-logging.version>
 
     <test.java.home>${java.home}</test.java.home>

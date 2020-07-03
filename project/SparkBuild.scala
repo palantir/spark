@@ -48,18 +48,12 @@ object BuildCommons {
   val streamingProjects@Seq(streaming, streamingKafka010) =
     Seq("streaming", "streaming-kafka-0-10").map(ProjectRef(buildLocation, _))
 
-  val asyncShuffleUploadProjects@Seq(
-    asyncShuffleUploadApi, asyncShuffleUploadImmutables, asyncShuffleUploadScala, asyncShuffleUploadScalaTestUtils, asyncShuffleUploadCore) = Seq(
-    "async-shuffle-upload-api", "async-shuffle-upload-immutables", "async-shuffle-upload-scala",
-    "async-shuffle-upload-scala-test-utils", "async-shuffle-upload-core").map(ProjectRef(buildLocation, _))
-
   val allProjects@Seq(
     core, graphx, mllib, mllibLocal, repl, networkCommon, networkShuffle, launcher, unsafe, tags, sketch, kvstore, _*
   ) = Seq(
     "core", "graphx", "mllib", "mllib-local", "repl", "network-common", "network-shuffle", "launcher", "unsafe",
     "tags", "sketch", "kvstore"
-  ).map(ProjectRef(buildLocation, _)) ++ sqlProjects ++ streamingProjects ++ asyncShuffleUploadProjects
-
+  ).map(ProjectRef(buildLocation, _)) ++ sqlProjects ++ streamingProjects
 
   val optionallyEnabledProjects@Seq(kubernetes, mesos, yarn,
     sparkGangliaLgpl, streamingKinesisAsl,
@@ -342,10 +336,10 @@ object SparkBuild extends PomBuild {
   (allProjects ++ optionallyEnabledProjects).foreach(enable(TestSettings.settings))
 
   val mimaProjects = allProjects.filterNot { x =>
-    (Seq(
+    Seq(
       spark, hive, hiveThriftServer, catalyst, repl, networkCommon, networkShuffle, networkYarn,
       unsafe, tags, tokenProviderKafka010, sqlKafka010, kvstore, avro
-    ) ++ asyncShuffleUploadProjects).contains(x)
+    ).contains(x)
   }
 
   mimaProjects.foreach { x =>

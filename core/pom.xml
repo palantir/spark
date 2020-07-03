@@ -388,13 +388,14 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-crypto</artifactId>
+      <groupId>com.palantir.safe-logging</groupId>
+      <artifactId>safe-logging</artifactId>
+      <version>1.5.1</version>
     </dependency>
 
     <dependency>
-      <groupId>com.palantir.safe-logging</groupId>
-      <artifactId>safe-logging</artifactId>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-crypto</artifactId>
     </dependency>
 
   </dependencies>
