@@ -232,7 +232,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     mapStatus = MapStatus$.MODULE$.apply(
         commitMessage.getLocation().orElse(null),
         commitMessage.getPartitionLengths(),
-        taskContext.taskAttemptId());
+        taskContext.attemptNumber());
   }
 
   @VisibleForTesting
