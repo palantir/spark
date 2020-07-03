@@ -22,12 +22,6 @@ import java.util.Map;
 
 public interface ShuffleDriverComponents {
 
-  enum MapOutputUnregistrationStrategy {
-    MAP_OUTPUT_ONLY,
-    EXECUTOR,
-    HOST,
-  }
-
   /**
    * @return additional SparkConf values necessary for the executors.
    */
@@ -39,7 +33,7 @@ public interface ShuffleDriverComponents {
 
   default void removeShuffle(int shuffleId, boolean blocking) throws IOException {}
 
-  default MapOutputUnregistrationStrategy unregistrationStrategyOnFetchFailure() {
-    return MapOutputUnregistrationStrategy.EXECUTOR;
+  default boolean shouldUnregisterOutputOnHostOnFetchFailure() {
+    return false;
   }
 }
