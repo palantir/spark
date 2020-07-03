@@ -17,7 +17,6 @@
 
 package org.apache.spark.shuffle.api;
 
-import java.io.FilterInputStream;
 import org.apache.spark.storage.BlockId;
 
 import java.io.InputStream;
@@ -27,15 +26,20 @@ import java.io.InputStream;
  * An object defining the shuffle block and length metadata associated with the block.
  * @since 3.0.0
  */
-public class ShuffleBlockInputStream extends FilterInputStream {
+public class ShuffleBlockInputStream {
   private final BlockId blockId;
+  private final InputStream inputStream;
 
   public ShuffleBlockInputStream(BlockId blockId, InputStream inputStream) {
-    super(inputStream);
     this.blockId = blockId;
+    this.inputStream = inputStream;
   }
 
   public BlockId getBlockId() {
     return this.blockId;
+  }
+
+  public InputStream getInputStream() {
+    return this.inputStream;
   }
 }
