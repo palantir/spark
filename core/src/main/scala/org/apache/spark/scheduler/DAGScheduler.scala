@@ -1138,7 +1138,6 @@ private[spark] class DAGScheduler(
       }
     } catch {
       case NonFatal(e) =>
-        logDebug(s"Creating new stage attempt due to exception", e)
         stage.makeNewStageAttempt(partitionsToCompute.size)
         listenerBus.post(SparkListenerStageSubmitted(stage.latestInfo, properties))
         abortStage(stage, s"Task creation failed: $e\n${Utils.exceptionString(e)}", Some(e))
@@ -1146,7 +1145,6 @@ private[spark] class DAGScheduler(
         return
     }
 
-    logDebug(s"Creating new stage attempt")
     stage.makeNewStageAttempt(partitionsToCompute.size, taskIdToLocations.values.toSeq)
 
     // If there are tasks to execute, record the submission time of the stage. Otherwise,
@@ -1528,7 +1526,6 @@ private[spark] class DAGScheduler(
             s"(attempt ${failedStage.latestInfo.attemptNumber}) running")
         } else {
           failedStage.failedAttemptIds.add(task.stageAttemptId)
-          logInfo(s"Adding failed attemptId ${task.stageAttemptId} to stage ${failedStage}")
           val shouldAbortStage =
             failedStage.failedAttemptIds.size >= maxConsecutiveStageAttempts ||
             disallowStageRetryForTest
@@ -1550,11 +1547,8 @@ private[spark] class DAGScheduler(
             // Mark all the map as broken in the map stage, to ensure retry all the tasks on
             // resubmitted stage attempt.
             mapOutputTracker.unregisterAllMapOutput(shuffleId)
-            logInfo(s"Map stage ${mapStage} is a barrier, so unregister all map outputs")
           } else if (mapId != -1) {
             // Mark the map whose fetch failed as broken in the map stage
-            logInfo(s"Unregistering MapOutput " +
-              s"(shuffleId=$shuffleId, mapId=$mapId, bmAddr=$bmAddress")
             mapOutputTracker.unregisterMapOutput(shuffleId, mapId, bmAddress)
           }
 

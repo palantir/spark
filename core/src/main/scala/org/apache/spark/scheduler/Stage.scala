@@ -101,7 +101,6 @@ private[scheduler] abstract class Stage(
     metrics.register(rdd.sparkContext)
     _latestInfo = StageInfo.fromStage(
       this, nextAttemptId, Some(numPartitionsToCompute), metrics, taskLocalityPreferences)
-    logInfo(s"Making new attemptId $nextAttemptId for stage $id")
     nextAttemptId += 1
   }
 
