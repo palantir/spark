@@ -131,11 +131,10 @@ private class ShuffleStatus(numPartitions: Int) {
    * remove outputs which are served by an external shuffle server (if one exists).
    */
   type MapId = Int
-  type AttemptId = Long
-  def removeOutputsByFilter(f: (MapId, AttemptId, BlockManagerId) => Boolean): Unit = synchronized {
+  def removeOutputsByFilter(f: (MapId, BlockManagerId) => Boolean): Unit = synchronized {
     for (mapId <- 0 until mapStatuses.length) {
       if (mapStatuses(mapId) != null && mapStatuses(mapId).location != null
-          && f(mapId, mapStatuses(mapId).mapTaskAttemptId, mapStatuses(mapId).location)) {
+          && f(mapId, mapStatuses(mapId).location)) {
         decrementNumAvailableOutputs(mapStatuses(mapId).location)
         mapStatuses(mapId) = null
         invalidateSerializedMapOutputStatusCache()
@@ -474,7 +473,7 @@ private[spark] class MapOutputTrackerMaster(
   def unregisterAllMapOutput(shuffleId: Int) {
     shuffleStatuses.get(shuffleId) match {
       case Some(shuffleStatus) =>
-        shuffleStatus.removeOutputsByFilter((_, _, _) => true)
+        shuffleStatus.removeOutputsByFilter((x, y) => true)
         incrementEpoch()
       case None =>
         throw new SparkException(
@@ -516,10 +515,9 @@ private[spark] class MapOutputTrackerMaster(
   def removeOutputsOnHost(host: String): Unit = {
     shuffleStatuses.foreach { case (shuffleId, shuffleStatus) =>
       shuffleStatus.removeOutputsByFilter(
-        (mapId, attemptId, location) => {
+        (mapId, location) => {
           location.host == host &&
-            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(
-              shuffleId, mapId, attemptId)
+            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(shuffleId, mapId)
         })
     }
     incrementEpoch()
@@ -533,10 +531,9 @@ private[spark] class MapOutputTrackerMaster(
   def removeOutputsOnExecutor(execId: String): Unit = {
     shuffleStatuses.foreach { case (shuffleId, shuffleStatus) =>
       shuffleStatus.removeOutputsByFilter(
-        (mapId, attemptId, location) => {
+        (mapId, location) => {
           location.executorId == execId &&
-            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(
-              shuffleId, mapId, attemptId)
+            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(shuffleId, mapId)
         })
     }
     incrementEpoch()

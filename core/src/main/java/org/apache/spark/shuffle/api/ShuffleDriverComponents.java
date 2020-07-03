@@ -40,8 +40,7 @@ public interface ShuffleDriverComponents {
    * @return true if it can be verified that the map output is stored outside of the mapper
    *         AND if the map output is available in such an external location; false otherwise.
    */
-  default boolean checkIfMapOutputStoredOutsideExecutor(
-      int shuffleId, int mapId, long mapTaskAttemptId) {
+  default boolean checkIfMapOutputStoredOutsideExecutor(int shuffleId, int mapId) {
     return false;
   }
 
