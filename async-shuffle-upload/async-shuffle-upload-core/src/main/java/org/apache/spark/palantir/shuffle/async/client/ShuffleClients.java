@@ -18,13 +18,19 @@
 package org.apache.spark.palantir.shuffle.async.client;
 
 import com.google.common.util.concurrent.MoreExecutors;
+import com.palantir.crypto2.hadoop.EncryptedFileSystem;
+import com.palantir.crypto2.hadoop.FileKeyStorageStrategy;
+import com.palantir.crypto2.keys.KeyPairs;
+import com.palantir.crypto2.keys.KeyStorageStrategy;
 import com.palantir.logsafe.SafeArg;
 import com.palantir.logsafe.UnsafeArg;
 import com.palantir.logsafe.exceptions.SafeIllegalArgumentException;
 
 import java.io.IOException;
 import java.net.URI;
+import java.security.KeyPair;
 import java.time.Clock;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -47,9 +53,9 @@ import org.apache.spark.palantir.shuffle.async.client.merging.MergingShuffleUplo
 import org.apache.spark.palantir.shuffle.async.client.merging.ShuffleFileBatchUploader;
 import org.apache.spark.palantir.shuffle.async.metrics.HadoopAsyncShuffleMetrics;
 import org.apache.spark.palantir.shuffle.async.util.DaemonExecutors;
+import org.apache.spark.palantir.shuffle.async.util.keys.KeyPairExtraConfigKeys;
 import org.apache.spark.palantir.shuffle.async.util.NamedExecutors;
 import org.apache.spark.util.Utils;
-
 import org.immutables.builder.Builder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +68,7 @@ public final class ShuffleClients {
   static Optional<ShuffleClient> shuffleClient(
       String appId,
       SparkConf sparkConf,
+      Map<String, String> extraConfigs,
       ShuffleDriverEndpointRef driverEndpointRef,
       Clock clock,
       Optional<ExecutorService> customUploadExecutorService,
@@ -81,7 +88,7 @@ public final class ShuffleClients {
           customUploadExecutorService, baseConfig);
       ExecutorService resolvedDownloadExecutor =
           resolveDownloadExecutor(customDownloadExecutorService, baseConfig);
-      FileSystem backupFs = createBackupFs(baseConfig, baseUri);
+      FileSystem backupFs = createBackupFs(baseConfig, baseUri, extraConfigs);
 
       ShuffleStorageStrategy storageStrategy = baseConfig.storageStrategy();
       switch (storageStrategy) {
@@ -170,7 +177,9 @@ public final class ShuffleClients {
   }
 
   private static FileSystem createBackupFs(
-      BaseHadoopShuffleClientConfiguration baseConfig, URI baseUri) {
+      BaseHadoopShuffleClientConfiguration baseConfig,
+      URI baseUri,
+      Map<String, String> extraConfigs) {
     FileSystem backupFs;
     try {
       backupFs = FileSystem.get(baseUri, baseConfig.hadoopConf());
@@ -178,6 +187,18 @@ public final class ShuffleClients {
       LOGGER.error("Failed to create filesystem", e);
       throw new RuntimeException(e);
     }
+
+    if (baseConfig.encryptionEnabled()) {
+      KeyPair keyPair = KeyPairs.fromStrings(
+          extraConfigs.get(KeyPairExtraConfigKeys.PRIVATE_KEY),
+          extraConfigs.get(KeyPairExtraConfigKeys.PUBLIC_KEY),
+          baseConfig.encryptionKeyAlgorithm()
+      );
+
+      KeyStorageStrategy keyStorageStrategy = new FileKeyStorageStrategy(backupFs, keyPair);
+      return new EncryptedFileSystem(backupFs, keyStorageStrategy);
+    }
+
     return backupFs;
   }
 

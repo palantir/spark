@@ -87,8 +87,8 @@ public interface BaseHadoopShuffleClientConfiguration {
     Optional<String> credentialsFilename =
         OptionConverters.toJava(sparkConf.get(AsyncShuffleDataIoSparkConfigs.S3A_CREDS_FILE()));
 
-    Preconditions.checkNotNull(
-        credentialsFilename,
+    Preconditions.checkArgument(
+        credentialsFilename != null && credentialsFilename.isPresent(),
         "Expected spark config to be set",
         SafeArg.of("config", AsyncShuffleDataIoSparkConfigs.S3A_CREDS_FILE().key()));
     try {
@@ -107,6 +107,16 @@ public interface BaseHadoopShuffleClientConfiguration {
   @Value.Derived
   default JavaSparkConf javaSparkConf() {
     return new JavaSparkConf(sparkConf());
+  }
+
+  @Value.Derived
+  default boolean encryptionEnabled() {
+    return javaSparkConf().getBoolean(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_ENABLED());
+  }
+
+  @Value.Derived
+  default String encryptionKeyAlgorithm() {
+    return javaSparkConf().get(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_KEY_ALGORITHM());
   }
 
   @Value.Derived

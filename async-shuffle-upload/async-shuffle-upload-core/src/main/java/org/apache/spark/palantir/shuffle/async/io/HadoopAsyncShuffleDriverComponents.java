@@ -17,17 +17,25 @@
 
 package org.apache.spark.palantir.shuffle.async.io;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.palantir.logsafe.SafeArg;
 
 import java.io.IOException;
+import java.security.KeyPair;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.apache.spark.SparkEnv;
+import org.apache.spark.palantir.shuffle.async.AsyncShuffleDataIoSparkConfigs;
 import org.apache.spark.palantir.shuffle.async.AsyncShuffleUploadDriverEndpoint;
+import org.apache.spark.palantir.shuffle.async.JavaSparkConf;
 import org.apache.spark.palantir.shuffle.async.metadata.MapOutputId;
 import org.apache.spark.palantir.shuffle.async.metadata.ShuffleStorageStateTracker;
 import org.apache.spark.palantir.shuffle.async.metadata.ShuffleStorageStateVisitor;
+import org.apache.spark.palantir.shuffle.async.util.keys.KeyPairExtraConfigKeys;
+import org.apache.spark.palantir.shuffle.async.util.keys.KeyPairs;
 import org.apache.spark.rpc.RpcEndpoint;
 import org.apache.spark.rpc.RpcEnv;
 import org.apache.spark.shuffle.api.ShuffleDriverComponents;
@@ -43,23 +51,53 @@ public final class HadoopAsyncShuffleDriverComponents implements ShuffleDriverCo
 
   private final ShuffleDriverComponents delegate;
   private final ShuffleStorageStateTracker shuffleStorageStateTracker;
+  private final Supplier<SparkEnv> sparkEnvSupplier;
 
   private RpcEndpoint shuffleUploadDriverEndpoint;
 
   public HadoopAsyncShuffleDriverComponents(
       ShuffleDriverComponents delegate,
       ShuffleStorageStateTracker shuffleStorageStateTracker) {
+    this(delegate, shuffleStorageStateTracker, SparkEnv::get);
+  }
+
+  @VisibleForTesting
+  HadoopAsyncShuffleDriverComponents(
+      ShuffleDriverComponents delegate,
+      ShuffleStorageStateTracker shuffleStorageStateTracker,
+      Supplier<SparkEnv> sparkEnvSupplier) {
     this.delegate = delegate;
     this.shuffleStorageStateTracker = shuffleStorageStateTracker;
+    this.sparkEnvSupplier = sparkEnvSupplier;
   }
 
   @Override
   public Map<String, String> initializeApplication() {
-    RpcEnv sparkRpcEnv = SparkEnv.get().rpcEnv();
+    SparkEnv sparkEnv = sparkEnvSupplier.get();
+    RpcEnv rpcEnv = sparkEnv.rpcEnv();
+    JavaSparkConf javaSparkConf = new JavaSparkConf(sparkEnv.conf());
+
     shuffleUploadDriverEndpoint = AsyncShuffleUploadDriverEndpoint.create(
-        sparkRpcEnv, shuffleStorageStateTracker);
-    sparkRpcEnv.setupEndpoint(AsyncShuffleUploadDriverEndpoint.NAME(), shuffleUploadDriverEndpoint);
-    return delegate.initializeApplication();
+        rpcEnv,
+        shuffleStorageStateTracker);
+    rpcEnv.setupEndpoint(AsyncShuffleUploadDriverEndpoint.NAME(), shuffleUploadDriverEndpoint);
+
+    ImmutableMap.Builder<String, String> extraConfigsBuilder = ImmutableMap.builder();
+    extraConfigsBuilder.putAll(delegate.initializeApplication());
+
+    if (javaSparkConf.getBoolean(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_ENABLED())) {
+      KeyPair keyPair = KeyPairs.generateKeyPair(
+          javaSparkConf.get(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_KEY_ALGORITHM()),
+          javaSparkConf.getInt(AsyncShuffleDataIoSparkConfigs.ENCRYPTION_KEY_SIZE())
+      );
+
+      extraConfigsBuilder.put(
+          KeyPairExtraConfigKeys.PUBLIC_KEY, KeyPairs.serializeKey(keyPair.getPublic()));
+      extraConfigsBuilder.put(
+          KeyPairExtraConfigKeys.PRIVATE_KEY, KeyPairs.serializeKey(keyPair.getPrivate()));
+    }
+
+    return extraConfigsBuilder.build();
   }
 
   /**

@@ -41,6 +41,26 @@ object AsyncShuffleDataIoSparkConfigs {
     .doc("Application name to use for tagging shuffle files.")
     .fallbackConf(APP_NAME_DEPRECATED)
 
+  val ENCRYPTION_ENABLED = ConfigBuilder(
+    SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_ENABLED)
+    .doc(
+      "Controls whether to encrypt shuffle files or not before uploading them to remote storage")
+    .booleanConf
+    .createWithDefault(false)
+
+  val ENCRYPTION_KEY_ALGORITHM =
+    ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_KEY_ALGORITHM)
+      .doc("Algorithm used to generated the key pair used to encrypt the symmetric " +
+        "key used to encrypt the shuffle files")
+      .stringConf
+      .createWithDefault("RSA")
+
+  val ENCRYPTION_KEY_SIZE =
+    ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_KEY_SIZE)
+      .doc("Key size used to generate the key pair used to encrypt the symmetric key")
+      .intConf
+      .createWithDefault(2048)
+
   val S3A_CREDS_FILE_DEPRECATED =
     ConfigBuilder(SparkShuffleApiConstants.SHUFFLE_S3A_CREDS_FILE_CONF_DEPRECATED)
       .doc("Deprecated version of configuration pointing to s3 credentials.")
@@ -63,7 +83,6 @@ object AsyncShuffleDataIoSparkConfigs {
     .intConf
     .createWithDefault(DEFAULT_DOWNLOAD_PARALLELISM)
 
-
   val DEFAULT_UPLOAD_PARALLELISM = 5
 
   val UPLOAD_PARALLELISM = ConfigBuilder("spark.shuffle.hadoop.async.upload.parallelism")
@@ -81,9 +100,10 @@ object AsyncShuffleDataIoSparkConfigs {
 
   val READ_LOCAL_DISK_PARALLELISM =
     ConfigBuilder("spark.shuffle.hadoop.async.storage.merging.local.read.parallelism")
-      .doc("When using the \"merging\" storage strategy, files are downloaded to local disk" +
-        " before map output data is shipped back to the shuffle reader. This configuration" +
-        " controls the parallelism for the local disk reads after files are downloaded.")
+      .doc(
+        "When using the \"merging\" storage strategy, files are downloaded to local disk" +
+          " before map output data is shipped back to the shuffle reader. This configuration" +
+          " controls the parallelism for the local disk reads after files are downloaded.")
       .intConf
       .createWithDefault(DEFAULT_READ_LOCAL_DISK_PARALLELISM)
 
@@ -130,8 +150,9 @@ object AsyncShuffleDataIoSparkConfigs {
 
   val STREAM_BUFFER_SIZE =
     ConfigBuilder("spark.shuffle.hadoop.async.io.buffer.size")
-      .doc("Size of buffers when reading and writing data from storage, both remote and on local" +
-        " disk.")
+      .doc(
+        "Size of buffers when reading and writing data from storage, both remote and on local" +
+          " disk.")
       .bytesConf(ByteUnit.BYTE)
       .checkValue(validator = bytes => {
         Try {
@@ -148,8 +169,9 @@ object AsyncShuffleDataIoSparkConfigs {
 
   val DOWNLOAD_SHUFFLE_BLOCK_BUFFER_SIZE =
     ConfigBuilder("spark.shuffle.hadoop.async.io.download.buffer.size")
-      .doc("Size of buffers to use when downloading shuffle blocks from remote storage down to" +
-        " local disk.")
+      .doc(
+        "Size of buffers to use when downloading shuffle blocks from remote storage down to" +
+          " local disk.")
       .fallbackConf(STREAM_BUFFER_SIZE)
 
   val DOWNLOAD_SHUFFLE_BLOCKS_IN_MEMORY_MAX_SIZE =
@@ -163,8 +185,9 @@ object AsyncShuffleDataIoSparkConfigs {
 
   val DRIVER_REF_CACHE_MAX_SIZE =
     ConfigBuilder("spark.shuffle.hadoop.async.driverref.cache.size")
-      .doc("Maximum size of the cache used by each executor to avoid calling the driver in" +
-        " excess amounts.")
+      .doc(
+        "Maximum size of the cache used by each executor to avoid calling the driver in" +
+          " excess amounts.")
       .intConf
       .createWithDefault(DEFAULT_DRIVER_REF_CACHE_MAX_SIZE)
 
@@ -203,8 +226,9 @@ object AsyncShuffleDataIoSparkConfigs {
 
   val PREFER_DOWNLOAD_FROM_HADOOP =
     ConfigBuilder("spark.shuffle.hadoop.async.io.download.prefer.hadoop")
-      .doc("Prefer download from remote storage over download from another executor if the" +
-        " shuffle file exists on both.")
+      .doc(
+        "Prefer download from remote storage over download from another executor if the" +
+          " shuffle file exists on both.")
       .fallbackConf(PREFER_DOWNLOAD_FROM_HADOOP_DEPRECATED)
 
   val S3A_UPLOAD_MULTIPART_TYPE =

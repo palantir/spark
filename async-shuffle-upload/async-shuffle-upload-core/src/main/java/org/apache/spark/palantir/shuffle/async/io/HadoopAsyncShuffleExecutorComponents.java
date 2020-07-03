@@ -146,6 +146,7 @@ public final class HadoopAsyncShuffleExecutorComponents implements ShuffleExecut
         .customUploadCoordinatorExecutorService(customUploadCoordinatorExecutorService)
         .sparkConf(sparkConf)
         .metrics(resolvedMetrics)
+        .extraConfigs(extraConfigs)
         .build();
     resolvedMetrics.markUsingAsyncShuffleUploadPlugin();
     this.maybeReadSupport = maybeClient.map(client ->

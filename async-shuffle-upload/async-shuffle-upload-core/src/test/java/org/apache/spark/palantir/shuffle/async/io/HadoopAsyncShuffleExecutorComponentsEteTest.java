@@ -29,9 +29,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import com.palantir.crypto2.hadoop.FileKeyStorageStrategy;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.api.java.Optional;
@@ -52,10 +55,12 @@ import org.apache.spark.palantir.shuffle.async.client.TestClock;
 import org.apache.spark.palantir.shuffle.async.metadata.MapOutputId;
 import org.apache.spark.palantir.shuffle.async.metadata.ShuffleStorageStateTracker;
 import org.apache.spark.palantir.shuffle.async.metrics.BasicShuffleClientMetrics;
-import org.apache.spark.palantir.shuffle.async.metrics.MergingShuffleClientMetrics;
 import org.apache.spark.palantir.shuffle.async.metrics.HadoopAsyncShuffleMetrics;
 import org.apache.spark.palantir.shuffle.async.metrics.HadoopAsyncShuffleMetricsFactory;
 import org.apache.spark.palantir.shuffle.async.metrics.HadoopFetcherIteratorMetrics;
+import org.apache.spark.palantir.shuffle.async.metrics.MergingShuffleClientMetrics;
+import org.apache.spark.palantir.shuffle.async.util.keys.KeyPairExtraConfigKeys;
+import org.apache.spark.palantir.shuffle.async.util.keys.KeyPairs;
 import org.apache.spark.rpc.RpcEndpointRef;
 import org.apache.spark.rpc.RpcEnv;
 import org.apache.spark.serializer.SerializerManager;
@@ -65,7 +70,6 @@ import org.apache.spark.shuffle.api.ShuffleMapOutputWriter;
 import org.apache.spark.shuffle.api.ShufflePartitionWriter;
 import org.apache.spark.storage.BlockManager;
 import org.apache.spark.storage.BlockManagerId;
-
 import org.jmock.lib.concurrent.DeterministicScheduler;
 import org.junit.Before;
 import org.junit.Rule;
@@ -102,12 +106,15 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
   @Parameterized.Parameters
   public static Object[][] parameters() {
     return new Object[][]{
-        new Object[]{ShuffleStorageStrategy.BASIC},
-        new Object[]{ShuffleStorageStrategy.MERGING}
+      new Object[]{ShuffleStorageStrategy.BASIC, false},
+      new Object[]{ShuffleStorageStrategy.MERGING, false},
+      new Object[]{ShuffleStorageStrategy.BASIC, true},
+      new Object[]{ShuffleStorageStrategy.MERGING, true}
     };
   }
 
   private final ShuffleStorageStrategy storageStrategy;
+  private final boolean encrypt;
 
   @Mock
   private SparkEnv sparkEnv;
@@ -154,8 +161,10 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
   private RpcEndpointRef shuffleDriverEndpointRef;
   private ShuffleStorageStateTracker shuffleStorageStateTracker;
 
-  public HadoopAsyncShuffleExecutorComponentsEteTest(ShuffleStorageStrategy storageStrategy) {
+  public HadoopAsyncShuffleExecutorComponentsEteTest(
+      ShuffleStorageStrategy storageStrategy, boolean encrypt) {
     this.storageStrategy = storageStrategy;
+    this.encrypt = encrypt;
   }
 
   @Before
@@ -173,6 +182,7 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
         .set(AsyncShuffleDataIoSparkConfigs.STORAGE_STRATEGY(), storageStrategy.value())
         .set(SparkShuffleApiConstants.SHUFFLE_PLUGIN_APP_NAME_CONF, "spark-app")
         .set("spark.local.dir", tempFolder.newFolder().getAbsolutePath());
+
     this.shuffleFileLocator = new TestShuffleFileLocator(localShuffleDir);
     ShuffleExecutorComponents delegateTestComponents = new TestShuffleExecutorComponents(
         shuffleFileLocator, MAPPER_LOCATION);
@@ -215,8 +225,19 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
         .thenAnswer(AdditionalAnswers.returnsFirstArg());
     when(compressionCodec.compressedOutputStream(any()))
         .thenAnswer(AdditionalAnswers.returnsFirstArg());
-    executorComponentsUnderTest.initializeExecutor(
-        "test-app", "exec-0", ImmutableMap.of());
+
+    Map<String, String> extraConfigs = ImmutableMap.of();
+    if (encrypt) {
+      sparkConf.set(SparkShuffleApiConstants.SHUFFLE_PLUGIN_ENCRYPTION_ENABLED, "true");
+      KeyPair keyPair = KeyPairs.generateKeyPair("RSA", 2048);
+
+      extraConfigs = ImmutableMap.of(
+          KeyPairExtraConfigKeys.PUBLIC_KEY, KeyPairs.serializeKey(keyPair.getPublic()),
+          KeyPairExtraConfigKeys.PRIVATE_KEY, KeyPairs.serializeKey(keyPair.getPrivate())
+      );
+    }
+
+    executorComponentsUnderTest.initializeExecutor("test-app", "exec-0", extraConfigs);
   }
 
   @Test
@@ -261,6 +282,15 @@ public final class HadoopAsyncShuffleExecutorComponentsEteTest {
     uploadCoordinatorExecutorService.tick(1, TimeUnit.MINUTES);
     uploadCoordinatorExecutorService.runUntilIdle();
     uploadExecutorService.runUntilIdle();
+
+    boolean anyKeys = Files.find(
+        remoteShuffleDir.toPath(),
+        16,
+        (path, _unused) -> path.toString().endsWith(FileKeyStorageStrategy.EXTENSION)
+    ).findAny().isPresent();
+
+    // if encryption is used, we should find .keymaterial files
+    assertThat(anyKeys).isEqualTo(encrypt);
   }
 
   private void readAndCheckPartitions(Integer... partitions) throws IOException {
