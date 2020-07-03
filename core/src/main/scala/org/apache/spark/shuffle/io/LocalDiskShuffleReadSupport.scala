@@ -17,13 +17,15 @@
 
 package org.apache.spark.shuffle.io
 
+import java.io.InputStream
+
 import scala.collection.JavaConverters._
 
 import org.apache.spark.{MapOutputTracker, SparkConf, TaskContext}
 import org.apache.spark.internal.config
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.shuffle.ShuffleReadMetricsReporter
-import org.apache.spark.shuffle.api.{ShuffleBlockInfo, ShuffleBlockInputStream}
+import org.apache.spark.shuffle.api.ShuffleBlockInfo
 import org.apache.spark.storage.{BlockManager, ShuffleBlockAttemptId, ShuffleBlockFetcherIterator, ShuffleBlockId}
 
 class LocalDiskShuffleReadSupport(
@@ -40,7 +42,7 @@ class LocalDiskShuffleReadSupport(
   private val detectCorrupt = conf.get(config.SHUFFLE_DETECT_CORRUPT)
 
   def getPartitionReaders(blockMetadata: java.lang.Iterable[ShuffleBlockInfo]):
-      java.lang.Iterable[ShuffleBlockInputStream] = {
+      java.lang.Iterable[InputStream] = {
 
     val iterableToReturn = if (blockMetadata.asScala.isEmpty) {
       Iterable.empty
@@ -83,9 +85,9 @@ private class ShuffleBlockFetcherIterable(
     minReduceId: Int,
     maxReduceId: Int,
     shuffleId: Int,
-    mapOutputTracker: MapOutputTracker) extends Iterable[ShuffleBlockInputStream] {
+    mapOutputTracker: MapOutputTracker) extends Iterable[InputStream] {
 
-  override def iterator: Iterator[ShuffleBlockInputStream] = {
+  override def iterator: Iterator[InputStream] = {
     new ShuffleBlockFetcherIterator(
       context,
       blockManager.shuffleClient,
@@ -104,7 +106,6 @@ private class ShuffleBlockFetcherIterable(
       maxReqSizeShuffleToMem,
       detectCorruption,
       shuffleMetrics).toCompletionIterator
-      .map{ case(blockId, inputStream) => new ShuffleBlockInputStream(blockId, inputStream)}
   }
 
 }
