@@ -463,14 +463,8 @@ private[spark] class MapOutputTrackerMaster(
   def unregisterMapOutput(shuffleId: Int, mapId: Int, bmAddress: BlockManagerId) {
     shuffleStatuses.get(shuffleId) match {
       case Some(shuffleStatus) =>
-        if (shuffleStatus.mapStatuses(mapId) != null &&
-            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(
-              shuffleId,
-              mapId,
-              shuffleStatus.mapStatuses(mapId).mapTaskAttemptId)) {
-          shuffleStatus.removeMapOutput(mapId, bmAddress)
-          incrementEpoch()
-        }
+        shuffleStatus.removeMapOutput(mapId, bmAddress)
+        incrementEpoch()
       case None =>
         throw new SparkException("unregisterMapOutput called for nonexistent shuffle ID")
     }
