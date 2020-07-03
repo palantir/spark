@@ -495,7 +495,11 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     executorEnvs ++= _conf.getExecutorEnv
     executorEnvs("SPARK_USER") = sparkUser
 
-    _shuffleDriverComponents = _env.shuffleDataIo.driver()
+    val configuredPluginClasses = conf.get(SHUFFLE_IO_PLUGIN_CLASS)
+    val maybeIO = Utils.loadExtensions(
+      classOf[ShuffleDataIO], Seq(configuredPluginClasses), conf)
+    require(maybeIO.size == 1, s"Failed to load plugins of type $configuredPluginClasses")
+    _shuffleDriverComponents = maybeIO.head.driver()
     _shuffleDriverComponents.initializeApplication().asScala.foreach {
       case (k, v) => _conf.set(ShuffleDataIO.SHUFFLE_SPARK_CONF_PREFIX + k, v) }
 

@@ -37,7 +37,7 @@ public class LocalDiskShuffleDataIO implements ShuffleDataIO {
 
   @Override
   public ShuffleDriverComponents driver() {
-    return new LocalDiskShuffleDriverComponents(sparkConf);
+    return new LocalDiskShuffleDriverComponents();
   }
 
   @Override

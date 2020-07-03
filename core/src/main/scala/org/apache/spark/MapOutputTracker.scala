@@ -36,7 +36,6 @@ import org.apache.spark.internal.config._
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpoint, RpcEndpointRef, RpcEnv}
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.shuffle.MetadataFetchFailedException
-import org.apache.spark.shuffle.api.ShuffleDriverComponents
 import org.apache.spark.storage.{BlockId, BlockManagerId, ShuffleBlockAttemptId, ShuffleBlockId}
 import org.apache.spark.util._
 
@@ -127,14 +126,30 @@ private class ShuffleStatus(numPartitions: Int) {
   }
 
   /**
+   * Removes all shuffle outputs associated with this host. Note that this will also remove
+   * outputs which are served by an external shuffle server (if one exists).
+   */
+  def removeOutputsOnHost(host: String): Unit = {
+    removeOutputsByFilter(x => x.host == host)
+  }
+
+  /**
+   * Removes all map outputs associated with the specified executor. Note that this will also
+   * remove outputs which are served by an external shuffle server (if one exists), as they are
+   * still registered with that execId.
+   */
+  def removeOutputsOnExecutor(execId: String): Unit = synchronized {
+    removeOutputsByFilter(x => x.executorId == execId)
+  }
+
+  /**
    * Removes all shuffle outputs which satisfies the filter. Note that this will also
    * remove outputs which are served by an external shuffle server (if one exists).
    */
-  type MapId = Int
-  def removeOutputsByFilter(f: (MapId, BlockManagerId) => Boolean): Unit = synchronized {
+  def removeOutputsByFilter(f: (BlockManagerId) => Boolean): Unit = synchronized {
     for (mapId <- 0 until mapStatuses.length) {
       if (mapStatuses(mapId) != null && mapStatuses(mapId).location != null
-          && f(mapId, mapStatuses(mapId).location)) {
+          && f(mapStatuses(mapId).location)) {
         decrementNumAvailableOutputs(mapStatuses(mapId).location)
         mapStatuses(mapId) = null
         invalidateSerializedMapOutputStatusCache()
@@ -353,8 +368,7 @@ private[spark] object ExecutorShuffleStatus extends Enumeration {
 private[spark] class MapOutputTrackerMaster(
     conf: SparkConf,
     broadcastManager: BroadcastManager,
-    isLocal: Boolean,
-    val shuffleDriverComponents: ShuffleDriverComponents)
+    isLocal: Boolean)
   extends MapOutputTracker(conf) {
 
   // The size at which we use Broadcast to send the map output statuses to the executors
@@ -473,7 +487,7 @@ private[spark] class MapOutputTrackerMaster(
   def unregisterAllMapOutput(shuffleId: Int) {
     shuffleStatuses.get(shuffleId) match {
       case Some(shuffleStatus) =>
-        shuffleStatus.removeOutputsByFilter((x, y) => true)
+        shuffleStatus.removeOutputsByFilter(x => true)
         incrementEpoch()
       case None =>
         throw new SparkException(
@@ -513,13 +527,7 @@ private[spark] class MapOutputTrackerMaster(
    * outputs which are served by an external shuffle server (if one exists).
    */
   def removeOutputsOnHost(host: String): Unit = {
-    shuffleStatuses.foreach { case (shuffleId, shuffleStatus) =>
-      shuffleStatus.removeOutputsByFilter(
-        (mapId, location) => {
-          location.host == host &&
-            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(shuffleId, mapId)
-        })
-    }
+    shuffleStatuses.valuesIterator.foreach { _.removeOutputsOnHost(host) }
     incrementEpoch()
   }
 
@@ -529,13 +537,7 @@ private[spark] class MapOutputTrackerMaster(
    * registered with this execId.
    */
   def removeOutputsOnExecutor(execId: String): Unit = {
-    shuffleStatuses.foreach { case (shuffleId, shuffleStatus) =>
-      shuffleStatus.removeOutputsByFilter(
-        (mapId, location) => {
-          location.executorId == execId &&
-            !shuffleDriverComponents.checkIfMapOutputStoredOutsideExecutor(shuffleId, mapId)
-        })
-    }
+    shuffleStatuses.valuesIterator.foreach { _.removeOutputsOnExecutor(execId) }
     incrementEpoch()
   }
 

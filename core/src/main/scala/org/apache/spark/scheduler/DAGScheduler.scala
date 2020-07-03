@@ -43,8 +43,7 @@ import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.partial.{ApproximateActionListener, ApproximateEvaluator, PartialResult}
 import org.apache.spark.rdd.{DeterministicLevel, RDD, RDDCheckpointData}
 import org.apache.spark.rpc.RpcTimeout
-import org.apache.spark.shuffle.api.ShuffleDriverComponents
-import org.apache.spark.shuffle.sort.lifecycle.LocalDiskShuffleDriverComponents
+import org.apache.spark.shuffle.api.ShuffleDriverComponents.MapOutputUnregistrationStrategy
 import org.apache.spark.storage._
 import org.apache.spark.storage.BlockManagerMessages.BlockManagerHeartbeat
 import org.apache.spark.util._
@@ -122,19 +121,17 @@ private[spark] class DAGScheduler(
     mapOutputTracker: MapOutputTrackerMaster,
     blockManagerMaster: BlockManagerMaster,
     env: SparkEnv,
-    shuffleDriverComponents: ShuffleDriverComponents,
     clock: Clock = new SystemClock())
   extends Logging {
 
   def this(sc: SparkContext, taskScheduler: TaskScheduler) = {
     this(
-      sc = sc,
-      taskScheduler = taskScheduler,
-      listenerBus = sc.listenerBus,
-      mapOutputTracker = sc.env.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster],
-      blockManagerMaster = sc.env.blockManager.master,
-      env = sc.env,
-      shuffleDriverComponents = sc.env.shuffleDataIo.driver())
+      sc,
+      taskScheduler,
+      sc.listenerBus,
+      sc.env.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster],
+      sc.env.blockManager.master,
+      sc.env)
   }
 
   def this(sc: SparkContext) = this(sc, sc.taskScheduler)
@@ -174,6 +171,8 @@ private[spark] class DAGScheduler(
 
   private[scheduler] val activeJobs = new HashSet[ActiveJob]
 
+  private[scheduler] val shuffleDriverComponents = sc.shuffleDriverComponents
+
   /**
    * Contains the locations that each RDD's partitions are cached on.  This map's keys are RDD ids
    * and its values are arrays indexed by partition numbers. Each array value is the set of
@@ -199,6 +198,14 @@ private[spark] class DAGScheduler(
 
   /** If enabled, FetchFailed will not cause stage retry, in order to surface the problem. */
   private val disallowStageRetryForTest = sc.getConf.get(TEST_NO_STAGE_RETRY)
+
+  /**
+   * Whether to unregister all the outputs on the host in condition that we receive a FetchFailure,
+   * this is set default to false, which means, we only unregister the outputs related to the exact
+   * executor(instead of the host) on a FetchFailure.
+   */
+  private[scheduler] val unRegisterOutputOnHostOnFetchFailure =
+    sc.getConf.get(config.UNREGISTER_OUTPUT_ON_HOST_ON_FETCH_FAILURE)
 
   /**
    * Number of consecutive stage attempts allowed before a stage is aborted.
@@ -1666,7 +1673,8 @@ private[spark] class DAGScheduler(
           // TODO: mark the executor as failed only if there were lots of fetch failures on it
           if (bmAddress != null) {
             if (bmAddress.executorId == null) {
-              if (shuffleDriverComponents.unregisterOutputOnHostOnFetchFailure()) {
+              if (shuffleDriverComponents.unregistrationStrategyOnFetchFailure() ==
+                  MapOutputUnregistrationStrategy.HOST) {
                 val currentEpoch = task.epoch
                 val host = bmAddress.host
                 logInfo("Shuffle files lost for host: %s (epoch %d)".format(host, currentEpoch))
@@ -1675,7 +1683,10 @@ private[spark] class DAGScheduler(
               }
             } else {
               val hostToUnregisterOutputs =
-                if (shuffleDriverComponents.unregisterOutputOnHostOnFetchFailure()) {
+                if (shuffleDriverComponents.unregistrationStrategyOnFetchFailure() ==
+                    MapOutputUnregistrationStrategy.HOST) {
+                  // We had a fetch failure with the external shuffle service, so we
+                  // assume all shuffle data on the node is bad.
                   Some(bmAddress.host)
                 } else {
                   // Unregister shuffle data just for one executor (we don't have any
@@ -1855,8 +1866,11 @@ private[spark] class DAGScheduler(
             logInfo("Shuffle files lost for host: %s (epoch %d)".format(host, currentEpoch))
             mapOutputTracker.removeOutputsOnHost(host)
           case None =>
-            logInfo("Shuffle files lost for executor: %s (epoch %d)".format(execId, currentEpoch))
-            mapOutputTracker.removeOutputsOnExecutor(execId)
+            if (shuffleDriverComponents.unregistrationStrategyOnFetchFailure() ==
+                MapOutputUnregistrationStrategy.EXECUTOR) {
+              logInfo("Shuffle files lost for executor: %s (epoch %d)".format(execId, currentEpoch))
+              mapOutputTracker.removeOutputsOnExecutor(execId)
+            }
         }
         clearCacheLocs()
 

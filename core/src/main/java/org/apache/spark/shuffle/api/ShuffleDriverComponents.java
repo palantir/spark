@@ -22,6 +22,12 @@ import java.util.Map;
 
 public interface ShuffleDriverComponents {
 
+  enum MapOutputUnregistrationStrategy {
+    MAP_OUTPUT_ONLY,
+    EXECUTOR,
+    HOST,
+  }
+
   /**
    * @return additional SparkConf values necessary for the executors.
    */
@@ -33,18 +39,7 @@ public interface ShuffleDriverComponents {
 
   default void removeShuffle(int shuffleId, boolean blocking) throws IOException {}
 
-  /**
-   * Indicates whether or not the data stored for the given map output is available outside
-   * of the host of the mapper executor.
-   *
-   * @return true if it can be verified that the map output is stored outside of the mapper
-   *         AND if the map output is available in such an external location; false otherwise.
-   */
-  default boolean checkIfMapOutputStoredOutsideExecutor(int shuffleId, int mapId) {
-    return false;
-  }
-
-  default boolean unregisterOutputOnHostOnFetchFailure() {
-    return true;
+  default MapOutputUnregistrationStrategy unregistrationStrategyOnFetchFailure() {
+    return MapOutputUnregistrationStrategy.EXECUTOR;
   }
 }

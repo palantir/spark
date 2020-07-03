@@ -39,9 +39,7 @@ import org.apache.spark.rpc.RpcEnv
 import org.apache.spark.scheduler.LiveListenerBus
 import org.apache.spark.security.CryptoStreamUtils
 import org.apache.spark.serializer.{KryoSerializer, SerializerManager}
-import org.apache.spark.shuffle.api.ShuffleDriverComponents
 import org.apache.spark.shuffle.sort.SortShuffleManager
-import org.apache.spark.shuffle.sort.lifecycle.LocalDiskShuffleDriverComponents
 import org.apache.spark.storage._
 import org.apache.spark.streaming.receiver._
 import org.apache.spark.streaming.util._
@@ -72,6 +70,7 @@ abstract class BaseReceivedBlockHandlerSuite(enableEncryption: Boolean)
   val streamId = 1
   val securityMgr = new SecurityManager(conf, encryptionKey)
   val broadcastManager = new BroadcastManager(true, conf, securityMgr)
+  val mapOutputTracker = new MapOutputTrackerMaster(conf, broadcastManager, true)
   val shuffleManager = new SortShuffleManager(conf)
   val serializer = new KryoSerializer(conf)
   var serializerManager = new SerializerManager(serializer, conf, encryptionKey)
@@ -79,8 +78,6 @@ abstract class BaseReceivedBlockHandlerSuite(enableEncryption: Boolean)
   val blockManagerSize = 10000000
   val blockManagerBuffer = new ArrayBuffer[BlockManager]()
 
-  var mapOutputTracker: MapOutputTrackerMaster = null
-  var driverComponents: ShuffleDriverComponents = null
   var rpcEnv: RpcEnv = null
   var blockManagerMaster: BlockManagerMaster = null
   var blockManager: BlockManager = null
@@ -94,9 +91,6 @@ abstract class BaseReceivedBlockHandlerSuite(enableEncryption: Boolean)
     blockManagerMaster = new BlockManagerMaster(rpcEnv.setupEndpoint("blockmanager",
       new BlockManagerMasterEndpoint(rpcEnv, true, conf,
         new LiveListenerBus(conf))), conf, true)
-    driverComponents = new LocalDiskShuffleDriverComponents(blockManagerMaster)
-    mapOutputTracker = new MapOutputTrackerMaster(
-      conf, broadcastManager, true, driverComponents)
 
     storageLevel = StorageLevel.MEMORY_ONLY_SER
     blockManager = createBlockManager(blockManagerSize, conf)

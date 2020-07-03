@@ -35,8 +35,6 @@ import org.apache.spark.internal.config
 import org.apache.spark.rdd.{DeterministicLevel, RDD}
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.shuffle.{FetchFailedException, MetadataFetchFailedException}
-import org.apache.spark.shuffle.api.ShuffleDriverComponents
-import org.apache.spark.shuffle.sort.lifecycle.LocalDiskShuffleDriverComponents
 import org.apache.spark.storage.{BlockId, BlockManagerId, BlockManagerMaster}
 import org.apache.spark.util._
 
@@ -197,7 +195,6 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
   var securityMgr: SecurityManager = null
   var scheduler: DAGScheduler = null
   var dagEventProcessLoopTester: DAGSchedulerEventProcessLoop = null
-  var shuffleDriverComponents: ShuffleDriverComponents = null
 
   /**
    * Set of cache locations to return from our mock BlockManagerMaster.
@@ -239,13 +236,7 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
     init(new SparkConf())
   }
 
-  def init(testConf: SparkConf) {
-    init(testConf, (conf, bmMaster) => new LocalDiskShuffleDriverComponents(conf, bmMaster))
-  }
-
-  def init(
-      testConf: SparkConf,
-      shuffleDriverComponents: (SparkConf, BlockManagerMaster) => ShuffleDriverComponents): Unit = {
+  def init(testConf: SparkConf): Unit = {
     sc = new SparkContext("local[2]", "DAGSchedulerSuite", testConf)
     sparkListener.submittedStageInfos.clear()
     sparkListener.successfulStages.clear()
@@ -259,8 +250,7 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
     results.clear()
     securityMgr = new SecurityManager(conf)
     broadcastManager = new BroadcastManager(true, conf, securityMgr)
-    mapOutputTracker = new MapOutputTrackerMaster(
-      conf, broadcastManager, true, sc.env.shuffleDataIo.driver()) {
+    mapOutputTracker = new MapOutputTrackerMaster(conf, broadcastManager, true) {
       override def sendTracker(message: Any): Unit = {
         // no-op, just so we can stop this to avoid leaking threads
       }
@@ -271,8 +261,7 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
       sc.listenerBus,
       mapOutputTracker,
       blockManagerMaster,
-      sc.env,
-      shuffleDriverComponents(testConf, blockManagerMaster))
+      sc.env)
     dagEventProcessLoopTester = new DAGSchedulerEventProcessLoopTester(scheduler)
   }
 
@@ -685,8 +674,7 @@ class DAGSchedulerSuite extends SparkFunSuite with LocalSparkContext with TimeLi
       sc.listenerBus,
       mapOutputTracker,
       blockManagerMaster,
-      sc.env,
-      shuffleDriverComponents)
+      sc.env)
     dagEventProcessLoopTester = new DAGSchedulerEventProcessLoopTester(noKillScheduler)
     val jobId = submit(new MyRDD(sc, 1, Nil), Array(0))
     cancel(jobId)
