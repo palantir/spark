@@ -26,6 +26,7 @@
 * Gradle plugin to easily create custom docker images for use with k8s
 * Filter rLibDir by exists so that daemon.R references the correct file [460](https://github.com/palantir/spark/pull/460)
 * Implementation of the shuffle I/O plugins from SPARK-25299 that asynchronously backs up shuffle files to remote storage
+* Add pre-installed conda configuration and use to find rlib directory [700](https://github.com/palantir/spark/pull/700)
 
 # Reverted
 * [SPARK-25908](https://issues.apache.org/jira/browse/SPARK-25908) - Removal of `monotonicall_increasing_id`, `toDegree`, `toRadians`, `approxCountDistinct`, `unionAll`
