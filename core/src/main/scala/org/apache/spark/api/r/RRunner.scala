@@ -31,6 +31,7 @@ import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.deploy.Common.Provenance
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.BUFFER_SIZE
+import org.apache.spark.internal.config.CONDA_PRE_INSTALLED_PATH
 import org.apache.spark.internal.config.R._
 import org.apache.spark.util.Utils
 
@@ -363,6 +364,7 @@ private[r] object RRunner {
     val sparkConf = SparkEnv.get.conf
     val requestedRCommand = Provenance.fromConfOpt(sparkConf, R_COMMAND)
       .getOrElse(Provenance.fromConf(sparkConf, SPARKR_COMMAND))
+    val preInstalledCondaPath = Provenance.fromConfOpt(sparkConf, CONDA_PRE_INSTALLED_PATH)
     val condaEnv = condaSetupInstructions.map(CondaEnvironmentManager.getOrCreateCondaEnvironment)
     val rCommand = condaEnv.map { conda =>
       if (requestedRCommand.value != SPARKR_COMMAND.defaultValue.get) {
@@ -375,9 +377,17 @@ private[r] object RRunner {
 
     val rConnectionTimeout = sparkConf.get(R_BACKEND_CONNECTION_TIMEOUT)
     val rOptions = "--vanilla"
+    val rLibPath = "/lib/R/library"
     val rLibDir = condaEnv.map(conda =>
-      RUtils.sparkRPackagePath(isDriver = false) :+ (conda.condaEnvDir + "/lib/R/library"))
-      .getOrElse(RUtils.sparkRPackagePath(isDriver = false))
+      RUtils.sparkRPackagePath(isDriver = false) :+ (conda.condaEnvDir + rLibPath))
+      .getOrElse({
+        val sparkRPackagePaths = RUtils.sparkRPackagePath(isDriver = false)
+        if (preInstalledCondaPath.isDefined) {
+          sparkRPackagePaths :+ (preInstalledCondaPath.get + rLibPath)
+        } else {
+          sparkRPackagePaths
+        }
+      })
       .filter(dir => new File(dir).exists)
     if (rLibDir.isEmpty) {
       throw new SparkException("SparkR package is not installed on executor.")

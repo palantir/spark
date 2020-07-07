@@ -543,6 +543,11 @@ package object config {
     .stringConf
     .createOptional
 
+  private[spark] val CONDA_PRE_INSTALLED_PATH = ConfigBuilder("spark.conda.preInstalledPath")
+    .doc("The path to pre-installed conda directory.")
+    .stringConf
+    .createOptional
+
   private[spark] val CONDA_VERBOSITY = ConfigBuilder("spark.conda.verbosity")
     .doc("How many times to apply -v to conda. A number between 0 and 3, with 0 being default.")
     .intConf
