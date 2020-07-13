@@ -18,6 +18,7 @@
 package org.apache.spark.deploy
 
 import java.io.File
+import java.io.OutputStream
 import java.net.{InetAddress, URI}
 import java.nio.file.Files
 
@@ -40,7 +41,10 @@ import org.apache.spark.util.Utils
  */
 object PythonRunner extends CondaRunner with Logging {
 
-  override def run(args: Array[String], maybeConda: Option[CondaEnvironment]): Unit = {
+  override def run(
+      args: Array[String],
+      maybeConda: Option[CondaEnvironment],
+      maybeOutputStream: Option[OutputStream]): Unit = {
     val pythonFile = args(0)
     val pyFiles = args(1)
     val otherArgs = args.slice(2, args.length)
@@ -116,7 +120,9 @@ object PythonRunner extends CondaRunner with Logging {
     try {
       val process = builder.start()
 
-      new RedirectThread(process.getInputStream, System.out, "redirect output").start()
+      new RedirectThread(
+        process.getInputStream, maybeOutputStream.getOrElse(System.out), "redirect output")
+        .start()
 
       val exitCode = process.waitFor()
       if (exitCode != 0) {

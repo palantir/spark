@@ -38,7 +38,10 @@ import org.apache.spark.util.RedirectThread
  * subprocess and then has it connect back to the JVM to access system properties etc.
  */
 object RRunner extends CondaRunner with Logging {
-  override def run(args: Array[String], maybeConda: Option[CondaEnvironment]): Unit = {
+  override def run(
+      args: Array[String],
+      maybeConda: Option[CondaEnvironment],
+      maybeOutputStream: Option[OutputStream]): Unit = {
     val rFile = PythonRunner.formatPath(args(0))
 
     val otherArgs = args.slice(1, args.length)
@@ -117,7 +120,9 @@ object RRunner extends CondaRunner with Logging {
         builder.redirectErrorStream(true) // Ugly but needed for stdout and stderr to synchronize
         val process = builder.start()
 
-        new RedirectThread(process.getInputStream, System.out, "redirect R output").start()
+        new RedirectThread(
+          process.getInputStream, maybeOutputStream.getOrElse(System.out), "redirect R output")
+          .start()
 
         process.waitFor()
       } finally {

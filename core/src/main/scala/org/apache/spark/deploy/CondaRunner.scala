@@ -17,6 +17,7 @@
 
 package org.apache.spark.deploy
 
+import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.spark.SparkConf
@@ -33,10 +34,13 @@ import org.apache.spark.util.Utils
 abstract class CondaRunner extends Logging {
   final def main(args: Array[String]): Unit = {
     val sparkConf = new SparkConf()
-    run(args, CondaRunner.setupCondaEnvironmentAutomatically(sparkConf))
+    run(args, CondaRunner.setupCondaEnvironmentAutomatically(sparkConf), None)
   }
 
-  def run(args: Array[String], maybeConda: Option[CondaEnvironment]): Unit
+  def run(
+      args: Array[String],
+      maybeConda: Option[CondaEnvironment],
+      maybeOutputStream: Option[OutputStream]): Unit
 }
 
 object CondaRunner {
