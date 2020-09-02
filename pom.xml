@@ -162,7 +162,6 @@
     <oro.version>2.0.8</oro.version>
     <dropwizard.metrics.version>3.2.6</dropwizard.metrics.version>
     <dropwizard.version>1.0.0</dropwizard.version>
-    <spark-influx-sink.version>0.4.0</spark-influx-sink.version>
     <avro.version>1.8.2</avro.version>
     <avro.mapred.classifier>hadoop2</avro.mapred.classifier>
     <aws.kinesis.client.version>1.8.10</aws.kinesis.client.version>
@@ -751,38 +750,6 @@
         <groupId>io.dropwizard</groupId>
         <artifactId>dropwizard-metrics</artifactId>
         <version>${dropwizard.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.palantir.spark.influx</groupId>
-        <artifactId>spark-influx-sink</artifactId>
-        <version>${spark-influx-sink.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-core</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-          </exclusion>
-          <!-- Old lz4 dependency with different coordinates -->
-          <exclusion>
-            <groupId>net.jpountz.lz4</groupId>
-            <artifactId>lz4</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
