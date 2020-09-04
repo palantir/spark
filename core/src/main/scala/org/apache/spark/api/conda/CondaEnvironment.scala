@@ -114,17 +114,31 @@ final class CondaEnvironment(
   }
 
   /**
-   * This is for sending the instructions to the executors so they can replicate the same steps.
+   * This is for sending the instructions to the executors so they can replicate the same conda environment.
+   * For `File` bootstrap mode, use original setup
+   * For `Solve` bootstrap mode, convert to `File` mode to use exactly same conda pkgs and avoid solving.
    */
   def buildSetupInstructions: CondaSetupInstructions = {
-    CondaSetupInstructions(
-      bootstrapMode,
-      packages.toList,
-      bootstrapPackageUrls,
-      bootstrapPackageUrlsUserInfo,
-      channels.toList,
-      extraArgs,
-      envVars)
+    mode match {
+      case CondaBootstrapMode.Solve =>
+        CondaSetupInstructions(
+          CondaBootstrapMode.File,
+          packages.toList,
+          getTransitivePackageUrls(),
+          bootstrapPackageUrlsUserInfo,
+          channels.toList,
+          extraArgs,
+          envVars)
+      case CondaBootstrapMode.File =>
+        CondaSetupInstructions(
+          bootstrapMode,
+          packages.toList,
+          bootstrapPackageUrls,
+          bootstrapPackageUrlsUserInfo,
+          channels.toList,
+          extraArgs,
+          envVars)
+    }
   }
 }
 
