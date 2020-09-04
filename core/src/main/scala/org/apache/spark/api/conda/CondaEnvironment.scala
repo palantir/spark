@@ -92,6 +92,7 @@ final class CondaEnvironment(
     manager.runCondaProcess(rootPath,
       List("install", "-n", envName, "-y")
         ::: extraArgs.toList
+        ::: manager.verbosityFlags
         ::: "--" :: packages.toList,
       description = s"install dependencies in conda env $condaEnvDir",
       channels = channels.iterator.map(_.url).toList,
