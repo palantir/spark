@@ -23,7 +23,7 @@ import org.apache.spark.scheduler.{SparkListener, SparkListenerJobStart}
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.execution.{ReusedSubqueryExec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.rule.CoalescedShuffleReaderExec
-import org.apache.spark.sql.execution.exchange.Exchange
+import org.apache.spark.sql.execution.exchange.{Exchange, ShuffleExchangeExec}
 import org.apache.spark.sql.execution.joins.{BroadcastHashJoinExec, BuildRight, SortMergeJoinExec}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSQLContext
@@ -402,6 +402,20 @@ class AdaptiveQueryExecSuite
       }
     } finally {
       spark.sparkContext.removeSparkListener(listener)
+    }
+  }
+
+  test("SPARK-32753: Only copy tags to node with no tags") {
+    withSQLConf(
+      SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true"
+    ) {
+      spark.range(10).union(spark.range(10)).createOrReplaceTempView("v1")
+
+      val (_, adaptivePlan) = runAdaptiveAndVerifyResult(
+        "SELECT id FROM v1 GROUP BY id DISTRIBUTE BY id")
+      assert(collect(adaptivePlan) {
+        case s: ShuffleExchangeExec => s
+      }.length == 1)
     }
   }
 }
