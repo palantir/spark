@@ -176,7 +176,7 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |    def numpy_multiply(x):
     |        # Ensure executor has access to packages in driver.
     |        import numpy
-    |        numpy.multiply(x, 2)
+    |        return numpy.multiply(x, 2)
     |
     |    rdd = sc.parallelize(range(10)).map(numpy_multiply)
     |    rdd_sum = rdd.sum()
