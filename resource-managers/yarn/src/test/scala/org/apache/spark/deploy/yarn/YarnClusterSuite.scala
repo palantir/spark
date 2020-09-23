@@ -160,6 +160,35 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |    sc.stop()
   """.stripMargin
 
+  private val TEST_CONDA_DRIVER_INIT_PYFILE = """
+    |import os
+    |import sys
+    |
+    |from pyspark import SparkConf , SparkContext
+    |if __name__ == "__main__":
+    |    if len(sys.argv) != 2:
+    |        print >> sys.stderr, "Usage: test.py [result file]"
+    |        exit(-1)
+    |    sc = SparkContext(conf=SparkConf())
+    |
+    |    status = open(sys.argv[1],'w')
+    |
+    |    def numpy_multiply(x):
+    |        # Ensure executor has access to packages in driver.
+    |        import numpy
+    |        numpy.multiply(x, 2)
+    |
+    |    rdd = sc.parallelize(range(10)).map(numpy_multiply)
+    |    rdd_sum = rdd.sum()
+    |    if rdd_sum == 90:
+    |        result = "success"
+    |    else:
+    |        result = "failure"
+    |    status.write(result)
+    |    status.close()
+    |    sc.stop()
+  """.stripMargin
+
   private val TEST_PYMODULE = """
     |def func():
     |    return 42
@@ -280,6 +309,20 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
 
   test("run Python application within Conda in yarn-cluster mode") {
     testCondaPySparkAllModes(clientMode = false)
+  }
+
+  test("Python application within Conda in yarn-cluster mode has necessary pkgs") {
+    // run conda driver
+    val extraConfForCreate: Map[String, String] = Map(
+      "spark.conda.binaryPath" -> sys.env("CONDA_BIN"),
+      "spark.conda.channelUrls" -> "https://repo.continuum.io/pkgs/main",
+      "spark.conda.bootstrapPackages" -> "python=3.6,numpy=1.14.0"
+    )
+
+    testCondaPySpark(
+      clientMode = false,
+      TEST_CONDA_DRIVER_INIT_PYFILE,
+      extraConf = extraConfForCreate)
   }
 
   test("run Python application in yarn-cluster mode using " +
