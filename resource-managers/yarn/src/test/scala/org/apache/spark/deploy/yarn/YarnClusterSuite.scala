@@ -174,13 +174,19 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |    status = open(sys.argv[1],'w')
     |
     |    def numpy_multiply(x):
-    |        # Ensure executor has access to packages in driver.
+    |        # Ensure executors have the same packages of the driver.
     |        import numpy
+    |        # Ensure there are no other previously mentioned pkgs.
+    |        try:
+    |            import addict
+    |            return 0
+    |        except ImportError:
+    |            pass
     |        return numpy.multiply(x, 2)
     |
     |    rdd = sc.parallelize(range(10)).map(numpy_multiply)
     |    rdd_sum = rdd.sum()
-    |    if rdd_sum == 90:
+    |    if rdd_sum == 90:       # sum(0:9) * 2 = 90
     |        result = "success"
     |    else:
     |        result = "failure"
