@@ -116,9 +116,11 @@ final class CondaEnvironment(
   /**
    * This is for sending the instructions to the executors so they can replicate the same conda
    * environment.
-   * For `File` bootstrap mode, use original setup
-   * For `Solve` bootstrap mode, convert to `File` mode to use exactly same conda pkgs
-   * and avoid re-solving.
+   * <p><ul>
+   *   <li>In {@code File} mode, re-use the same specfile on executors.</li>
+   *   <li>In {@code Solve} mode, list resolved packages into a specfile
+   *    and use that on executors.</li>
+   * </ul>
    */
   def buildSetupInstructions: CondaSetupInstructions = {
     bootstrapMode match {
