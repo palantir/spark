@@ -176,12 +176,6 @@ class YarnClusterSuite extends BaseYarnClusterSuite {
     |    def numpy_multiply(x):
     |        # Ensure executors have the same packages of the driver.
     |        import numpy
-    |        # Ensure there are no other previously mentioned pkgs.
-    |        try:
-    |            import addict
-    |            return 0
-    |        except ImportError:
-    |            pass
     |        return numpy.multiply(x, 2)
     |
     |    rdd = sc.parallelize(range(10)).map(numpy_multiply)
