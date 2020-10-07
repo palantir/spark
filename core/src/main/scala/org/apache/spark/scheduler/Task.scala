@@ -57,13 +57,14 @@ private[spark] abstract class Task[T](
     val stageAttemptId: Int,
     val partitionId: Int,
     @transient var localProperties: Properties = new Properties,
+    @transient var executorPlugins: Seq[ExecutorPlugin] = Nil,
     // The default value is only used in tests.
     serializedTaskMetrics: Array[Byte] =
       SparkEnv.get.closureSerializer.newInstance().serialize(TaskMetrics.registered).array(),
     val jobId: Option[Int] = None,
     val appId: Option[String] = None,
     val appAttemptId: Option[String] = None,
-    val isBarrier: Boolean = false) extends Serializable {
+    val isBarrier: Boolean = false) extends Serializable, SafeLogging {
 
   @transient lazy val metrics: TaskMetrics =
     SparkEnv.get.closureSerializer.newInstance().deserialize(ByteBuffer.wrap(serializedTaskMetrics))
@@ -117,8 +118,11 @@ private[spark] abstract class Task[T](
       Option(taskAttemptId),
       Option(attemptNumber)).setCurrentContext()
 
+    sendTaskStartToPlugins()
+
     try {
       runTask(context)
+      sendTaskSucceededToPlugins()
     } catch {
       case e: Throwable =>
         // Catch all errors; run task failure callbacks, and rethrow the exception.
@@ -129,6 +133,7 @@ private[spark] abstract class Task[T](
             e.addSuppressed(t)
         }
         context.markTaskCompleted(Some(e))
+        sendTaskFailedToPlugins()
         throw e
     } finally {
       try {
@@ -155,6 +160,44 @@ private[spark] abstract class Task[T](
           // queried directly in the TaskRunner to check for FetchFailedExceptions.
           TaskContext.unset()
         }
+      }
+    }
+  }
+
+  private def sendTaskStartToPlugins() {
+    // Don't think we need `Utils.withContextClassLoader(replClassLoader)` as Executor does because we've already
+    // set `Thread.currentThread.setContextClassLoader(replClassLoader)` on TaskRunner, but want to confirm.
+    executorPlugins.foreach { plugin =>
+      try {
+        plugin.onTaskStart()
+      } catch {
+        case e: Exception =>
+          safeLogWarning("Plugin onStart failed", e,
+            UnsafeArg.of("pluginName", plugin.getClass().getCanonicalName()))
+      }
+    }
+  }
+
+  private def sendTaskSucceededToPlugins() {
+    executorPlugins.foreach { plugin =>
+      try {
+        plugin.onTaskSucceeded()
+      } catch {
+        case e: Exception =>
+          safeLogWarning("Plugin onTaskSucceeded failed", e,
+            UnsafeArg.of("pluginName", plugin.getClass().getCanonicalName()))
+      }
+    }
+  }
+
+  private def sendTaskFailedToPlugins() {
+    executorPlugins.foreach { plugin =>
+      try {
+        plugin.onTaskFailed()
+      } catch {
+        case e: Exception =>
+          safeLogWarning("Plugin onTaskFailed failed", e,
+            UnsafeArg.of("pluginName", plugin.getClass().getCanonicalName()))
       }
     }
   }

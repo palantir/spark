@@ -216,7 +216,7 @@ private[spark] class Executor(
   private[executor] def numRunningTasks: Int = runningTasks.size()
 
   def launchTask(context: ExecutorBackend, taskDescription: TaskDescription): Unit = {
-    val tr = new TaskRunner(context, taskDescription)
+    val tr = new TaskRunner(context, taskDescription, executorPlugins)
     runningTasks.put(taskDescription.taskId, tr)
     threadPool.execute(tr)
   }
@@ -292,7 +292,8 @@ private[spark] class Executor(
 
   class TaskRunner(
       execBackend: ExecutorBackend,
-      private val taskDescription: TaskDescription)
+      private val taskDescription: TaskDescription,
+      private val executorPlugins: Seq[ExecutorPlugin])
     extends Runnable {
 
     val taskId = taskDescription.taskId
@@ -401,6 +402,7 @@ private[spark] class Executor(
         task = ser.deserialize[Task[Any]](
           taskDescription.serializedTask, Thread.currentThread.getContextClassLoader)
         task.localProperties = taskDescription.properties
+        task.executorPlugins = executorPlugins
         task.setTaskMemoryManager(taskMemoryManager)
 
         // If this task has been killed before we deserialized it, let's quit now. Otherwise,

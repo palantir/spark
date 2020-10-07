@@ -54,4 +54,22 @@ public interface ExecutorPlugin {
    * will wait for the plugin to terminate before continuing its own shutdown.</p>
    */
   default void shutdown() {}
+
+  /**
+   * TODO
+   */
+  // Should this explicitly receive TaskContext? Should the methods below also receive TaskContext?
+  default void onTaskStart() {}
+
+  /**
+   * TODO
+   */
+  // Do we need a 'succeeded' and 'failed'?
+  default void onTaskSucceeded() {}
+
+  /**
+   * TODO
+   */
+  // Should this receive the failure reason?
+  default void onTaskFailed() {}
 }
