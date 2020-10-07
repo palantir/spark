@@ -402,7 +402,6 @@ private[spark] class Executor(
         task = ser.deserialize[Task[Any]](
           taskDescription.serializedTask, Thread.currentThread.getContextClassLoader)
         task.localProperties = taskDescription.properties
-        task.executorPlugins = executorPlugins
         task.setTaskMemoryManager(taskMemoryManager)
 
         // If this task has been killed before we deserialized it, let's quit now. Otherwise,
@@ -437,6 +436,7 @@ private[spark] class Executor(
           val res = task.run(
             taskAttemptId = taskId,
             attemptNumber = taskDescription.attemptNumber,
+            executorPlugins = executorPlugins,
             metricsSystem = env.metricsSystem)
           threwException = false
           res

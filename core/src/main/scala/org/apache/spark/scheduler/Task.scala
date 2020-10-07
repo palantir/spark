@@ -59,7 +59,6 @@ private[spark] abstract class Task[T](
     val stageAttemptId: Int,
     val partitionId: Int,
     @transient var localProperties: Properties = new Properties,
-    @transient var executorPlugins: Seq[ExecutorPlugin] = Nil,
     // The default value is only used in tests.
     serializedTaskMetrics: Array[Byte] =
       SparkEnv.get.closureSerializer.newInstance().serialize(TaskMetrics.registered).array(),
@@ -75,13 +74,15 @@ private[spark] abstract class Task[T](
    * Called by [[org.apache.spark.executor.Executor]] to run this task.
    *
    * @param taskAttemptId an identifier for this task attempt that is unique within a SparkContext.
-   * @param attemptNumber how many times this task has been attempted (0 for the first attempt)
+   * @param attemptNumber how many times this task has been attempted (0 for the first attempt).
+   * @param executorPlugins the plugins which will be notified of the run of this task.
    * @return the result of the task along with updates of Accumulators.
    */
   final def run(
       taskAttemptId: Long,
       attemptNumber: Int,
-      metricsSystem: MetricsSystem): T = {
+      metricsSystem: MetricsSystem,
+      executorPlugins: Seq[ExecutorPlugin]): T = {
     SparkEnv.get.blockManager.registerTask(taskAttemptId)
     // TODO SPARK-24874 Allow create BarrierTaskContext based on partitions, instead of whether
     // the stage is barrier.
@@ -120,11 +121,11 @@ private[spark] abstract class Task[T](
       Option(taskAttemptId),
       Option(attemptNumber)).setCurrentContext()
 
-    sendTaskStartToPlugins()
+    sendTaskStartToPlugins(executorPlugins)
 
     try {
       val taskResult = runTask(context)
-      sendTaskSucceededToPlugins()
+      sendTaskSucceededToPlugins(executorPlugins)
       taskResult
     } catch {
       case e: Throwable =>
@@ -136,7 +137,7 @@ private[spark] abstract class Task[T](
             e.addSuppressed(t)
         }
         context.markTaskCompleted(Some(e))
-        sendTaskFailedToPlugins(e)
+        sendTaskFailedToPlugins(executorPlugins, e)
         throw e
     } finally {
       try {
@@ -167,7 +168,7 @@ private[spark] abstract class Task[T](
     }
   }
 
-  private def sendTaskStartToPlugins() {
+  private def sendTaskStartToPlugins(executorPlugins: Seq[ExecutorPlugin]) {
     executorPlugins.foreach { plugin =>
       try {
         plugin.onTaskStart()
@@ -179,7 +180,7 @@ private[spark] abstract class Task[T](
     }
   }
 
-  private def sendTaskSucceededToPlugins() {
+  private def sendTaskSucceededToPlugins(executorPlugins: Seq[ExecutorPlugin]) {
     executorPlugins.foreach { plugin =>
       try {
         plugin.onTaskSucceeded()
@@ -191,7 +192,7 @@ private[spark] abstract class Task[T](
     }
   }
 
-  private def sendTaskFailedToPlugins(error: Throwable) {
+  private def sendTaskFailedToPlugins(executorPlugins: Seq[ExecutorPlugin], error: Throwable) {
     executorPlugins.foreach { plugin =>
       try {
         plugin.onTaskFailed(error)
