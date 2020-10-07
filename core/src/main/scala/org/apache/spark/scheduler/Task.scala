@@ -20,8 +20,10 @@ package org.apache.spark.scheduler
 import java.nio.ByteBuffer
 import java.util.Properties
 
+import com.palantir.logsafe.UnsafeArg
 import org.apache.spark._
 import org.apache.spark.executor.TaskMetrics
+import org.apache.spark.internal.SafeLogging
 import org.apache.spark.internal.config.APP_CALLER_CONTEXT
 import org.apache.spark.memory.{MemoryMode, TaskMemoryManager}
 import org.apache.spark.metrics.MetricsSystem
@@ -64,7 +66,7 @@ private[spark] abstract class Task[T](
     val jobId: Option[Int] = None,
     val appId: Option[String] = None,
     val appAttemptId: Option[String] = None,
-    val isBarrier: Boolean = false) extends Serializable, SafeLogging {
+    val isBarrier: Boolean = false) extends Serializable with SafeLogging {
 
   @transient lazy val metrics: TaskMetrics =
     SparkEnv.get.closureSerializer.newInstance().deserialize(ByteBuffer.wrap(serializedTaskMetrics))
@@ -121,8 +123,9 @@ private[spark] abstract class Task[T](
     sendTaskStartToPlugins()
 
     try {
-      runTask(context)
+      val taskResult = runTask(context)
       sendTaskSucceededToPlugins()
+      taskResult
     } catch {
       case e: Throwable =>
         // Catch all errors; run task failure callbacks, and rethrow the exception.
@@ -133,7 +136,7 @@ private[spark] abstract class Task[T](
             e.addSuppressed(t)
         }
         context.markTaskCompleted(Some(e))
-        sendTaskFailedToPlugins()
+        sendTaskFailedToPlugins(e)
         throw e
     } finally {
       try {
@@ -165,8 +168,6 @@ private[spark] abstract class Task[T](
   }
 
   private def sendTaskStartToPlugins() {
-    // Don't think we need `Utils.withContextClassLoader(replClassLoader)` as Executor does because we've already
-    // set `Thread.currentThread.setContextClassLoader(replClassLoader)` on TaskRunner, but want to confirm.
     executorPlugins.foreach { plugin =>
       try {
         plugin.onTaskStart()
@@ -190,10 +191,10 @@ private[spark] abstract class Task[T](
     }
   }
 
-  private def sendTaskFailedToPlugins() {
+  private def sendTaskFailedToPlugins(error: Throwable) {
     executorPlugins.foreach { plugin =>
       try {
-        plugin.onTaskFailed()
+        plugin.onTaskFailed(error)
       } catch {
         case e: Exception =>
           safeLogWarning("Plugin onTaskFailed failed", e,

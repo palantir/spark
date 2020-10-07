@@ -56,20 +56,36 @@ public interface ExecutorPlugin {
   default void shutdown() {}
 
   /**
-   * TODO
+   * Perform any action before the task is run.
+   *
+   * <p>This method is invoked from the same thread the task will be executed.
+   * Task-specific information can be accessed via {@link TaskContext#get}.</p>
+   *
+   * <p>Users should avoid expensive operations here, as this method will be called
+   * on every task, and doing something expensive can significantly slow down a job.
+   * It is not recommended for a user to call a remote service, for example.</p>
+   *
+   * <p>Exceptions thrown from this method do not propagate - they're caught,
+   * logged, and suppressed. Therefore exceptions when executing this method won't
+   * make the job fail.</p>
    */
-  // Should this explicitly receive TaskContext? Should the methods below also receive TaskContext?
   default void onTaskStart() {}
 
   /**
-   * TODO
+   * Perform an action after tasks completes without exceptions.
+   *
+   * <p>As {@link #onTaskStart() onTaskStart} exceptions are suppressed, this method
+   * will still be invoked even if the corresponding {@link #onTaskStart} call for this
+   * task failed.</p>
+   *
+   * <p>Same warnings of {@link #onTaskStart() onTaskStart} apply here.</p>
    */
-  // Do we need a 'succeeded' and 'failed'?
   default void onTaskSucceeded() {}
 
   /**
-   * TODO
+   * Perform an action after tasks completes with exceptions.
+   *
+   * <p>Same warnings of {@link #onTaskStart() onTaskStart} apply here.</p>
    */
-  // Should this receive the failure reason?
-  default void onTaskFailed() {}
+  default void onTaskFailed(Throwable throwable) {}
 }
