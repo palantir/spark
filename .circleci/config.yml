@@ -28,9 +28,6 @@ all-branches-and-tags: &all-branches-and-tags
 # Step templates
 
 step_templates:
-  restore-build-binaries-cache: &restore-build-binaries-cache
-    restore_cache:
-      key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
   restore-ivy-cache: &restore-ivy-cache
     restore_cache:
       keys:
@@ -136,20 +133,11 @@ jobs:
             - maven-dependency-cache-{{ checksum "pom.xml" }}
             # Fallback - see https://circleci.com/docs/2.0/configuration-reference/#example-2
             - maven-dependency-cache-
-      # Given the build-maven cache, this is superfluous, but leave it in in case we will want to remove the former
-      - restore_cache:
-          keys:
-            - build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
-            - build-binaries-
       - run:
           command: ./build/mvn -DskipTests -Psparkr -Phadoop-palantir install
           no_output_timeout: 20m
       # Get sbt to run trivially, ensures its launcher is downloaded under build/
       - run: ./build/sbt -h || true
-      - save_cache:
-          key: build-binaries-{{ checksum "build/mvn" }}-{{ checksum "build/sbt" }}
-          paths:
-            - ./build
       - save_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
           paths:
@@ -165,7 +153,6 @@ jobs:
       # Failed to execute goal on project spark-assembly_2.11: Could not resolve dependencies for project org.apache.spark:spark-assembly_2.11:pom:2.4.0-SNAPSHOT
       - restore_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - *restore-build-binaries-cache
       - run:
           name: Run style tests
           command: dev/run-style-tests.py
@@ -181,7 +168,6 @@ jobs:
       #    key: build-maven-{{ .Branch }}-{{ .BuildNum }}
       - restore_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - *restore-build-binaries-cache
       - run: |
           dev/run-build-tests.py | tee /tmp/run-build-tests.log
       - store_artifacts:
@@ -206,7 +192,6 @@ jobs:
             fi
       - *restore-ivy-cache
       - *restore-home-sbt-cache
-      - *restore-build-binaries-cache
       - run:
           name: Download all external dependencies for the test configuration (which extends compile) and ensure we update first
           command: dev/sbt test:externalDependencyClasspath oldDeps/test:externalDependencyClasspath
@@ -251,7 +236,6 @@ jobs:
       - attach_workspace:
           at: .
       - *restore-ivy-cache
-      - *restore-build-binaries-cache
       - *restore-home-sbt-cache
       - run: |
           dev/run-backcompat-tests.py | tee /tmp/run-backcompat-tests.log
@@ -305,7 +289,7 @@ jobs:
   run-scala-tests:
     <<: *test-defaults
     # project/CirclePlugin.scala does its own test splitting in SBT based on CIRCLE_NODE_INDEX, CIRCLE_NODE_TOTAL
-    parallelism: 12
+    parallelism: 8
     # Spark runs a lot of tests in parallel, we need 16 GB of RAM for this
     resource_class: xlarge
     steps:
@@ -320,7 +304,6 @@ jobs:
       - *link-in-build-sbt-cache
       # ---
       - *restore-ivy-cache
-      - *restore-build-binaries-cache
       - *restore-home-sbt-cache
       - restore_cache:
           keys:
@@ -407,7 +390,6 @@ jobs:
       - *checkout-code
       - restore_cache:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - *restore-build-binaries-cache
       - run:
           command: dev/set_version_and_package.sh
           no_output_timeout: 15m
