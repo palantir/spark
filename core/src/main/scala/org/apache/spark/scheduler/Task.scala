@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 import java.util.Properties
 
 import com.palantir.logsafe.UnsafeArg
+
 import org.apache.spark._
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.internal.SafeLogging
