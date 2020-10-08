@@ -76,7 +76,8 @@ public class ExecutorPluginTaskSuite {
 
   @Test
   public void testBadlyBehavedPluginDoesNotAffectWellBehavedPlugin() {
-    SparkConf conf = initializeSparkConf(taskWellBehavedPluginName + "," + taskBadlyBehavedPluginName);
+    SparkConf conf = initializeSparkConf(
+            taskWellBehavedPluginName + "," + taskBadlyBehavedPluginName);
 
     sc = new JavaSparkContext(conf);
     JavaRDD<Integer> rdd = sc.parallelize(ImmutableList.of(1, 2));
