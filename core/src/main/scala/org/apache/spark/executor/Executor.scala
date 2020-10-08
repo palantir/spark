@@ -436,8 +436,8 @@ private[spark] class Executor(
           val res = task.run(
             taskAttemptId = taskId,
             attemptNumber = taskDescription.attemptNumber,
-            executorPlugins = executorPlugins,
-            metricsSystem = env.metricsSystem)
+            metricsSystem = env.metricsSystem,
+            executorPlugins = executorPlugins)
           threwException = false
           res
         } {
