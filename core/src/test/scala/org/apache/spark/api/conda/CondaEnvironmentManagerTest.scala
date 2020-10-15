@@ -79,5 +79,9 @@ class CondaEnvironmentManagerTest extends org.apache.spark.SparkFunSuite with Te
       "https://a:b@x-5.bar/whatever/else/linux-64/package-0.0.1-py_0.tar.bz2") == packageUrl)
     assert(CondaEnvironmentManager.dropUserInfo(
       "https://:b@x-5.bar/whatever/else/linux-64/package-0.0.1-py_0.tar.bz2") == packageUrl)
+    assert(CondaEnvironmentManager.dropUserInfo(
+      "https://a:<password>@x-5.bar/linux-64/package-0.0.1-py_0.tar.bz2") == packageUrl)
+    assert(CondaEnvironmentManager.dropUserInfo(
+      "https://:Bearer bf.ghi@x-5.bar/linux-64/package-0.0.1-py_0.tar.bz2") == packageUrl)
   }
 }
