@@ -80,7 +80,10 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     val command = Process(List(condaBinaryPath, "list", "-p", envDir, "--explicit"), None)
 
     val out = runOrFail(command, "retrieving the conda installation's list of installed packages")
-    out.split("\n").filterNot(line => line.startsWith("#") || line.startsWith("@")).toList
+    out.split("\n")
+      .filterNot(line => line.startsWith("#") || line.startsWith("@"))
+      .map(uri => UriBuilder.fromUri(uri).userInfo(null).build().toString)
+      .toList
   }
 
   def createWithMode(
