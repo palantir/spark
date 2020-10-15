@@ -82,7 +82,7 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     val out = runOrFail(command, "retrieving the conda installation's list of installed packages")
     out.split("\n")
       .filterNot(line => line.startsWith("#") || line.startsWith("@"))
-      .map(uri => UriBuilder.fromUri(uri).userInfo(null).build().toString)
+      .map(CondaEnvironmentManager.dropUserInfo)
       .toList
   }
 
@@ -328,6 +328,10 @@ object CondaEnvironmentManager extends Logging {
 
   private[conda] def redactCredentials(line: String): String = {
     httpUrlToken.matcher(line).replaceAll("$1<password>")
+  }
+
+  private[conda] def dropUserInfo(uri: String): String = {
+    UriBuilder.fromUri(uri).userInfo(null).build().toString
   }
 
   def fromConf(sparkConf: SparkConf): CondaEnvironmentManager = {
