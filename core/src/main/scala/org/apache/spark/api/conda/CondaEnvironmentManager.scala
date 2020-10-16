@@ -339,6 +339,10 @@ object CondaEnvironmentManager extends Logging {
     httpUrlToken.matcher(line).replaceAll("$1<password>")
   }
 
+  /**
+   * Safely dropping the <code>userInfo</code> component in URI via <code>UriBuilder</code>.
+   * <code>UriBuilder</code> can safely alter URI components without throwing exceptions.
+   */
   private[conda] def dropUserInfo(uri: String): String = {
     UriBuilder.fromUri(uri).userInfo(null).build().toString
   }
