@@ -75,6 +75,15 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     0.until(verbosity).map(_ => "-v").toList
   }
 
+  /**
+   * List of exact uris of the packages in the solved environment, dropping any credential
+   * information (user info).
+   *
+   * This method is used by executors to obtain specfiles for repro-ing conda envs. File mode
+   * creation expects pkg uris without user info, so we need to drop them before returning.
+   * @param envDir
+   * @return List of uris
+   */
   def listPackagesExplicit(envDir: String): List[String] = {
     logInfo("Retrieving a conda environment's list of installed packages")
     val command = Process(List(condaBinaryPath, "list", "-p", envDir, "--explicit"), None)

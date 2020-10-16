@@ -121,6 +121,8 @@ final class CondaEnvironment(
    *   <li>In {@code Solve} mode, list resolved packages into a specfile
    *    and use that on executors.</li>
    * </ul>
+   * Always using {@code File} mode for executors reduces conda init time by avoiding
+   * re-solving conda deps.
    */
   def buildSetupInstructions: CondaSetupInstructions = {
     bootstrapMode match {
