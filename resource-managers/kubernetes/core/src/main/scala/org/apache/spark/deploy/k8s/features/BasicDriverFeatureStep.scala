@@ -27,7 +27,6 @@ import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.submit._
 import org.apache.spark.internal.config._
-import org.apache.spark.internal.config.UI._
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.Utils
 
@@ -76,14 +75,10 @@ private[spark] class BasicDriverFeatureStep(conf: KubernetesDriverConf)
           .build()
       }
 
-    val driverCpuQuantity = new QuantityBuilder(false)
-      .withAmount(driverCpuCores)
-      .build()
-    val driverMemoryQuantity = new QuantityBuilder(false)
-      .withAmount(s"${driverMemoryWithOverheadMiB}Mi")
-      .build()
+    val driverCpuQuantity = new Quantity(driverCpuCores)
+    val driverMemoryQuantity = new Quantity(s"${driverMemoryWithOverheadMiB}Mi")
     val maybeCpuLimitQuantity = driverLimitCores.map { limitCores =>
-      ("cpu", new QuantityBuilder(false).withAmount(limitCores).build())
+      ("cpu", new Quantity(limitCores))
     }
 
     val driverPort = conf.sparkConf.getInt(DRIVER_PORT.key, DEFAULT_DRIVER_PORT)

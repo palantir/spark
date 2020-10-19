@@ -83,12 +83,9 @@ private[spark] class BasicExecutorFeatureStep(
     // name as the hostname.  This preserves uniqueness since the end of name contains
     // executorId
     val hostname = name.substring(Math.max(0, name.length - 63))
-    val executorMemoryQuantity = new QuantityBuilder(false)
-      .withAmount(s"${executorMemoryTotal}Mi")
-      .build()
-    val executorCpuQuantity = new QuantityBuilder(false)
-      .withAmount(executorCoresRequest)
-      .build()
+
+    val executorMemoryQuantity = new Quantity(s"${executorMemoryTotal}Mi")
+    val executorCpuQuantity = new Quantity(executorCoresRequest)
 
     val executorEnv: Seq[EnvVar] = {
         (Seq(
@@ -173,9 +170,7 @@ private[spark] class BasicExecutorFeatureStep(
       .addToArgs("executor")
       .build()
     val containerWithLimitCores = executorLimitCores.map { limitCores =>
-      val executorCpuLimitQuantity = new QuantityBuilder(false)
-        .withAmount(limitCores)
-        .build()
+      val executorCpuLimitQuantity = new Quantity(limitCores)
       new ContainerBuilder(executorContainer)
         .editResources()
           .addToLimits("cpu", executorCpuLimitQuantity)
