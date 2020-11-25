@@ -903,4 +903,79 @@ class AdaptiveQueryExecSuite
       }
     }
   }
+
+  test("Logging plan changes for AQE") {
+    val testAppender = new LogAppender("plan changes")
+    withLogAppender(testAppender) {
+      withSQLConf(
+          SQLConf.PLAN_CHANGE_LOG_LEVEL.key -> "INFO",
+          SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
+          SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
+        sql("SELECT * FROM testData JOIN testData2 ON key = a " +
+          "WHERE value = (SELECT max(a) FROM testData3)").collect()
+      }
+      Seq("=== Result of Batch AQE Preparations ===",
+          "=== Result of Batch AQE Post Stage Creation ===",
+          "=== Result of Batch AQE Replanning ===",
+          "=== Result of Batch AQE Query Stage Optimization ===",
+          "=== Result of Batch AQE Final Query Stage Optimization ===").foreach { expectedMsg =>
+        assert(testAppender.loggingEvents.exists(_.getRenderedMessage.contains(expectedMsg)))
+      }
+    }
+  }
+
+  test("SPARK-32932: Do not use local shuffle reader at final stage on write command") {
+    withSQLConf(SQLConf.PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.DYNAMIC.toString,
+      SQLConf.SHUFFLE_PARTITIONS.key -> "5",
+      SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
+      val data = for (
+        i <- 1L to 10L;
+        j <- 1L to 3L
+      ) yield (i, j)
+
+      val df = data.toDF("i", "j").repartition($"j")
+      var noLocalReader: Boolean = false
+      val listener = new QueryExecutionListener {
+        override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
+          qe.executedPlan match {
+            case plan@(_: DataWritingCommandExec | _: V2TableWriteExec) =>
+              assert(plan.asInstanceOf[UnaryExecNode].child.isInstanceOf[AdaptiveSparkPlanExec])
+              noLocalReader = collect(plan) {
+                case exec: CustomShuffleReaderExec if exec.isLocalReader => exec
+              }.isEmpty
+            case _ => // ignore other events
+          }
+        }
+        override def onFailure(funcName: String, qe: QueryExecution,
+          exception: Exception): Unit = {}
+      }
+      spark.listenerManager.register(listener)
+
+      withTable("t") {
+        df.write.partitionBy("j").saveAsTable("t")
+        sparkContext.listenerBus.waitUntilEmpty()
+        assert(noLocalReader)
+        noLocalReader = false
+      }
+
+      // Test DataSource v2
+      val format = classOf[NoopDataSource].getName
+      df.write.format(format).mode("overwrite").save()
+      sparkContext.listenerBus.waitUntilEmpty()
+      assert(noLocalReader)
+      noLocalReader = false
+
+      spark.listenerManager.unregister(listener)
+    }
+  }
+
+  test("SPARK-33494: Do not use local shuffle reader for repartition") {
+    withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
+      val df = spark.table("testData").repartition('key)
+      df.collect()
+      // local shuffle reader breaks partitioning and shouldn't be used for repartition operation
+      // which is specified by users.
+      checkNumLocalShuffleReaders(df.queryExecution.executedPlan, numShufflesWithoutLocalReader = 1)
+    }
+  }
 }

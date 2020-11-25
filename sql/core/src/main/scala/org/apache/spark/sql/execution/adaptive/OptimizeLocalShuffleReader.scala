@@ -17,10 +17,12 @@
 
 package org.apache.spark.sql.execution.adaptive
 
+import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
+import org.apache.spark.sql.catalyst.plans.physical.SinglePartition
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.execution.exchange.{EnsureRequirements, ShuffleExchangeExec}
-import org.apache.spark.sql.execution.joins.{BroadcastHashJoinExec, BuildLeft, BuildRight, BuildSide}
+import org.apache.spark.sql.execution.exchange.{ENSURE_REQUIREMENTS, EnsureRequirements, ShuffleExchangeExec, ShuffleExchangeLike}
+import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec
 import org.apache.spark.sql.internal.SQLConf
 
 /**
@@ -142,9 +144,13 @@ object OptimizeLocalShuffleReader {
 
   def canUseLocalShuffleReader(plan: SparkPlan): Boolean = plan match {
     case s: ShuffleQueryStageExec =>
-      s.shuffle.canChangeNumPartitions && s.mapStats.isDefined
-    case CustomShuffleReaderExec(s: ShuffleQueryStageExec, _, _) =>
-      s.shuffle.canChangeNumPartitions && s.mapStats.isDefined
+      s.mapStats.isDefined && supportLocalReader(s.shuffle)
+    case CustomShuffleReaderExec(s: ShuffleQueryStageExec, partitionSpecs) =>
+      s.mapStats.isDefined && partitionSpecs.nonEmpty && supportLocalReader(s.shuffle)
     case _ => false
+  }
+
+  private def supportLocalReader(s: ShuffleExchangeLike): Boolean = {
+    s.outputPartitioning != SinglePartition && s.shuffleOrigin == ENSURE_REQUIREMENTS
   }
 }
