@@ -15,6 +15,6 @@
  * limitations under the License.
  */
 
-val jacksonVersion = "2.9.4"
+val jacksonVersion = "2.11.3"
 libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion
 libraryDependencies += "com.fasterxml.jackson.module" %% "jackson-module-scala" % jacksonVersion
