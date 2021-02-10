@@ -17,28 +17,10 @@
 
 package org.apache.spark.sql.execution.datasources
 
-<<<<<<< HEAD
-import java.io.{FileNotFoundException, IOException}
-
-import scala.collection.mutable
-
-import org.apache.parquet.io.ParquetDecodingException
-
-import org.apache.spark.{Partition => RDDPartition, TaskContext, TaskKilledException}
-import org.apache.spark.deploy.SparkHadoopUtil
-import org.apache.spark.rdd.{InputFileBlockHolder, RDD}
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.QueryExecutionException
-import org.apache.spark.sql.sources.v2.reader.InputPartition
-import org.apache.spark.sql.vectorized.ColumnarBatch
-import org.apache.spark.util.NextIterator
-=======
 import org.apache.spark.{Partition => RDDPartition, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
->>>>>>> a80cfd7b07... Add support to read multiple sorted bucket files for data source v1
 
 /**
  * A part (i.e. "block") of a single file that should be read, along with partition column values

@@ -24,8 +24,7 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen.LazilyGeneratedOrdering
@@ -222,6 +221,7 @@ case class FileSourceScanExec(
         // If sort columns are (col0, col1), then sort ordering would be considered as (col0)
         // If sort columns are (col1, col0), then sort ordering would be empty as per rule #2
         // above
+
         def toAttribute(colName: String): Option[Attribute] =
           output.find(_.name == colName)
 
@@ -262,7 +262,6 @@ case class FileSourceScanExec(
         } else {
           (UnknownPartitioning(0), Nil)
         }
-
       case _ =>
         (UnknownPartitioning(0), Nil)
     }
