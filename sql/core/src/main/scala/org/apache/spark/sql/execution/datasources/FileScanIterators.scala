@@ -137,7 +137,10 @@ abstract class BaseFileScanIterator(
       }
 
       try {
-        hasNext
+        // We cannot just call hasNext here since FileSortedBucketScanIterator needs to
+        // override hasNext()
+        context.killTaskIfInterrupted()
+        (currentIterator != null && currentIterator.hasNext) || nextIterator()
       } catch {
         case e: SchemaColumnConvertNotSupportedException =>
           val message = "Parquet column cannot be converted in " +
