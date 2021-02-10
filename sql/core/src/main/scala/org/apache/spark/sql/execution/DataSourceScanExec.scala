@@ -167,7 +167,13 @@ case class FileSourceScanExec(
     }
   }
 
-    val driverMetrics: HashMap[String, Long] = HashMap.empty
+  override def vectorTypes: Option[Seq[String]] =
+    relation.fileFormat.vectorTypes(
+      requiredSchema = requiredSchema,
+      partitionSchema = relation.partitionSchema,
+      relation.sparkSession.sessionState.conf)
+
+  val driverMetrics: HashMap[String, Long] = HashMap.empty
 
   /**
    * Send the driver-side metrics. Before calling this function, selectedPartitions has
@@ -216,29 +222,51 @@ case class FileSourceScanExec(
         // If sort columns are (col0, col1), then sort ordering would be considered as (col0)
         // If sort columns are (col1, col0), then sort ordering would be empty as per rule #2
         // above
-        val bucketColumns = spec.bucketColumnNames.flatMap(n => toAttribute(n))
-        val numPartitions = spec.numBuckets
-        val partitioning = HashPartitioning(bucketColumns, numPartitions)
-        val sortColumns =
-          spec.sortColumnNames.map(x => toAttribute(x)).takeWhile(x => x.isDefined).map(_.get)
+        def toAttribute(colName: String): Option[Attribute] =
+          output.find(_.name == colName)
 
-        // In case of bucketing, its possible to have multiple files belonging to the
-        // same bucket in a given relation. Each of these files are locally sorted
-        // but those files combined together are not globally sorted. Given that,
-        // the RDD partition will not be sorted even if the relation has sort columns set.
-        //
-        // With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
-        // output ordering is preserved by reading those sorted files in sort-merge way.
-        val sortOrder = sortColumns.map(attribute => SortOrder(attribute, Ascending))
-        (partitioning, sortOrder)
+        val bucketColumns = spec.bucketColumnNames.flatMap(n => toAttribute(n))
+        if (bucketColumns.size == spec.bucketColumnNames.size) {
+          val partitioning = HashPartitioning(bucketColumns, spec.numBuckets)
+          val sortColumns =
+            spec.sortColumnNames.map(x => toAttribute(x)).takeWhile(x => x.isDefined).map(_.get)
+
+          // In case of bucketing, its possible to have multiple files belonging to the
+          // same bucket in a given relation. Each of these files are locally sorted
+          // but those files combined together are not globally sorted. Given that,
+          // the RDD partition will not be sorted even if the relation has sort columns set.
+          //
+          // 1. With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
+          //    output ordering is preserved by reading those sorted files in sort-merge way.
+          // 2. If not, output ordering is preserved if each bucket has no more than one file.
+          val sortOrder = if (sortColumns.nonEmpty) {
+            if (conf.bucketSortedScanEnabled) {
+              sortColumns.map(attribute => SortOrder(attribute, Ascending))
+            } else {
+              val files = selectedPartitions.flatMap(partition => partition.files)
+              val bucketToFilesGrouping =
+                files.map(_.getPath.getName).groupBy(file => BucketingUtils.getBucketId(file))
+              val singleFilePartitions = bucketToFilesGrouping.forall(p => p._2.length <= 1)
+              if (singleFilePartitions) {
+                // TODO Currently Spark does not support writing columns sorting in descending order
+                // so using Ascending order. This can be fixed in future
+                sortColumns.map(attribute => SortOrder(attribute, Ascending))
+              } else {
+                Nil
+              }
+            }
+          } else {
+            Nil
+          }
+          (partitioning, sortOrder)
+        } else {
+          (UnknownPartitioning(0), Nil)
+        }
 
       case _ =>
         (UnknownPartitioning(0), Nil)
     }
   }
-
-  private def toAttribute(colName: String): Option[Attribute] =
-    output.find(_.name == colName)
 
   @transient
   private val pushedDownFilters = dataFilters.flatMap(DataSourceStrategy.translateFilter)
