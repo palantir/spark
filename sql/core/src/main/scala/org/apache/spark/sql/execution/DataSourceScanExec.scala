@@ -231,16 +231,16 @@ case class FileSourceScanExec(
           val sortColumns =
             spec.sortColumnNames.map(x => toAttribute(x)).takeWhile(x => x.isDefined).map(_.get)
 
-          // In case of bucketing, its possible to have multiple files belonging to the
-          // same bucket in a given relation. Each of these files are locally sorted
-          // but those files combined together are not globally sorted. Given that,
-          // the RDD partition will not be sorted even if the relation has sort columns set.
-          //
-          // 1. With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
-          //    output ordering is preserved by reading those sorted files in sort-merge way.
-          // 2. If not, output ordering is preserved if each bucket has no more than one file.
           val sortOrder = if (sortColumns.nonEmpty) {
-            if (conf.bucketSortedScanEnabled) {
+            // In case of bucketing, its possible to have multiple files belonging to the
+            // same bucket in a given relation. Each of these files are locally sorted
+            // but those files combined together are not globally sorted. Given that,
+            // the RDD partition will not be sorted even if the relation has sort columns set.
+            //
+            // 1. With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
+            //    output ordering is preserved by reading those sorted files in sort-merge way.
+            // 2. If not, output ordering is preserved if each bucket has no more than one file.
+            if (!conf.bucketSortedScanEnabled) {
               sortColumns.map(attribute => SortOrder(attribute, Ascending))
             } else {
               val files = selectedPartitions.flatMap(partition => partition.files)
