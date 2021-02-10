@@ -240,7 +240,7 @@ case class FileSourceScanExec(
             // 1. With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
             //    output ordering is preserved by reading those sorted files in sort-merge way.
             // 2. If not, output ordering is preserved if each bucket has no more than one file.
-            if (!conf.bucketSortedScanEnabled) {
+            if (conf.bucketSortedScanEnabled) {
               sortColumns.map(attribute => SortOrder(attribute, Ascending))
             } else {
               val files = selectedPartitions.flatMap(partition => partition.files)
@@ -284,7 +284,8 @@ case class FileSourceScanExec(
         "PartitionFilters" -> seqToString(partitionFilters),
         "PushedFilters" -> seqToString(pushedDownFilters),
         "DataFilters" -> seqToString(dataFilters),
-        "Location" -> locationDesc)
+        "Location" -> locationDesc,
+        "ScanMode" -> scanMode.toString)
     val withOptPartitionCount =
       relation.partitionSchemaOption.map { _ =>
         metadata + ("PartitionCount" -> selectedPartitions.size.toString)
