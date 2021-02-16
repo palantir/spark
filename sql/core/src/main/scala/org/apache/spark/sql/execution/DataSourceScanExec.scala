@@ -148,14 +148,20 @@ case class FileSourceScanExec(
     relation.fileFormat.supportBatch(relation.sparkSession, schema)
   }
 
+  sealed abstract class ScanMode
+
+  case object RegularMode extends ScanMode
+
+  case class SortedBucketMode(sortOrdering: Ordering[InternalRow]) extends ScanMode {
+    override def toString: String = "SortedBucketMode"
+  }
+
   private lazy val scanMode: ScanMode =
     if (conf.bucketSortedScanEnabled && outputOrdering.nonEmpty) {
       val sortOrdering = new LazilyGeneratedOrdering(outputOrdering, output)
       SortedBucketMode(sortOrdering)
-    } else if (relation.fileFormat.supportBatch(relation.sparkSession, schema)) {
-      BatchMode
     } else {
-      RowMode
+      RegularMode
     }
 
   private lazy val needsUnsafeRowConversion: Boolean = {
@@ -424,7 +430,12 @@ case class FileSourceScanExec(
       FilePartition(bucketId, prunedFilesGroupedToBuckets.getOrElse(bucketId, Nil))
     }
 
-    new FileScanRDD(fsRelation.sparkSession, readFile, filePartitions, scanMode)
+    scanMode match {
+      case SortedBucketMode(sortOrdering) =>
+        new FileSortedMergeScanRDD(fsRelation.sparkSession, readFile, filePartitions, sortOrdering)
+      case RegularMode =>
+        new FileScanRDD(fsRelation.sparkSession, readFile, filePartitions)
+    }
   }
 
   /**

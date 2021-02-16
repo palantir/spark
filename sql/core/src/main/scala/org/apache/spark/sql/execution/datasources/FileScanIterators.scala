@@ -170,51 +170,6 @@ abstract class BaseFileScanIterator(
 }
 
 /**
- * Iterator to scan files row by row
- */
-class FileRowScanIterator(
-    split: RDDPartition,
-    context: TaskContext,
-    ignoreCorruptFiles: Boolean,
-    ignoreMissingFiles: Boolean,
-    readFunction: PartitionedFile => Iterator[InternalRow])
-  extends BaseFileScanIterator(split, context, ignoreCorruptFiles, ignoreMissingFiles,
-    readFunction) {
-
-  override def next(): Object = {
-    val nextElement = currentIterator.next()
-
-    // Too costly to update every record
-    if (inputMetrics.recordsRead %
-        SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
-      incTaskInputMetricsBytesRead()
-    }
-    inputMetrics.incRecordsRead(1)
-    nextElement
-  }
-}
-
-/**
- * Iterator to scan files batch by batch
- */
-class FileBatchScanIterator(
-    split: RDDPartition,
-    context: TaskContext,
-    ignoreCorruptFiles: Boolean,
-    ignoreMissingFiles: Boolean,
-    readFunction: PartitionedFile => Iterator[InternalRow])
-  extends BaseFileScanIterator(split, context, ignoreCorruptFiles, ignoreMissingFiles,
-    readFunction) {
-
-  override def next(): Object = {
-    val nextBatch = currentIterator.next()
-    incTaskInputMetricsBytesRead()
-    inputMetrics.incRecordsRead(nextBatch.asInstanceOf[ColumnarBatch].numRows())
-    nextBatch
-  }
-}
-
-/**
  * Iterator to scan files all together at the same time,
  * and read row by row based on `sortOrdering` in sort-merge way.
  * It uses standard scala priority queue to decide read order.
