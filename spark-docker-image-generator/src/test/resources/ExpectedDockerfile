@@ -16,7 +16,7 @@
 #
 ARG java_image_tag=8-jre-slim
 
-FROM openjdk:${java_image_tag}
+FROM fabric8/java-centos-openjdk8-jdk:latest
 
 ARG spark_uid=185
 
