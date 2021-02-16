@@ -157,7 +157,7 @@ case class FileSourceScanExec(
   }
 
   private lazy val scanMode: ScanMode =
-    if (conf.bucketSortedScanEnabled && outputOrdering.nonEmpty) {
+    if (conf.bucketSortedScanEnabled && outputOrdering.nonEmpty && !singleFilePartitions) {
       val sortOrdering = new LazilyGeneratedOrdering(outputOrdering, output)
       SortedBucketMode(sortOrdering)
     } else {
@@ -199,6 +199,13 @@ case class FileSourceScanExec(
     val timeTakenMs = ((System.nanoTime() - startTime) + optimizerMetadataTimeNs) / 1000 / 1000
     driverMetrics("metadataTime") = timeTakenMs
     ret
+  }
+
+  private lazy val singleFilePartitions: Boolean = {
+    val files = selectedPartitions.flatMap(partition => partition.files)
+    val bucketToFilesGrouping =
+      files.map(_.getPath.getName).groupBy(file => BucketingUtils.getBucketId(file))
+    bucketToFilesGrouping.forall(p => p._2.length <= 1)
   }
 
   override lazy val (outputPartitioning, outputOrdering): (Partitioning, Seq[SortOrder]) = {
@@ -246,20 +253,12 @@ case class FileSourceScanExec(
             // 1. With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
             //    output ordering is preserved by reading those sorted files in sort-merge way.
             // 2. If not, output ordering is preserved if each bucket has no more than one file.
-            if (conf.bucketSortedScanEnabled) {
+            if (conf.bucketSortedScanEnabled || singleFilePartitions) {
+              // TODO Currently Spark does not support writing columns sorting in descending order
+              // so using Ascending order. This can be fixed in future
               sortColumns.map(attribute => SortOrder(attribute, Ascending))
             } else {
-              val files = selectedPartitions.flatMap(partition => partition.files)
-              val bucketToFilesGrouping =
-                files.map(_.getPath.getName).groupBy(file => BucketingUtils.getBucketId(file))
-              val singleFilePartitions = bucketToFilesGrouping.forall(p => p._2.length <= 1)
-              if (singleFilePartitions) {
-                // TODO Currently Spark does not support writing columns sorting in descending order
-                // so using Ascending order. This can be fixed in future
-                sortColumns.map(attribute => SortOrder(attribute, Ascending))
-              } else {
-                Nil
-              }
+              Nil
             }
           } else {
             Nil
@@ -483,7 +482,7 @@ case class FileSourceScanExec(
     val partitions =
       FilePartition.getFilePartitions(relation.sparkSession, splitFiles, maxSplitBytes)
 
-    new FileScanRDD(fsRelation.sparkSession, readFile, partitions, scanMode)
+    new FileScanRDD(fsRelation.sparkSession, readFile, partitions)
   }
 
   override def doCanonicalize(): FileSourceScanExec = {
