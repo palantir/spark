@@ -15,32 +15,19 @@
  * limitations under the License.
  */
 
-buildscript {
-  repositories {
-    jcenter()
-    gradlePluginPortal()
-    maven { url "http://palantir.bintray.com/releases" }
-  }
+package org.apache.spark.test;
 
-  dependencies {
-      classpath 'com.netflix.nebula:gradle-info-plugin:7.1.3'
-    classpath 'com.palantir.baseline:gradle-baseline-java:2.28.3'
-    classpath 'com.palantir.gradle.gitversion:gradle-git-version:0.12.3'
-    classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
-    classpath 'com.netflix.nebula:nebula-publishing-plugin:17.2.1'
-  }
-}
+import java.util.List;
 
-apply plugin: 'com.palantir.baseline'
-apply plugin: 'com.palantir.git-version'
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 
-allprojects {
-  group 'org.apache.spark'
-  version System.env.CIRCLE_TAG ?: gitVersion()
-  buildDir = 'gradle-build'
+public final class HelloWorld {
 
-  repositories {
-    jcenter()
-    maven { url "http://palantir.bintray.com/releases" }
-  }
+    private HelloWorld() { }
+
+    public static void main(String[] args) {
+        List<String> strs = ImmutableList.of("Hello", "World");
+        System.out.println(Joiner.on(",").join(strs));
+    }
 }

@@ -14,33 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.spark.deploy.kubernetes.docker.gradle;
 
-buildscript {
-  repositories {
-    jcenter()
-    gradlePluginPortal()
-    maven { url "http://palantir.bintray.com/releases" }
-  }
+import org.gradle.api.Action;
+import org.gradle.api.Project;
+import org.gradle.process.ExecSpec;
+import org.mockito.Mockito;
 
-  dependencies {
-      classpath 'com.netflix.nebula:gradle-info-plugin:7.1.3'
-    classpath 'com.palantir.baseline:gradle-baseline-java:2.28.3'
-    classpath 'com.palantir.gradle.gitversion:gradle-git-version:0.12.3'
-    classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
-    classpath 'com.netflix.nebula:nebula-publishing-plugin:17.2.1'
-  }
-}
+public final class ProjectExecUtils {
 
-apply plugin: 'com.palantir.baseline'
-apply plugin: 'com.palantir.git-version'
+    public static void invokeExecSpecAction(Project project, ExecSpec execSpec) {
+        Mockito.when(project.exec(Mockito.any(Action.class))).thenAnswer(invocation -> {
+            ((Action<ExecSpec>) invocation.getArgument(0)).execute(execSpec);
+            return null;
+        });
+    }
 
-allprojects {
-  group 'org.apache.spark'
-  version System.env.CIRCLE_TAG ?: gitVersion()
-  buildDir = 'gradle-build'
-
-  repositories {
-    jcenter()
-    maven { url "http://palantir.bintray.com/releases" }
-  }
+    private ProjectExecUtils() {
+    }
 }
