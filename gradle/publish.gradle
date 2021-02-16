@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-buildscript {
-  repositories {
-    jcenter()
-    gradlePluginPortal()
-    maven { url "http://palantir.bintray.com/releases" }
-  }
+apply plugin: 'com.jfrog.bintray'
+apply plugin: 'nebula.maven-publish'
 
-  dependencies {
-      classpath 'com.netflix.nebula:gradle-info-plugin:7.1.3'
-    classpath 'com.palantir.baseline:gradle-baseline-java:2.28.3'
-    classpath 'com.palantir.gradle.gitversion:gradle-git-version:0.12.3'
-    classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
-    classpath 'com.netflix.nebula:nebula-publishing-plugin:17.2.1'
+jar {
+  manifest {
+    attributes(
+        "Implementation-Title"   : project.name,
+        "Implementation-Version" : project.version,
+        "Implementation-Vendor"  : "Palantir Technologies Inc.")
   }
 }
 
-apply plugin: 'com.palantir.baseline'
-apply plugin: 'com.palantir.git-version'
-
-allprojects {
-  group 'org.apache.spark'
-  version System.env.CIRCLE_TAG ?: gitVersion()
-  buildDir = 'gradle-build'
-
-  repositories {
-    jcenter()
-    maven { url "http://palantir.bintray.com/releases" }
+bintray {
+  user = System.env.BINTRAY_USERNAME
+  key = System.env.BINTRAY_PASSWORD
+  publish = true
+  pkg {
+    repo = 'releases'
+    name = rootProject.name
+    userOrg = 'palantir'
+    licenses = ['Apache-2.0']
+    publications = ['nebula', 'dockerBundle']
   }
+}
+
+publish.dependsOn bintrayUpload
+bintrayUpload.onlyIf {
+  versionDetails().isCleanTag
 }
