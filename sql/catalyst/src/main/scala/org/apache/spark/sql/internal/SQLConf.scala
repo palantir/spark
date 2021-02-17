@@ -1514,6 +1514,15 @@ object SQLConf {
       .stringConf
       .createWithDefault("")
 
+  val BUCKET_SORTED_SCAN_ENABLED =
+    buildConf("spark.sql.sources.bucketing.sortedScan.enabled")
+      .doc("When true, the bucketed table scan will respect table sort columns, " +
+        "and read multiple sorted files per bucket in a sort-merge way to preserve ordering. " +
+        "Note: tasks might have more memory footprint and OOM with vectorized reader, " +
+        "because multiple rows or columnar batches from different files will be read at same time.")
+      .booleanConf
+      .createWithDefault(false)
+
   object PartitionOverwriteMode extends Enumeration {
     val STATIC, DYNAMIC = Value
   }
@@ -2191,6 +2200,8 @@ class SQLConf extends Serializable with Logging {
 
   def setCommandRejectsSparkCoreConfs: Boolean =
     getConf(SQLConf.SET_COMMAND_REJECTS_SPARK_CORE_CONFS)
+
+  def bucketSortedScanEnabled: Boolean = getConf(SQLConf.BUCKET_SORTED_SCAN_ENABLED)
 
   /** ********************** SQLConf functionality methods ************ */
 
