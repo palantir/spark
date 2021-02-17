@@ -483,8 +483,8 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
   test("check sort and shuffle when bucket and sort columns are join keys") {
     // In case of bucketing, its possible to have multiple files belonging to the
     // same bucket in a given relation. Each of these files are locally sorted
-    // but those files combined together are not globally sorted. With configuration
-    // "spark.sql.sources.bucketing.sortedScan.enabled" being enabled, sort ordering
+    // but those files combined together are not globally sorted. With the
+    // "sortedScanEnabled" reader option being enabled, sort ordering
     // is preserved by reading those sorted files in sort-merge way.
     val bucketSpec = Some(BucketSpec(8, Seq("i", "j"), Seq("i", "j")))
 
