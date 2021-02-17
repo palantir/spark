@@ -19,22 +19,20 @@ package org.apache.spark.sql.sources
 
 import java.io.File
 import java.net.URI
-
 import scala.util.Random
-
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
 import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.physical.HashPartitioning
-import org.apache.spark.sql.execution.{DataSourceScanExec, SortExec}
+import org.apache.spark.sql.execution.{DataSourceScanExec, FileSourceScanExec, SortExec}
 import org.apache.spark.sql.execution.datasources.BucketingUtils
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.execution.joins.SortMergeJoinExec
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.StaticSQLConf.CATALOG_IMPLEMENTATION
-import org.apache.spark.sql.test.{SharedSQLContext, SQLTestUtils}
+import org.apache.spark.sql.test.{SQLTestUtils, SharedSQLContext}
 import org.apache.spark.util.Utils
 import org.apache.spark.util.collection.BitSet
 
@@ -329,7 +327,8 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
       bucketedTableTestSpecLeft: BucketedTableTestSpec,
       bucketedTableTestSpecRight: BucketedTableTestSpec,
       joinType: String = "inner",
-      joinCondition: (DataFrame, DataFrame) => Column): Unit = {
+      joinCondition: (DataFrame, DataFrame) => Column,
+      readOptions: Map[String, String] = Map.empty): Unit = {
     val BucketedTableTestSpec(bucketSpecLeft, numPartitionsLeft, shuffleLeft, sortLeft) =
       bucketedTableTestSpecLeft
     val BucketedTableTestSpec(bucketSpecRight, numPartitionsRight, shuffleRight, sortRight) =
@@ -363,8 +362,8 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
 
       withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "0",
         SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "false") {
-        val t1 = spark.table("bucketed_table1")
-        val t2 = spark.table("bucketed_table2")
+        val t1 = spark.read.options(readOptions).table("bucketed_table1")
+        val t2 = spark.read.options(readOptions).table("bucketed_table2")
         val joined = t1.join(t2, joinCondition(t1, t2), joinType)
 
         // First check the result is corrected.
@@ -489,33 +488,41 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
     val bucketSpec = Some(BucketSpec(8, Seq("i", "j"), Seq("i", "j")))
 
     Seq(true, false).foreach(sortedScanEnabled => {
-      withSQLConf(SQLConf.BUCKET_SORTED_SCAN_ENABLED.key -> sortedScanEnabled.toString) {
-        val bucketedTableTestSpecLeft1 = BucketedTableTestSpec(
-          bucketSpec, numPartitions = 50, expectedShuffle = false,
-          expectedSort = !sortedScanEnabled)
-        val bucketedTableTestSpecRight1 = BucketedTableTestSpec(
-          bucketSpec, numPartitions = 1, expectedShuffle = false, expectedSort = false)
-        testBucketing(
-          bucketedTableTestSpecLeft = bucketedTableTestSpecLeft1,
-          bucketedTableTestSpecRight = bucketedTableTestSpecRight1,
-          joinCondition = joinCondition(Seq("i", "j"))
-        )
+      val readOptions: Map[String, String] = if (sortedScanEnabled) {
+        Map(FileSourceScanExec.bucketSortedScanEnabledKey -> "true")
+      } else {
+        Map.empty
       }
+      val bucketedTableTestSpecLeft1 = BucketedTableTestSpec(
+        bucketSpec, numPartitions = 50, expectedShuffle = false,
+        expectedSort = !sortedScanEnabled)
+      val bucketedTableTestSpecRight1 = BucketedTableTestSpec(
+        bucketSpec, numPartitions = 1, expectedShuffle = false, expectedSort = false)
+      testBucketing(
+        bucketedTableTestSpecLeft = bucketedTableTestSpecLeft1,
+        bucketedTableTestSpecRight = bucketedTableTestSpecRight1,
+        joinCondition = joinCondition(Seq("i", "j")),
+        readOptions = readOptions
+      )
     })
 
     Seq(true, false).foreach(sortedScanEnabled => {
-      withSQLConf(SQLConf.BUCKET_SORTED_SCAN_ENABLED.key -> sortedScanEnabled.toString) {
-        val bucketedTableTestSpecLeft2 = BucketedTableTestSpec(
-          bucketSpec, numPartitions = 1, expectedShuffle = false, expectedSort = false)
-        val bucketedTableTestSpecRight2 = BucketedTableTestSpec(
-          bucketSpec, numPartitions = 50, expectedShuffle = false,
-          expectedSort = !sortedScanEnabled)
-        testBucketing(
-          bucketedTableTestSpecLeft = bucketedTableTestSpecLeft2,
-          bucketedTableTestSpecRight = bucketedTableTestSpecRight2,
-          joinCondition = joinCondition(Seq("i", "j"))
-        )
+      val readOptions: Map[String, String] = if (sortedScanEnabled) {
+        Map(FileSourceScanExec.bucketSortedScanEnabledKey -> "true")
+      } else {
+        Map.empty
       }
+      val bucketedTableTestSpecLeft2 = BucketedTableTestSpec(
+        bucketSpec, numPartitions = 1, expectedShuffle = false, expectedSort = false)
+      val bucketedTableTestSpecRight2 = BucketedTableTestSpec(
+        bucketSpec, numPartitions = 50, expectedShuffle = false,
+        expectedSort = !sortedScanEnabled)
+      testBucketing(
+        bucketedTableTestSpecLeft = bucketedTableTestSpecLeft2,
+        bucketedTableTestSpecRight = bucketedTableTestSpecRight2,
+        joinCondition = joinCondition(Seq("i", "j")),
+        readOptions = readOptions
+      )
     })
 
     Seq(true, false).foreach(sortedScanEnabled => {

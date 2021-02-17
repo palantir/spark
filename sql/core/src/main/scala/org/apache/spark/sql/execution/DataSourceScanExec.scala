@@ -31,6 +31,7 @@ import org.apache.spark.sql.catalyst.expressions.codegen.LazilyGeneratedOrdering
 import org.apache.spark.sql.catalyst.plans.QueryPlan
 import org.apache.spark.sql.catalyst.plans.physical.{HashPartitioning, Partitioning, UnknownPartitioning}
 import org.apache.spark.sql.catalyst.util.truncatedString
+import org.apache.spark.sql.execution.FileSourceScanExec.bucketSortedScanEnabledKey
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat => ParquetSource}
 import org.apache.spark.sql.execution.metric.SQLMetrics
@@ -121,6 +122,10 @@ case class RowDataSourceScanExec(
       tableIdentifier = None)
 }
 
+object FileSourceScanExec {
+  val bucketSortedScanEnabledKey = "bucketSortedScanEnabled"
+}
+
 /**
  * Physical plan node for scanning data from HadoopFsRelations.
  *
@@ -157,7 +162,10 @@ case class FileSourceScanExec(
   }
 
   private lazy val scanMode: ScanMode =
-    if (conf.bucketSortedScanEnabled && outputOrdering.nonEmpty && !singleFilePartitions) {
+    if (relation.options.get(FileSourceScanExec.bucketSortedScanEnabledKey).exists(_.toBoolean) &&
+      outputOrdering.nonEmpty &&
+      !singleFilePartitions
+    ) {
       val sortOrdering = new LazilyGeneratedOrdering(outputOrdering, output)
       SortedBucketMode(sortOrdering)
     } else {

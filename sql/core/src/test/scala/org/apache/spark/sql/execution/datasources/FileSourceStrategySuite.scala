@@ -289,8 +289,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSQLContext with Predi
     val fakeRDD = new FileScanRDD(
       spark,
       (file: PartitionedFile) => Iterator.empty,
-      Seq(partition),
-      RowMode
+      Seq(partition)
     )
 
     assertResult(Set("host0", "host1", "host2")) {
