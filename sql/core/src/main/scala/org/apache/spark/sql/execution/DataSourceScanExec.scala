@@ -161,11 +161,11 @@ case class FileSourceScanExec(
     override def toString: String = "SortedBucketMode"
   }
 
+  private lazy val bucketSortScanEnabled =
+    relation.options.get(FileSourceScanExec.bucketSortedScanEnabledKey).exists(_.toBoolean)
+
   private lazy val scanMode: ScanMode =
-    if (relation.options.get(FileSourceScanExec.bucketSortedScanEnabledKey).exists(_.toBoolean) &&
-      outputOrdering.nonEmpty &&
-      !singleFilePartitions
-    ) {
+    if (bucketSortScanEnabled && outputOrdering.nonEmpty && !singleFilePartitions) {
       val sortOrdering = new LazilyGeneratedOrdering(outputOrdering, output)
       SortedBucketMode(sortOrdering)
     } else {
@@ -261,7 +261,7 @@ case class FileSourceScanExec(
             // 1. With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
             //    output ordering is preserved by reading those sorted files in sort-merge way.
             // 2. If not, output ordering is preserved if each bucket has no more than one file.
-            if (conf.bucketSortedScanEnabled || singleFilePartitions) {
+            if (bucketSortScanEnabled || singleFilePartitions) {
               // TODO Currently Spark does not support writing columns sorting in descending order
               // so using Ascending order. This can be fixed in future
               sortColumns.map(attribute => SortOrder(attribute, Ascending))
