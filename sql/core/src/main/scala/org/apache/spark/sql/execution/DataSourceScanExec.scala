@@ -125,6 +125,14 @@ object FileSourceScanExec {
   val bucketSortedScanEnabledKey = "bucketSortedScanEnabled"
 }
 
+sealed abstract class ScanMode
+
+case object RegularMode extends ScanMode
+
+case class SortedBucketMode(sortOrdering: Ordering[InternalRow]) extends ScanMode {
+  override def toString: String = "SortedBucketMode"
+}
+
 /**
  * Physical plan node for scanning data from HadoopFsRelations.
  *
@@ -150,14 +158,6 @@ case class FileSourceScanExec(
   // so that this plan can be canonicalized on executor side too. See SPARK-23731.
   override lazy val supportsBatch: Boolean = {
     relation.fileFormat.supportBatch(relation.sparkSession, schema)
-  }
-
-  sealed abstract class ScanMode
-
-  case object RegularMode extends ScanMode
-
-  case class SortedBucketMode(sortOrdering: Ordering[InternalRow]) extends ScanMode {
-    override def toString: String = "SortedBucketMode"
   }
 
   private lazy val bucketSortScanEnabled =
