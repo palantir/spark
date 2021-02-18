@@ -20,7 +20,7 @@ package org.apache.spark.sql.execution.adaptive
 import java.util.concurrent.TimeUnit
 
 import org.apache.spark.scheduler.{SparkListener, SparkListenerJobStart}
-import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.execution.{ReusedSubqueryExec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.rule.CoalescedShuffleReaderExec
 import org.apache.spark.sql.execution.exchange.{Exchange, ShuffleExchangeExec}
@@ -415,6 +415,24 @@ class AdaptiveQueryExecSuite
         assert(collect(adaptivePlan) {
           case s: ShuffleExchangeExec => s
         }.length == 1)
+      }
+    }
+  }
+
+  // Extra test for palantir/spark because the upstream one added in SPARK-32753 didn't cover it
+  // TODO(rshkv): Remove after we rebase on 3.0.2
+  test("SPARK-32753 (palantir/spark): Don't fail on aggregate collect") {
+    withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
+      withTempView("tv") {
+        Seq("a" -> 1, "b" -> 2).toDF("id", "num").createTempView("tv")
+        val df = spark.sql(
+          """
+            |SELECT id, collect_set(tv.num)
+            |FROM tv
+            |GROUP BY id
+            |DISTRIBUTE BY id
+            |""".stripMargin)
+        df.show()
       }
     }
   }
