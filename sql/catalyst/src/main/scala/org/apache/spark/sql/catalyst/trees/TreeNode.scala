@@ -295,7 +295,7 @@ abstract class TreeNode[BaseType <: TreeNode[BaseType]] extends Product {
       mapChildren(_.transformDown(rule))
     } else {
       // If the transform function replaces this node with a new one, carry over the tags.
-      afterRule.tags ++= this.tags
+      afterRule.copyTagsFrom(this)
       afterRule.mapChildren(_.transformDown(rule))
     }
   }
@@ -319,7 +319,7 @@ abstract class TreeNode[BaseType <: TreeNode[BaseType]] extends Product {
       }
     }
     // If the transform function replaces this node with a new one, carry over the tags.
-    newNode.tags ++= this.tags
+    newNode.copyTagsFrom(this)
     newNode
   }
 
