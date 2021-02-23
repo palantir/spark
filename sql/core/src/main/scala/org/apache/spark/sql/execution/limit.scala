@@ -45,6 +45,12 @@ case class CollectLimitExec(limit: Int, child: SparkPlan) extends LimitExec {
   override def output: Seq[Attribute] = child.output
   override def outputPartitioning: Partitioning = SinglePartition
   override def executeCollect(): Array[InternalRow] = child.executeTake(limit)
+
+  // TODO(palantir): Reopen upstream PR for SPARK-18079; we need this for an internal product (DP)
+  override def executeToIterator(): Iterator[InternalRow] = {
+    LocalLimitExec(limit, child).executeToIterator().take(limit)
+  }
+
   private val serializer: Serializer = new UnsafeRowSerializer(child.output.size)
   private lazy val writeMetrics =
     SQLShuffleWriteMetricsReporter.createShuffleWriteMetrics(sparkContext)
