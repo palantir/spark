@@ -2340,6 +2340,15 @@ object SQLConf {
     .booleanConf
     .createWithDefault(false)
 
+  val MAX_REPEATED_ALIAS_SIZE =
+  buildConf("spark.sql.maxRepeatedAliasSize")
+    .internal()
+    .doc("The maximum size of alias expression that will be substituted multiple times " +
+      "(size defined by the number of nodes in the expression tree). " +
+      "Used by the CollapseProject optimizer, and PhysicalOperation.")
+    .intConf
+    .createWithDefault(100)
+
   val SOURCES_BINARY_FILE_MAX_LENGTH = buildConf("spark.sql.sources.binaryFile.maxLength")
     .doc("The max length of a file that can be read by the binary file data source. " +
       "Spark will fail fast and not attempt to read the file if its length exceeds this value. " +
@@ -3153,6 +3162,8 @@ class SQLConf extends Serializable with Logging {
 
   def setCommandRejectsSparkCoreConfs: Boolean =
     getConf(SQLConf.SET_COMMAND_REJECTS_SPARK_CORE_CONFS)
+
+  def maxRepeatedAliasSize: Int = getConf(SQLConf.MAX_REPEATED_ALIAS_SIZE)
 
   def castDatetimeToString: Boolean = getConf(SQLConf.LEGACY_CAST_DATETIME_TO_STRING)
 

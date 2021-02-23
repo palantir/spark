@@ -170,4 +170,23 @@ class CollapseProjectSuite extends PlanTest {
     val expected = Sample(0.0, 0.6, false, 11L, relation.select('a as 'c)).analyze
     comparePlans(optimized, expected)
   }
+
+
+  test("ensure oversize aliases are not repeatedly substituted") {
+    var query: LogicalPlan = testRelation
+    for( a <- 1 to 100) {
+      query = query.select(('a + 'b).as('a), ('a - 'b).as('b))
+    }
+    val projects = Optimize.execute(query.analyze).collect { case p: Project => p }
+    assert(projects.size >= 12)
+  }
+
+  test("ensure oversize aliases are still substituted once") {
+    var query: LogicalPlan = testRelation
+    for( a <- 1 to 20) {
+      query = query.select(('a + 'b).as('a), 'b)
+    }
+    val projects = Optimize.execute(query.analyze).collect { case p: Project => p }
+    assert(projects.size === 1)
+  }
 }
