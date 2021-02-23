@@ -85,13 +85,18 @@
     <module>common/sketch</module>
     <module>common/kvstore</module>
     <module>common/network-common</module>
+    <module>common/network-yarn</module>
     <module>common/network-shuffle</module>
     <module>common/unsafe</module>
     <module>common/tags</module>
     <module>core</module>
+    <module>dists/hadoop-palantir-bom</module>
+    <module>dists/hadoop-palantir</module>
     <module>graphx</module>
     <module>mllib</module>
     <module>mllib-local</module>
+    <module>resource-managers/kubernetes/core</module>
+    <module>resource-managers/yarn</module>
     <module>tools</module>
     <module>streaming</module>
     <module>sql/catalyst</module>
@@ -120,7 +125,7 @@
     <sbt.project.name>spark</sbt.project.name>
     <slf4j.version>1.7.30</slf4j.version>
     <log4j.version>1.2.17</log4j.version>
-    <hadoop.version>2.7.4</hadoop.version>
+    <hadoop.version>2.9.2-palantir.15</hadoop.version>
     <protobuf.version>2.5.0</protobuf.version>
     <yarn.version>${hadoop.version}</yarn.version>
     <zookeeper.version>3.4.14</zookeeper.version>
@@ -135,9 +140,11 @@
     <!-- note that this should be compatible with Kafka brokers version 0.10 and up -->
     <kafka.version>2.4.1</kafka.version>
     <derby.version>10.12.1.1</derby.version>
-    <parquet.version>1.10.1</parquet.version>
+    <parquet.version>1.12.0-palantir.7</parquet.version>
     <orc.version>1.5.10</orc.version>
-    <orc.classifier></orc.classifier>
+    <!-- Setting 'nohive' like in palantir/spark was causing type-mismatch errors. -->
+    <!-- <orc.classifier>nohive</orc.classifier> -->
+     <orc.classifier></orc.classifier>
     <hive.parquet.group>com.twitter</hive.parquet.group>
     <hive.parquet.version>1.6.0</hive.parquet.version>
     <jetty.version>9.4.18.v20190429</jetty.version>
@@ -162,7 +169,7 @@
     <commons.httpcore.version>4.4.12</commons.httpcore.version>
     <!--  commons-httpclient/commons-httpclient-->
     <httpclient.classic.version>3.1</httpclient.classic.version>
-    <commons.math3.version>3.4.1</commons.math3.version>
+    <commons.math3.version>3.6.1</commons.math3.version>
     <!-- managed up from 3.2.1 for SPARK-11652 -->
     <commons.collections.version>3.2.2</commons.collections.version>
     <scala.version>2.12.10</scala.version>
@@ -172,11 +179,11 @@
     <!-- for now, not running scalafmt as part of default verify pipeline -->
     <scalafmt.skip>true</scalafmt.skip>
     <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
-    <fasterxml.jackson.version>2.10.0</fasterxml.jackson.version>
+    <fasterxml.jackson.version>2.11.0</fasterxml.jackson.version>
     <snappy.version>1.1.7.5</snappy.version>
     <netlib.java.version>1.1.2</netlib.java.version>
-    <commons-codec.version>1.10</commons-codec.version>
-    <commons-io.version>2.4</commons-io.version>
+    <commons-codec.version>1.11</commons-codec.version>
+    <commons-io.version>2.6</commons-io.version>
     <!-- org.apache.commons/commons-lang/-->
     <commons-lang2.version>2.6</commons-lang2.version>
     <!-- org.apache.commons/commons-lang3/-->
@@ -189,7 +196,7 @@
     <jersey.version>2.30</jersey.version>
     <joda.version>2.10.5</joda.version>
     <jodd.version>3.5.2</jodd.version>
-    <jsr305.version>3.0.0</jsr305.version>
+    <jsr305.version>3.0.2</jsr305.version>
     <libthrift.version>0.12.0</libthrift.version>
     <antlr4.version>4.7.1</antlr4.version>
     <jpam.version>1.1</jpam.version>
@@ -258,7 +265,25 @@
     <!-- Needed for consistent times -->
     <maven.build.timestamp.format>yyyy-MM-dd HH:mm:ss z</maven.build.timestamp.format>
   </properties>
+  <distributionManagement>
+    <repository>
+      <id>bintray-palantir-release</id>
+      <url>https://api.bintray.com/maven/palantir/releases/spark/</url>
+    </repository>
+  </distributionManagement>
   <repositories>
+    <repository>
+      <id>palantir</id>
+      <!-- This should be at top, it makes maven try the central repo first and then others and hence faster dep resolution -->
+      <name>Palantir Maven Repository</name>
+      <url>http://dl.bintray.com/palantir/releases</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
     <repository>
       <id>gcs-maven-central-mirror</id>
       <!--
@@ -547,8 +572,7 @@
       <dependency>
         <groupId>commons-logging</groupId>
         <artifactId>commons-logging</artifactId>
-        <!-- Hive uses commons-logging 1.1.3 from 0.13 to 1.2 -->
-        <version>1.1.3</version>
+        <version>1.2</version>
       </dependency>
       <dependency>
         <groupId>org.apache.ivy</groupId>
@@ -658,7 +682,7 @@
       <dependency>
         <groupId>com.ning</groupId>
         <artifactId>compress-lzf</artifactId>
-        <version>1.0.3</version>
+        <version>1.0.4</version>
       </dependency>
       <dependency>
         <groupId>org.xerial.snappy</groupId>
@@ -706,7 +730,7 @@
       <dependency>
         <groupId>commons-net</groupId>
         <artifactId>commons-net</artifactId>
-        <version>3.1</version>
+        <version>3.6</version>
       </dependency>
       <dependency>
         <groupId>io.netty</groupId>
@@ -774,6 +798,26 @@
       <dependency>
         <groupId>com.fasterxml.jackson.module</groupId>
         <artifactId>jackson-module-jaxb-annotations</artifactId>
+        <version>${fasterxml.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.jaxrs</groupId>
+        <artifactId>jackson-jaxrs-json-provider</artifactId>
+        <version>${fasterxml.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.dataformat</groupId>
+        <artifactId>jackson-dataformat-yaml</artifactId>
+        <version>${fasterxml.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.dataformat</groupId>
+        <artifactId>jackson-dataformat-cbor</artifactId>
+        <version>${fasterxml.jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.datatype</groupId>
+        <artifactId>jackson-datatype-jdk8</artifactId>
         <version>${fasterxml.jackson.version}</version>
       </dependency>
       <dependency>
@@ -1101,6 +1145,22 @@
         <groupId>xerces</groupId>
         <artifactId>xercesImpl</artifactId>
         <version>2.12.0</version>
+      </dependency>
+
+      <!--
+      TODO(rshkv): Upstream doesn't recommend 'azure' and 'azure-datalake'
+      -->
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-azure-datalake</artifactId>
+        <version>${hadoop.version}</version>
+        <scope>${hadoop.deps.scope}</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-azure</artifactId>
+        <version>${hadoop.version}</version>
+        <scope>${hadoop.deps.scope}</scope>
       </dependency>
       <dependency>
         <groupId>org.apache.avro</groupId>
@@ -3066,6 +3126,13 @@
     </profile>
 
     <profile>
+      <id>hadoop-palantir</id>
+      <modules>
+        <module>hadoop-cloud</module>
+      </modules>
+    </profile>
+
+    <profile>
       <id>hadoop-3.2</id>
       <properties>
         <hadoop.version>3.2.0</hadoop.version>
@@ -3162,7 +3229,7 @@
         </pluginManagement>
       </build>
     </profile>
-    
+
     <profile>
       <id>scala-2.13</id>
       <properties>

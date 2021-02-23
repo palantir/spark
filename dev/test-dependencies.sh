@@ -29,12 +29,10 @@ export LC_ALL=C
 # TODO: This would be much nicer to do in SBT, once SBT supports Maven-style resolution.
 
 # NOTE: These should match those in the release publishing script
-HADOOP2_MODULE_PROFILES="-Phive-thriftserver -Pmesos -Pkubernetes -Pyarn -Phive"
+HADOOP2_MODULE_PROFILES=""
 MVN="build/mvn"
 HADOOP_HIVE_PROFILES=(
-    hadoop-2.7-hive-1.2
-    hadoop-2.7-hive-2.3
-    hadoop-3.2-hive-2.3
+    hadoop-palantir
 )
 
 # We'll switch the version to a temp. one, publish POMs using that new version, then switch back to
@@ -47,7 +45,7 @@ OLD_VERSION=$($MVN -q \
     -Dexec.executable="echo" \
     -Dexec.args='${project.version}' \
     --non-recursive \
-    org.codehaus.mojo:exec-maven-plugin:1.6.0:exec | grep -E '[0-9]+\.[0-9]+\.[0-9]+')
+    org.codehaus.mojo:exec-maven-plugin:1.6.0:exec)
 if [ $? != 0 ]; then
     echo -e "Error while getting version string from Maven:\n$OLD_VERSION"
     exit 1
@@ -74,6 +72,9 @@ for HADOOP_HIVE_PROFILE in "${HADOOP_HIVE_PROFILES[@]}"; do
   elif [[ $HADOOP_HIVE_PROFILE == **hadoop-2.7-hive-2.3** ]]; then
     HADOOP_PROFILE=hadoop-2.7
     HIVE_PROFILE=hive-2.3
+  elif [[ $HADOOP_HIVE_PROFILE == **hadoop-palantir** ]]; then
+    HADOOP_PROFILE=hadoop-palantir
+    HIVE_PROFILE=hadoop-palantir
   else
     HADOOP_PROFILE=hadoop-2.7
     HIVE_PROFILE=hive-1.2

@@ -1178,8 +1178,19 @@ private[spark] object SparkSubmitUtils {
       cacheDirectory: File): String = {
     artifacts.map { artifactInfo =>
       val artifact = artifactInfo.asInstanceOf[Artifact].getModuleRevisionId
-      cacheDirectory.getAbsolutePath + File.separator +
-        s"${artifact.getOrganisation}_${artifact.getName}-${artifact.getRevision}.jar"
+      // TODO(palantir): We have some weird test-dependencies that explode with the upstream code
+      artifactInfo match {
+        case mdArtifact: MDArtifact =>
+          if (mdArtifact.getType.equals("test-jar")) {
+            cacheDirectory.getAbsolutePath + File.separator +
+              s"${artifact.getOrganisation}_${artifact.getName}-${artifact.getRevision}-tests.jar"
+          } else {
+            cacheDirectory.getAbsolutePath + File.separator +
+              s"${artifact.getOrganisation}_${artifact.getName}-${artifact.getRevision}.jar"
+          }
+        case _ => cacheDirectory.getAbsolutePath + File.separator +
+          s"${artifact.getOrganisation}_${artifact.getName}-${artifact.getRevision}.jar"
+      }
     }.mkString(",")
   }
 

@@ -185,7 +185,11 @@ class ParquetInteroperabilitySuite extends ParquetCompatibilityTest with SharedS
                 // when the data is read back as mentioned above, b/c int96 is unsigned.  This
                 // assert makes sure this holds even if we change parquet versions (if eg. there
                 // were ever statistics even on unsigned columns).
-                assert(!oneBlockColumnMeta.getStatistics.hasNonNullValue)
+
+                // TODO(palantir): Assertion below differs from upstream
+                // palantir/parquet-mr always returns statistics
+                assert(oneFooter.getFileMetaData.getCreatedBy.contains("impala") ^
+                  oneBlockColumnMeta.getStatistics.hasNonNullValue)
               }
 
               // These queries should return the entire dataset with the conversion applied,

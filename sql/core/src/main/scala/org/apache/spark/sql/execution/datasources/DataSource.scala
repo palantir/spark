@@ -93,6 +93,9 @@ case class DataSource(
 
   case class SourceInfo(name: String, schema: StructType, partitionColumns: Seq[String])
 
+  lazy val fileIndexFactory: CatalogFileIndexFactory =
+    CatalogFileIndexFactory.reflect(sparkSession.sparkContext.conf)
+
   lazy val providingClass: Class[_] = {
     val cls = DataSource.lookupDataSource(className, sparkSession.sessionState.conf)
     // `providingClass` is used for resolving data source relation for catalog tables.
@@ -395,7 +398,7 @@ case class DataSource(
           catalogTable.get.partitionColumnNames.nonEmpty
         val (fileCatalog, dataSchema, partitionSchema) = if (useCatalogFileIndex) {
           val defaultTableSize = sparkSession.sessionState.conf.defaultSizeInBytes
-          val index = new CatalogFileIndex(
+          val index = fileIndexFactory.create(
             sparkSession,
             catalogTable.get,
             catalogTable.get.stats.map(_.sizeInBytes.toLong).getOrElse(defaultTableSize))

@@ -309,6 +309,7 @@ def get_hadoop_profiles(hadoop_version):
     sbt_maven_hadoop_profiles = {
         "hadoop2.7": ["-Phadoop-2.7"],
         "hadoop3.2": ["-Phadoop-3.2"],
+        "hadooppalantir": ["-Phadoop-palantir"],
     }
 
     if hadoop_version in sbt_maven_hadoop_profiles:
@@ -424,8 +425,14 @@ def run_scala_tests_maven(test_profiles):
 
 
 def run_scala_tests_sbt(test_modules, test_profiles):
-
     sbt_test_goals = list(itertools.chain.from_iterable(m.sbt_test_goals for m in test_modules))
+
+    if 'CIRCLE_TEST_REPORTS' in os.environ:
+        # The test task in the circle configuration runs only the appropriate test for the current
+        # circle node, then copies the results to CIRCLE_TEST_REPORTS.
+        # We are not worried about running only the `test_modules`, since we always run the whole
+        # suite in circle anyway.
+        sbt_test_goals = ['circle:test']
 
     if not sbt_test_goals:
         return
@@ -466,7 +473,7 @@ def run_scala_tests(build_tool, extra_profiles, test_modules, excluded_tags, inc
         run_scala_tests_sbt(test_modules, test_profiles)
 
 
-def run_python_tests(test_modules, parallelism, with_coverage=False):
+def run_python_tests(test_modules, parallelism, python_executables=None, with_coverage=False):
     set_title_and_block("Running PySpark tests", "BLOCK_PYSPARK_UNIT_TESTS")
 
     if with_coverage:
@@ -480,7 +487,10 @@ def run_python_tests(test_modules, parallelism, with_coverage=False):
     command = [os.path.join(SPARK_HOME, "python", script)]
     if test_modules != [modules.root]:
         command.append("--modules=%s" % ','.join(m.name for m in test_modules))
+    if python_executables is not None:
+        command.append("--python-executables={}".format(",".join(python_executables)))
     command.append("--parallelism=%i" % parallelism)
+    command.append("--verbose")
     run_cmd(command)
 
     if with_coverage:
@@ -529,9 +539,14 @@ def post_python_tests_results():
         shutil.rmtree("pyspark-coverage-site")
 
 
-def run_python_packaging_tests():
+def run_python_packaging_tests(use_conda, python_versions=None):
     set_title_and_block("Running PySpark packaging tests", "BLOCK_PYSPARK_PIP_TESTS")
     command = [os.path.join(SPARK_HOME, "dev", "run-pip-tests")]
+    env = dict(os.environ)
+    if python_versions is not None:
+        env["PYTHON_EXECS_IN"] = ";".join(python_versions)
+        if use_conda:
+            env["USE_CONDA"] = "1"
     run_cmd(command)
 
 
