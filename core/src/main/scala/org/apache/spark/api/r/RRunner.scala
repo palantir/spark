@@ -20,6 +20,7 @@ package org.apache.spark.api.r
 import java.io._
 
 import org.apache.spark._
+import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.broadcast.Broadcast
 
 /**
@@ -31,6 +32,7 @@ private[spark] class RRunner[IN, OUT](
     serializer: String,
     packageNames: Array[Byte],
     broadcastVars: Array[Broadcast[Object]],
+    condaSetupInstructions: Option[CondaSetupInstructions],
     numPartitions: Int = -1,
     isDataFrame: Boolean = false,
     colNames: Array[String] = null,
@@ -41,6 +43,7 @@ private[spark] class RRunner[IN, OUT](
     serializer,
     packageNames,
     broadcastVars,
+    condaSetupInstructions,
     numPartitions,
     isDataFrame,
     colNames,

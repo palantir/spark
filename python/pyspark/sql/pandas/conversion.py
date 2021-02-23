@@ -382,7 +382,8 @@ class SparkConversionMixin(object):
 
         from pyspark.sql.pandas.serializers import ArrowStreamPandasSerializer
         from pyspark.sql.types import TimestampType
-        from pyspark.sql.pandas.types import from_arrow_type, to_arrow_type
+        from pyspark.sql.pandas.types import from_arrow_type, to_arrow_type, \
+            _infer_binary_columns_as_arrow_string
         from pyspark.sql.pandas.utils import require_minimum_pandas_version, \
             require_minimum_pyarrow_version
 
@@ -395,6 +396,9 @@ class SparkConversionMixin(object):
         # Create the Spark schema from list of names passed in with Arrow types
         if isinstance(schema, (list, tuple)):
             arrow_schema = pa.Schema.from_pandas(pdf, preserve_index=False)
+            # TODO(rshkv): Remove when we stop supporting Python 2 (#678)
+            if sys.version < '3':
+                arrow_schema = _infer_binary_columns_as_arrow_string(arrow_schema, pdf)
             struct = StructType()
             for name, field in zip(schema, arrow_schema):
                 struct.add(name, from_arrow_type(field.type), nullable=field.nullable)

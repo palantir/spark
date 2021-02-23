@@ -53,6 +53,22 @@ class CatalogManager(
     }
   }
 
+  /**
+   * Palantir users this to initialize and set our internal Catalog.
+   *
+   * The vanilla way of initializing a {@link CatalogPlugin} is having {@link CatalogManager} call
+   * {@link CatalogPlugin#initialize}. But we need to pass some extra parameters to our internal
+   * catalog which we can't do along this way.
+   *
+   * So instead, using this method, we initialize our {@link CatalogPlugin} in our implementation
+   * of {@link BaseSessionStateBuilder}. Then we call this function to map the Catalog to a name.
+   */
+  // TODO(palantir): Remove after fully migrating to DataSourceV2
+  def setCatalog(name: String, catalog: CatalogPlugin): Unit = synchronized {
+    require(!name.equalsIgnoreCase(SESSION_CATALOG_NAME), "Cannot set session catalog")
+    catalogs.put(name, catalog)
+  }
+
   def isCatalogRegistered(name: String): Boolean = {
     try {
       catalog(name)

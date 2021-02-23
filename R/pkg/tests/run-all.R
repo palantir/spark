@@ -54,29 +54,28 @@ if (identical(Sys.getenv("NOT_CRAN"), "true")) {
                              spark.executor.extraJavaOptions = tmpArg)
   }
 
-  test_package("SparkR")
-
   if (identical(Sys.getenv("NOT_CRAN"), "true")) {
     # set random seed for predictable results. mostly for base's sample() in tree and classification
     set.seed(42)
 
-    # TODO (SPARK-30663) To be removed once testthat 1.x is removed from all builds
-    if (packageVersion("testthat")$major <= 1) {
-      # testthat 1.x
-      test_runner <- testthat:::run_tests
-      reporter <- "summary"
-    } else {
-      # testthat >= 2.0.0
-      test_runner <- testthat:::test_package_dir
-      dir.create("target/test-reports", showWarnings = FALSE)
-      reporter <- MultiReporter$new(list(
+    reporter <- MultiReporter$new(list(
         SummaryReporter$new(),
-        JunitReporter$new(file = "target/test-reports/test-results.xml")
-      ))
+        JunitReporter$new()
+    ))
+
+    if (identical(Sys.getenv("CONDA_TESTS"), "true")) {
+        test_path <- file.path(sparkRDir, "pkg", "tests", "condatests")
+        options(testthat.output_file = "target/R/R/conda/r-tests.xml")
+    } else {
+        test_path <- file.path(sparkRDir, "pkg", "tests", "fulltests")
+        options(testthat.output_file = "target/R/R/r-tests.xml")
+
+        test_package("SparkR", reporter = reporter)
     }
 
+    test_runner <- testthat:::test_package_dir
     test_runner("SparkR",
-                file.path(sparkRDir, "pkg", "tests", "fulltests"),
+                test_path,
                 NULL,
                 reporter)
   }
