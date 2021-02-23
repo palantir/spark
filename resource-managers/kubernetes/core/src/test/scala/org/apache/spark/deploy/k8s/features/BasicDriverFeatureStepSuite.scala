@@ -181,6 +181,23 @@ class BasicDriverFeatureStepSuite extends SparkFunSuite {
     assert(configuredPythonPod.container.getImage === "spark-driver-py:latest")
   }
 
+  test("(Palantir) Do not upload files if secret file mounting is enabled") {
+    val sparkConf = new SparkConf()
+      .set(CONTAINER_IMAGE, "spark-driver:latest")
+      .set(FILES, Seq("file://file.txt"))
+      .set(KUBERNETES_SECRET_FILE_MOUNT_ENABLED, true)
+    val kubernetesConf = KubernetesTestConf.createDriverConf(
+      sparkConf = sparkConf,
+      labels = DRIVER_LABELS,
+      environment = DRIVER_ENVS,
+      annotations = DRIVER_ANNOTATIONS)
+
+    val additionalSystemProps = new BasicDriverFeatureStep(kubernetesConf)
+      .getAdditionalPodSystemProperties()
+
+    assert(!additionalSystemProps.contains(FILES.key))
+  }
+
   // Memory overhead tests. Tuples are:
   //   test name, main resource, overhead factor, expected factor
   Seq(

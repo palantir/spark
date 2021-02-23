@@ -156,6 +156,10 @@ private[spark] class BasicDriverFeatureStep(conf: KubernetesDriverConf)
       "spark.app.id" -> conf.appId,
       KUBERNETES_DRIVER_SUBMIT_CHECK.key -> "true",
       MEMORY_OVERHEAD_FACTOR.key -> overheadFactor.toString)
+
+    // (Palantir) If file-mounting with secrets is enabled, don't upload files here
+    if (conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)) return additionalProps.toMap
+
     // try upload local, resolvable files to a hadoop compatible file system
     Seq(JARS, FILES).foreach { key =>
       val value = conf.get(key).filter(uri => KubernetesUtils.isLocalAndResolvable(uri))
