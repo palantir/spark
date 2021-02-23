@@ -409,6 +409,20 @@ private[spark] object Config extends Logging {
       .stringConf
       .createOptional
 
+  val KUBERNETES_SECRET_FILE_MOUNT_ENABLED =
+    ConfigBuilder("spark.kubernetes.file.secretMount.enabled")
+      .doc("Mount spark-submit files as base64-encoded k8s secret instead of uploading to " +
+        s"${KUBERNETES_FILE_UPLOAD_PATH.key}")
+      .booleanConf
+      .createWithDefault(false)
+
+  val KUBERNETES_SECRET_FILE_MOUNT_PATH =
+    ConfigBuilder("spark.kubernetes.file.secretMount.path")
+      .doc("When mounting files as secret, they're made available on drivers at this path.")
+      .internal()
+      .stringConf
+      .createWithDefault("/var/data/spark-submitted-files")
+
   val KUBERNETES_DRIVER_LABEL_PREFIX = "spark.kubernetes.driver.label."
   val KUBERNETES_DRIVER_ANNOTATION_PREFIX = "spark.kubernetes.driver.annotation."
   val KUBERNETES_DRIVER_SERVICE_ANNOTATION_PREFIX = "spark.kubernetes.driver.service.annotation."
