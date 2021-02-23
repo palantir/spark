@@ -26,6 +26,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
+import com.palantir.logsafe.{SafeArg, UnsafeArg}
 import org.apache.hadoop.yarn.api.records.{ApplicationAttemptId, ApplicationId}
 import org.eclipse.jetty.servlet.{FilterHolder, FilterMapping}
 
@@ -118,7 +119,7 @@ private[spark] abstract class YarnSchedulerBackend(
    */
   override def applicationId(): String = {
     appId.map(_.toString).getOrElse {
-      logWarning("Application ID is not initialized yet.")
+      safeLogWarning("Application ID is not initialized yet.")
       super.applicationId
     }
   }
@@ -168,7 +169,10 @@ private[spark] abstract class YarnSchedulerBackend(
     if (hasFilter) {
       // SPARK-26255: Append user provided filters(spark.ui.filters) with yarn filter.
       val allFilters = Seq(filterName) ++ conf.get(UI_FILTERS)
-      logInfo(s"Add WebUI Filter. $filterName, $filterParams, $proxyBase")
+      safeLogInfo("Add WebUI Filter",
+        SafeArg.of("filterName", filterName),
+        UnsafeArg.of("filterParams", filterParams),
+        UnsafeArg.of("proxyBase", proxyBase))
 
       // For already installed handlers, prepend the filter.
       scheduler.sc.ui.foreach { ui =>
