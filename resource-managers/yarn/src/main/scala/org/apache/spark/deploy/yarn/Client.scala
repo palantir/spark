@@ -710,11 +710,11 @@ private[spark] class Client(
     // SPARK-23630: during testing, Spark scripts filter out hadoop conf dirs so that user's
     // environments do not interfere with tests. This allows a special env variable during
     // tests so that custom conf dirs can be used by unit tests.
-    val confDirs = Seq("HADOOP_CONF_DIR", "YARN_CONF_DIR") ++
-      (if (Utils.isTesting) Seq("SPARK_TEST_HADOOP_CONF_DIR") else Nil)
+    val confDirs = Seq("HADOOP_CONF_DIR", "YARN_CONF_DIR").flatMap(sys.env.get) ++
+          sparkConf.getOption("spark.yarn.conf.dir")
 
-    confDirs.foreach { envKey =>
-      sys.env.get(envKey).foreach { path =>
+    confDirs.foreach {
+      path => {
         val dir = new File(path)
         if (dir.isDirectory()) {
           val files = dir.listFiles()
