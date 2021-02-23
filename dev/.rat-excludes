@@ -111,6 +111,12 @@ spark-deps-.*
 .Rbuildignore
 META-INF/*
 spark-warehouse
+circle.yml
+.credentials
+publish.sh
+publish-local.sh
+publish_functions.sh
+set_version_and_package.sh
 structured-streaming/*
 kafka-source-initial-offset-version-2.1.0.bin
 kafka-source-initial-offset-future-version.bin
@@ -119,3 +125,6 @@ vote.tmpl
 SessionManager.java
 SessionHandler.java
 GangliaReporter.java
+.bulldozer.yml
+.policy.yml
+build.gradle

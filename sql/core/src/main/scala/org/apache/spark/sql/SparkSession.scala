@@ -43,7 +43,7 @@ import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.command.ExternalCommandExecutor
 import org.apache.spark.sql.execution.datasources.{DataSource, LogicalRelation}
 import org.apache.spark.sql.internal._
-import org.apache.spark.sql.internal.StaticSQLConf.CATALOG_IMPLEMENTATION
+import org.apache.spark.sql.internal.StaticSQLConf.{CATALOG_IMPLEMENTATION, SESSION_STATE_IMPLEMENTATION}
 import org.apache.spark.sql.sources.BaseRelation
 import org.apache.spark.sql.streaming._
 import org.apache.spark.sql.types.{DataType, StructType}
@@ -866,6 +866,7 @@ object SparkSession extends Logging {
      */
     def enableHiveSupport(): Builder = synchronized {
       if (hiveClassesArePresent) {
+        config(SESSION_STATE_IMPLEMENTATION.key, "hive")
         config(CATALOG_IMPLEMENTATION.key, "hive")
       } else {
         throw new IllegalArgumentException(
@@ -1083,9 +1084,10 @@ object SparkSession extends Logging {
     "org.apache.spark.sql.hive.HiveSessionStateBuilder"
 
   private def sessionStateClassName(conf: SparkConf): String = {
-    conf.get(CATALOG_IMPLEMENTATION) match {
+    conf.get(SESSION_STATE_IMPLEMENTATION) match {
       case "hive" => HIVE_SESSION_STATE_BUILDER_CLASS_NAME
       case "in-memory" => classOf[SessionStateBuilder].getCanonicalName
+      case builder => builder
     }
   }
 

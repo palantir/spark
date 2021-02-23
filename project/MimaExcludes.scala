@@ -303,7 +303,12 @@ object MimaExcludes {
     ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.shuffle.sort.UnsafeShuffleWriter.this"),
     ProblemFilters.exclude[IncompatibleMethTypeProblem]("org.apache.spark.storage.TimeTrackingOutputStream.this"),
 
-    // [SPARK-26139] Implement shuffle write metrics in SQL
+    // SafeLogging after MimaUpgrade
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.initializeLogIfNecessary$default$2"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.initializeLogIfNecessary$default$2"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.initializeLogIfNecessary$default$2"),
+
+      // [SPARK-26139] Implement shuffle write metrics in SQL
     ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.ShuffleDependency.this"),
 
     // [SPARK-26362][CORE] Remove 'spark.driver.allowMultipleContexts' to disallow multiple creation of SparkContexts
@@ -460,6 +465,60 @@ object MimaExcludes {
 
   // Exclude rules for 2.4.x
   lazy val v24excludes = v23excludes ++ Seq(
+    // SafeLogging changes
+    ProblemFilters.exclude[MissingTypesProblem]("org.apache.spark.SparkContext$"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logError"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logError"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.log"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logName"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.isTraceEnabled"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logDebug"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logDebug"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logInfo"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logInfo"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logTrace"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logTrace"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.initializeLogIfNecessary"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logWarning"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logWarning"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logError"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logError"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.log"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logName"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.isTraceEnabled"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logDebug"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logDebug"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logInfo"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logInfo"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logTrace"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logTrace"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.initializeLogIfNecessary"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logWarning"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.SparkContext.logWarning"),
+    ProblemFilters.exclude[MissingTypesProblem]("org.apache.spark.broadcast.Broadcast"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logError"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logError"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.log"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logName"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.isTraceEnabled"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logDebug"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logDebug"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logInfo"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logInfo"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logTrace"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logTrace"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.initializeLogIfNecessary"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logWarning"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.broadcast.Broadcast.logWarning"),
+
+    // Converted from case object to case class
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages#RetrieveSparkAppConfig.productArity"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages#RetrieveSparkAppConfig.productElement"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages#RetrieveSparkAppConfig.canEqual"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages#RetrieveSparkAppConfig.productIterator"),
+    ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages#RetrieveSparkAppConfig.productPrefix"),
+    ProblemFilters.exclude[FinalMethodProblem]("org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages#RetrieveSparkAppConfig.toString"),
+
     // [SPARK-23429][CORE] Add executor memory metrics to heartbeat and expose in executors REST API
     ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.scheduler.SparkListenerExecutorMetricsUpdate.apply"),
     ProblemFilters.exclude[DirectMissingMethodProblem]("org.apache.spark.scheduler.SparkListenerExecutorMetricsUpdate.copy"),
@@ -700,6 +759,9 @@ object MimaExcludes {
 
     // [SPARK-18537] Add a REST api to spark streaming
     ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.streaming.scheduler.StreamingListener.onStreamingStarted"),
+
+    // CondaRunner is meant to own the main() method then delegate to another method
+    ProblemFilters.exclude[FinalMethodProblem]("org.apache.spark.deploy.CondaRunner.main"),
 
     // [SPARK-19148][SQL] do not expose the external table concept in Catalog
     ProblemFilters.exclude[ReversedMissingMethodProblem]("org.apache.spark.sql.catalog.Catalog.createTable"),

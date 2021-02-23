@@ -42,9 +42,11 @@ if have_pyarrow:
     import pyarrow as pa
 
 
-@unittest.skipIf(
-    not have_pandas or not have_pyarrow,
-    pandas_requirement_message or pyarrow_requirement_message)
+# Palantir: Don't allow skipping these tests
+#
+# @unittest.skipIf(
+#     not have_pandas or not have_pyarrow,
+#     pandas_requirement_message or pyarrow_requirement_message)
 class ArrowTests(ReusedSQLTestCase):
 
     @classmethod
