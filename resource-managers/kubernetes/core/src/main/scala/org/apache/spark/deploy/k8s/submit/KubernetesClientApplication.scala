@@ -163,7 +163,9 @@ private[spark] class Client(
   // Build a Config Map that will house spark conf properties in a single file for spark-submit
   private def buildConfigMap(configMapName: String, conf: Map[String, String]): ConfigMap = {
     val properties = new Properties()
-    conf.foreach { case (k, v) =>
+    conf
+      .filter { case (k, _) => !k.startsWith("spark.launcher")}
+      .foreach { case (k, v) =>
       properties.setProperty(k, v)
     }
     val propertiesWriter = new StringWriter()

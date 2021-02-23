@@ -31,9 +31,8 @@ RUN set -ex && \
     sed -i 's/http:\/\/deb.\(.*\)/https:\/\/deb.\1/g' /etc/apt/sources.list && \
     apt-get update && \
     ln -s /lib /lib64 && \
-    apt install -y bash tini libc6 libpam-modules krb5-user libnss3 && \
+    apt-get install -y bash tini libc6 libpam-modules krb5-user libnss3 && \
     mkdir -p /opt/spark && \
-    mkdir -p /opt/spark/examples && \
     mkdir -p /opt/spark/work-dir && \
     touch /opt/spark/RELEASE && \
     rm /bin/sh && \
@@ -46,9 +45,6 @@ COPY jars /opt/spark/jars
 COPY bin /opt/spark/bin
 COPY sbin /opt/spark/sbin
 COPY kubernetes/dockerfiles/spark/entrypoint.sh /opt/
-COPY examples /opt/spark/examples
-COPY kubernetes/tests /opt/spark/tests
-COPY data /opt/spark/data
 
 ENV SPARK_HOME /opt/spark
 

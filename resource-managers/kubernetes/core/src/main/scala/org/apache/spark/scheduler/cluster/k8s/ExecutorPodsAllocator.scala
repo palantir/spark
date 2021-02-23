@@ -18,6 +18,7 @@ package org.apache.spark.scheduler.cluster.k8s
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong}
 
+import com.palantir.logsafe.{SafeArg, UnsafeArg}
 import io.fabric8.kubernetes.api.model.PodBuilder
 import io.fabric8.kubernetes.client.KubernetesClient
 import scala.collection.mutable
@@ -26,7 +27,7 @@ import org.apache.spark.{SecurityManager, SparkConf, SparkException}
 import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.KubernetesConf
-import org.apache.spark.internal.Logging
+import org.apache.spark.internal.SafeLogging
 import org.apache.spark.util.{Clock, Utils}
 
 private[spark] class ExecutorPodsAllocator(
@@ -35,7 +36,7 @@ private[spark] class ExecutorPodsAllocator(
     executorBuilder: KubernetesExecutorBuilder,
     kubernetesClient: KubernetesClient,
     snapshotsStore: ExecutorPodsSnapshotsStore,
-    clock: Clock) extends Logging {
+    clock: Clock) extends SafeLogging {
 
   private val EXECUTOR_ID_COUNTER = new AtomicLong(0L)
 
@@ -84,6 +85,7 @@ private[spark] class ExecutorPodsAllocator(
   }
 
   def setTotalExpectedExecutors(total: Int): Unit = {
+    safeLogDebug("Setting total expected executors", SafeArg.of("totalExpectedExecutors", total))
     totalExpectedExecutors.set(total)
     if (!hasPendingPods.get()) {
       snapshotsStore.notifySubscribers()
@@ -107,17 +109,23 @@ private[spark] class ExecutorPodsAllocator(
       if (currentTime - timeCreated > podCreationTimeout) {
         Some(execId)
       } else {
-        logDebug(s"Executor with id $execId was not found in the Kubernetes cluster since it" +
-          s" was created ${currentTime - timeCreated} milliseconds ago.")
+        safeLogWarning("Executor was not detected in the Kubernetes" +
+          " cluster after timeout despite the fact that a" +
+          " previous allocation attempt tried to create it. The executor may have been" +
+          " deleted but the application missed the deletion event.",
+          SafeArg.of("executorId", execId),
+          SafeArg.of("podCreationTimeoutMs", podCreationTimeout))
         None
       }
     }
 
     if (timedOut.nonEmpty) {
-      logWarning(s"Executors with ids ${timedOut.mkString(",")} were not detected in the" +
-        s" Kubernetes cluster after $podCreationTimeout ms despite the fact that a previous" +
+      safeLogWarning("Executors were not detected in the" +
+        " Kubernetes cluster after pod creation timeout despite the fact that a previous" +
         " allocation attempt tried to create them. The executors may have been deleted but the" +
-        " application missed the deletion event.")
+        " application missed the deletion event.",
+        SafeArg.of("executorIds", timedOut.mkString(",")),
+        SafeArg.of("podCreationTimeout", podCreationTimeout))
 
       newlyCreatedExecutors --= timedOut
       if (shouldDeleteExecutors) {
@@ -153,9 +161,12 @@ private[spark] class ExecutorPodsAllocator(
     var _deletedExecutorIds = deletedExecutorIds
 
     if (snapshots.nonEmpty) {
-      logDebug(s"Pod allocation status: $currentRunningCount running, " +
-        s"${currentPendingExecutors.size} pending, " +
-        s"${newlyCreatedExecutors.size} unacknowledged.")
+      safeLogDebug("Currently have running executors and" +
+        " pending executors. Newly created executors" +
+        " have been requested but are pending appearance in the cluster.",
+        SafeArg.of("numCurrentRunningExecutors", currentRunningCount),
+        SafeArg.of("numCurrentPendingExecutors", currentPendingExecutors),
+        SafeArg.of("newlyCreatedExecutors", newlyCreatedExecutors))
 
       val existingExecs = lastSnapshot.executorPods.keySet
       _deletedExecutorIds = _deletedExecutorIds.filter(existingExecs.contains)
@@ -182,7 +193,9 @@ private[spark] class ExecutorPodsAllocator(
       val toDelete = newlyCreatedExecutors.keys.take(excess).toList ++ knownPendingToDelete
 
       if (toDelete.nonEmpty) {
-        logInfo(s"Deleting ${toDelete.size} excess pod requests (${toDelete.mkString(",")}).")
+        safeLogInfo("Deleting excess pod requests",
+          SafeArg.of("numExcessPodRequests", toDelete.size),
+          UnsafeArg.of("excessPodRequests", toDelete.mkString(",")))
         _deletedExecutorIds = _deletedExecutorIds ++ toDelete
 
         Utils.tryLogNonFatalError {
@@ -204,7 +217,8 @@ private[spark] class ExecutorPodsAllocator(
         && currentRunningCount < currentTotalExpectedExecutors) {
       val numExecutorsToAllocate = math.min(
         currentTotalExpectedExecutors - currentRunningCount, podAllocationSize)
-      logInfo(s"Going to request $numExecutorsToAllocate executors from Kubernetes.")
+      safeLogInfo("Going to request executors from Kubernetes.",
+        SafeArg.of("numExecutorsToAllocate", numExecutorsToAllocate))
       for ( _ <- 0 until numExecutorsToAllocate) {
         val newExecutorId = EXECUTOR_ID_COUNTER.incrementAndGet()
         val executorConf = KubernetesConf.createExecutorConf(
@@ -221,7 +235,8 @@ private[spark] class ExecutorPodsAllocator(
           .build()
         kubernetesClient.pods().create(podWithAttachedContainer)
         newlyCreatedExecutors(newExecutorId) = clock.getTimeMillis()
-        logDebug(s"Requested executor with id $newExecutorId from Kubernetes.")
+        safeLogDebug("Requested executor from Kubernetes.",
+          SafeArg.of("newExecutorId", newExecutorId))
       }
     }
 
@@ -234,17 +249,18 @@ private[spark] class ExecutorPodsAllocator(
     // The code below just prints debug messages, which are only useful when there's a change
     // in the snapshot state. Since the messages are a little spammy, avoid them when we know
     // there are no useful updates.
-    if (!log.isDebugEnabled || snapshots.isEmpty) {
+    if (!safeLog.isDebugEnabled || snapshots.isEmpty) {
       return
     }
 
     if (currentRunningCount >= currentTotalExpectedExecutors && !dynamicAllocationEnabled) {
-      logDebug("Current number of running executors is equal to the number of requested" +
+      safeLogDebug("Current number of running executors is equal to the number of requested" +
         " executors. Not scaling up further.")
     } else {
       val outstanding = knownPendingCount + newlyCreatedExecutors.size
       if (outstanding > 0) {
-        logDebug(s"Still waiting for $outstanding executors before requesting more.")
+        safeLogDebug("Still waiting for outstanding executors before requesting more.",
+          SafeArg.of("outstandingExecutors", outstanding))
       }
     }
   }
