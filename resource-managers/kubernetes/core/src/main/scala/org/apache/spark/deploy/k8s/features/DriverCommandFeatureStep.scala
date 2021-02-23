@@ -93,7 +93,7 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
       resource
     }
     new ContainerBuilder(pod.container)
-      .addToArgs("driver")
+      .addToArgs(if (conf.sparkConf.get(KUBERNETES_LOCAL_SUBMISSION)) "local" else "driver")
       .addToArgs("--properties-file", SPARK_CONF_PATH)
       .addToArgs("--class", conf.mainClass)
       .addToArgs(resolvedResource)

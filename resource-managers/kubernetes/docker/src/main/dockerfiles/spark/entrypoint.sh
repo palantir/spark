@@ -96,6 +96,15 @@ case "$1" in
       --hostname $SPARK_EXECUTOR_POD_IP
     )
     ;;
+  local)
+    shift 1
+    CMD=(
+      "$SPARK_HOME/bin/spark-submit"
+      --master 'local[*]'
+      --deploy-mode client
+      "$@"
+    )
+    ;;
 
   *)
     echo "Non-spark-on-k8s command provided, proceeding in pass-through mode..."

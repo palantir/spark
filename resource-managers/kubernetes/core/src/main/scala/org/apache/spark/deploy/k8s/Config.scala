@@ -423,6 +423,11 @@ private[spark] object Config extends Logging {
       .stringConf
       .createWithDefault("/var/data/spark-submitted-files")
 
+  val KUBERNETES_LOCAL_SUBMISSION =
+    ConfigBuilder("spark.kubernetes.local.submission")
+      .booleanConf
+      .createWithDefault(false)
+
   val KUBERNETES_DRIVER_LABEL_PREFIX = "spark.kubernetes.driver.label."
   val KUBERNETES_DRIVER_ANNOTATION_PREFIX = "spark.kubernetes.driver.annotation."
   val KUBERNETES_DRIVER_SERVICE_ANNOTATION_PREFIX = "spark.kubernetes.driver.service.annotation."
