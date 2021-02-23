@@ -39,8 +39,10 @@ import scala.reflect.{classTag, ClassTag}
 import scala.util.control.NonFatal
 
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.api.conda.CondaEnvironment
+import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.deploy.{LocalSparkCluster, SparkHadoopUtil}
+import org.apache.spark.deploy.{CondaRunner, LocalSparkCluster, SparkHadoopUtil}
 import org.apache.spark.executor.{ExecutorMetrics, ExecutorMetricsSource}
 import org.apache.spark.input.{FixedLengthBinaryInputFormat, PortableDataStream, StreamInputFormat, WholeTextFileInputFormat}
 import org.apache.spark.internal.SafeLogging
@@ -351,6 +353,9 @@ class SparkContext(config: SparkConf) extends SafeLogging {
     }
     override protected def initialValue(): Properties = new Properties()
   }
+
+  // Retrieve the Conda Environment from CondaRunner if it has set one up for us
+  def condaEnvironment(): Option[CondaEnvironment] = CondaRunner.condaEnvironment.get()
 
   /* ------------------------------------------------------------------------------------- *
    | Initialization. This code initializes the context in a manner that is exception-safe. |
@@ -1919,6 +1924,40 @@ class SparkContext(config: SparkConf) extends SafeLogging {
    * Returns a list of jar files that are added to resources.
    */
   def listJars(): Seq[String] = addedJars.keySet.toSeq
+
+  private[this] def condaEnvironmentOrFail(): CondaEnvironment = {
+    condaEnvironment().getOrElse(sys.error("A conda environment was not set up."))
+  }
+
+  /**
+   * Add a set of conda packages (identified by <a
+   * href="https://conda.io/docs/spec.html#build-version-spec">package match specification</a>
+   * for all tasks to be executed on this SparkContext in the future.
+   */
+  def addCondaPackages(packages: Seq[String]): Unit = {
+    condaEnvironmentOrFail().installPackages(packages)
+  }
+
+  def getTransitiveCondaPackageUrls(): List[String] = {
+    condaEnvironmentOrFail().getTransitivePackageUrls()
+  }
+
+  def addCondaChannel(url: String): Unit = {
+    condaEnvironmentOrFail().addChannel(url)
+  }
+
+  def setCondaChannels(urls: Seq[String]): Unit = {
+    condaEnvironmentOrFail().setChannels(urls)
+  }
+
+  def setPackageUrlsUserInfo(userInfo: Option[String]): Unit = {
+    condaEnvironmentOrFail().setPackageUrlsUserInfo(userInfo)
+  }
+
+  private[spark] def buildCondaInstructions(): Option[CondaSetupInstructions] = {
+    condaEnvironment().map(_.buildSetupInstructions)
+  }
+
 
   /**
    * When stopping SparkContext inside Spark components, it's easy to cause dead-lock since Spark

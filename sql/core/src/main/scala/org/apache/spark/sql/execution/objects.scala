@@ -22,6 +22,7 @@ import java.io.{ByteArrayOutputStream, DataOutputStream}
 import scala.collection.JavaConverters._
 import scala.language.existentials
 
+import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.api.java.function.MapFunction
 import org.apache.spark.api.r._
 import org.apache.spark.broadcast.Broadcast
@@ -211,6 +212,12 @@ case class MapPartitionsInRWithArrowExec(
     inputSchema: StructType,
     output: Seq[Attribute],
     child: SparkPlan) extends UnaryExecNode {
+
+  /**
+   * Get the conda instructions eagerly - when the RDD is created.
+   */
+  val condaInstructions: Option[CondaSetupInstructions] = sparkContext.buildCondaInstructions()
+
   override def producedAttributes: AttributeSet = AttributeSet(output)
 
   private val batchSize = conf.arrowMaxRecordsPerBatch
@@ -226,7 +233,8 @@ case class MapPartitionsInRWithArrowExec(
         if (batchSize > 0) new BatchIterator(inputIter, batchSize) else Iterator(inputIter)
 
       val runner = new ArrowRRunner(func, packageNames, broadcastVars, inputSchema,
-        SQLConf.get.sessionLocalTimeZone, RRunnerModes.DATAFRAME_DAPPLY)
+        SQLConf.get.sessionLocalTimeZone, RRunnerModes.DATAFRAME_DAPPLY,
+        condaSetupInstructions = condaInstructions)
 
       // The communication mechanism is as follows:
       //
@@ -447,6 +455,11 @@ case class FlatMapGroupsInRExec(
     outputObjAttr: Attribute,
     child: SparkPlan) extends UnaryExecNode with ObjectProducerExec {
 
+  /**
+   * Get the conda instructions eagerly - when the RDD is created.
+   */
+  val condaInstructions: Option[CondaSetupInstructions] = sparkContext.buildCondaInstructions()
+
   override def outputPartitioning: Partitioning = child.outputPartitioning
 
   override def requiredChildDistribution: Seq[Distribution] =
@@ -475,7 +488,8 @@ case class FlatMapGroupsInRExec(
       val runner = new RRunner[(Array[Byte], Iterator[Array[Byte]]), Array[Byte]](
         func, SerializationFormats.ROW, serializerForR, packageNames, broadcastVars,
         isDataFrame = true, colNames = inputSchema.fieldNames,
-        mode = RRunnerModes.DATAFRAME_GAPPLY)
+        mode = RRunnerModes.DATAFRAME_GAPPLY,
+        condaSetupInstructions = condaInstructions)
 
       val groupedRBytes = grouped.map { case (key, rowIter) =>
         val deserializedIter = rowIter.map(getValue)
@@ -512,6 +526,12 @@ case class FlatMapGroupsInRWithArrowExec(
     keyDeserializer: Expression,
     groupingAttributes: Seq[Attribute],
     child: SparkPlan) extends UnaryExecNode {
+
+  /**
+   * Get the conda instructions eagerly - when the RDD is created.
+   */
+  val condaInstructions: Option[CondaSetupInstructions] = sparkContext.buildCondaInstructions()
+
   override def outputPartitioning: Partitioning = child.outputPartitioning
 
   override def producedAttributes: AttributeSet = AttributeSet(output)
@@ -539,7 +559,8 @@ case class FlatMapGroupsInRWithArrowExec(
         }
 
       val runner = new ArrowRRunner(func, packageNames, broadcastVars, inputSchema,
-        SQLConf.get.sessionLocalTimeZone, RRunnerModes.DATAFRAME_GAPPLY) {
+        SQLConf.get.sessionLocalTimeZone, RRunnerModes.DATAFRAME_GAPPLY,
+        condaSetupInstructions = condaInstructions) {
         protected override def bufferedWrite(
             dataOut: DataOutputStream)(writeFunc: ByteArrayOutputStream => Unit): Unit = {
           super.bufferedWrite(dataOut)(writeFunc)

@@ -38,7 +38,7 @@ install_app() {
   # setup `curl` and `wget` silent options if we're running on Jenkins
   local curl_opts="-L"
   local wget_opts=""
-  if [ -n "$AMPLAB_JENKINS" ]; then
+  if [[ -n "$CIRCLECI" || -n "$AMPLAB_JENKINS" ]]; then
     curl_opts="-s ${curl_opts}"
     wget_opts="--quiet ${wget_opts}"
   else
@@ -80,7 +80,7 @@ install_mvn() {
   fi
   if [ $(version $MVN_DETECTED_VERSION) -lt $(version $MVN_VERSION) ]; then
     local APACHE_MIRROR=${APACHE_MIRROR:-'https://www.apache.org/dyn/closer.lua?action=download&filename='}
-        
+
     if [ $(command -v curl) ]; then
       local TEST_MIRROR_URL="${APACHE_MIRROR}/maven/maven-3/${MVN_VERSION}/binaries/apache-maven-${MVN_VERSION}-bin.tar.gz"
       if ! curl -L --output /dev/null --silent --head --fail "$TEST_MIRROR_URL" ; then

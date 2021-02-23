@@ -212,7 +212,7 @@ class SparkContext(object):
         # scala's mangled names w/ $ in them require special treatment.
         self._encryption_enabled = self._jvm.PythonUtils.isEncryptionEnabled(self._jsc)
 
-        self.pythonExec = os.environ.get("PYSPARK_PYTHON", 'python')
+        self.pythonExec = self._jvm.scala.Option.apply(os.environ.get("PYSPARK_PYTHON"))
         self.pythonVer = "%d.%d" % sys.version_info[:2]
 
         if sys.version_info < (3, 6):
@@ -964,6 +964,23 @@ class SparkContext(object):
         if sys.version > '3':
             import importlib
             importlib.invalidate_caches()
+
+    def addCondaPackages(self, *packages):
+        """
+        Add a conda `package match specification
+        <https://conda.io/docs/spec.html#build-version-spec>`_ for all tasks to be executed on
+        this SparkContext in the future.
+        """
+        self._jsc.addCondaPackages(packages)
+
+    def getTransitiveCondaPackageUrls(self):
+        return self._jsc.sc().getTransitiveCondaPackageUrls()
+
+    def addCondaChannel(self, url):
+        self._jsc.sc().addCondaChannel(url)
+
+    def _build_conda_instructions(self):
+        return self._jsc.sc().buildCondaInstructions()
 
     def setCheckpointDir(self, dirName):
         """
