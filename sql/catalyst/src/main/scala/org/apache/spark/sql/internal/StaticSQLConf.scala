@@ -36,12 +36,22 @@ object StaticSQLConf {
     .stringConf
     .createWithDefault(Utils.resolveURI("spark-warehouse").toString)
 
+  val CATALOG_FILE_INDEX_IMPLEMENTATION =
+    buildStaticConf("spark.sql.catalogFileIndexImplementation")
+      .internal()
+      .stringConf
+      .createWithDefault("hive")
+
   val CATALOG_IMPLEMENTATION = buildStaticConf("spark.sql.catalogImplementation")
     .internal()
     .version("2.0.0")
     .stringConf
-    .checkValues(Set("hive", "in-memory"))
     .createWithDefault("in-memory")
+
+  val SESSION_STATE_IMPLEMENTATION = buildStaticConf("spark.sql.sessionStateImplementation")
+    .internal()
+    .stringConf
+    .createWithDefault(CATALOG_IMPLEMENTATION.defaultValueString)
 
   val GLOBAL_TEMP_DATABASE = buildStaticConf("spark.sql.globalTempDatabase")
     .internal()
