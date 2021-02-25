@@ -20,6 +20,7 @@ Type-specific codes between pandas and PyArrow. Also contains some utils to corr
 pandas instances during the type conversion.
 """
 
+import sys
 from pyspark.sql.types import *
 
 
@@ -107,6 +108,10 @@ def from_arrow_type(at):
     elif types.is_list(at):
         if types.is_timestamp(at.value_type):
             raise TypeError("Unsupported type in conversion from Arrow: " + str(at))
+        # TODO(rshkv): Support binary array values once we move off Python 2 (#678)
+        if sys.version < '3' and types.is_binary(at.value_type):
+            raise TypeError("Unsupported type in conversion from Arrow: " + str(at) +
+                            "\nPlease use Python3 for support of BinaryType in arrays.")
         spark_type = ArrayType(from_arrow_type(at.value_type))
     elif types.is_struct(at):
         if any(types.is_struct(field.type) for field in at):
@@ -266,3 +271,31 @@ def _check_series_convert_timestamps_tz_local(s, timezone):
     :return pandas.Series where if it is a timestamp, has been converted to tz-naive
     """
     return _check_series_convert_timestamps_localize(s, timezone, None)
+
+
+# TODO(rshkv): Remove after we drop Python2 support
+def _infer_binary_columns_as_arrow_string(schema, pandas_df):
+    """
+    Infer if a Pandas column considered of type binary should be treated as string instead.
+    This workaround is only necessary on Python 2.
+    """
+    import pandas as pd
+    import pyarrow as pa
+    import six
+
+    for field_index, field in enumerate(schema):
+        if not field.type == pa.binary():
+            continue
+
+        inferred_dtype = pd.api.types.infer_dtype(pandas_df.iloc[:, field_index], skipna=True)
+        if inferred_dtype == 'string':
+            is_string_column = True
+        elif inferred_dtype == 'mixed' and len(pandas_df.index) > 0:
+            first_value = pandas_df.iloc[0, field_index]
+            is_string_column = isinstance(first_value, six.string_types)
+
+        if is_string_column:
+            field_as_string = pa.field(field.name, pa.string())
+            schema = schema.set(field_index, field_as_string)
+
+    return schema
