@@ -27,6 +27,7 @@ import org.apache.arrow.vector.ipc.{ArrowStreamReader, ArrowStreamWriter}
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel
 
 import org.apache.spark.{SparkException, TaskContext}
+import org.apache.spark.api.conda.CondaEnvironment.CondaSetupInstructions
 import org.apache.spark.api.r._
 import org.apache.spark.api.r.SpecialLengths
 import org.apache.spark.broadcast.Broadcast
@@ -47,13 +48,15 @@ class ArrowRRunner(
     broadcastVars: Array[Broadcast[Object]],
     schema: StructType,
     timeZoneId: String,
-    mode: Int)
+    mode: Int,
+    condaSetupInstructions: Option[CondaSetupInstructions])
   extends BaseRRunner[Iterator[InternalRow], ColumnarBatch](
     func,
     "arrow",
     "arrow",
     packageNames,
     broadcastVars,
+    condaSetupInstructions,
     numPartitions = -1,
     isDataFrame = true,
     schema.fieldNames,

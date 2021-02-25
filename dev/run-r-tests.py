@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
@@ -15,5 +15,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
-__version__ = "3.0.1"
+from test_functions import *
+
+
+if __name__ == '__main__':
+    env = get_build_environment()
+    mtt = modules_to_test(env)
+
+    if any(m.should_run_r_tests for m in mtt.test_modules):
+        run_sparkr_tests()

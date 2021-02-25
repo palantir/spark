@@ -374,9 +374,7 @@ private[spark] class Executor(
       // Report executor runtime and JVM gc time
       Option(task).foreach(t => {
         t.metrics.setExecutorRunTime(TimeUnit.NANOSECONDS.toMillis(
-          // SPARK-32898: it's possible that a task is killed when taskStartTimeNs has the initial
-          // value(=0) still. In this case, the executorRunTime should be considered as 0.
-        if (taskStartTimeNs > 0) System.nanoTime() - taskStartTimeNs else 0))
+          System.nanoTime() - taskStartTimeNs))
         t.metrics.setJvmGCTime(computeTotalGcTime() - startGCTime)
       })
 
@@ -625,7 +623,6 @@ private[spark] class Executor(
           val reason = TaskKilled(t.reason, accUpdates, accums, metricPeaks)
           plugins.foreach(_.onTaskFailed(reason))
           execBackend.statusUpdate(taskId, TaskState.KILLED, ser.serialize(reason))
-
 
         case _: InterruptedException | NonFatal(_) if
             task != null && task.reasonIfKilled.isDefined =>

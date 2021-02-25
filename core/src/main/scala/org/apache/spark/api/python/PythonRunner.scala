@@ -91,8 +91,9 @@ private[spark] abstract class BasePythonRunner[IN, OUT](
 
   // All the Python functions should have the same exec, version and envvars.
   protected val envVars: java.util.Map[String, String] = funcs.head.funcs.head.envVars
-  protected val pythonExec: String = funcs.head.funcs.head.pythonExec
+  protected val pythonExec = funcs.head.funcs.head.pythonExec
   protected val pythonVer: String = funcs.head.funcs.head.pythonVer
+  protected val condaInstructions = funcs.head.funcs.head.condaSetupInstructions
 
   // TODO: support accumulator in multiple UDF
   protected val accumulator: PythonAccumulatorV2 = funcs.head.funcs.head.accumulator
@@ -128,7 +129,8 @@ private[spark] abstract class BasePythonRunner[IN, OUT](
       envVars.put("PYSPARK_EXECUTOR_MEMORY_MB", memoryMb.get.toString)
     }
     envVars.put("SPARK_BUFFER_SIZE", bufferSize.toString)
-    val worker: Socket = env.createPythonWorker(pythonExec, envVars.asScala.toMap)
+    val worker: Socket = env.createPythonWorker(pythonExec, envVars.asScala.toMap,
+      condaInstructions)
     // Whether is the worker released into idle pool or closed. When any codes try to release or
     // close a worker, they should use `releasedOrClosed.compareAndSet` to flip the state to make
     // sure there is only one winner that is going to release or close the worker.
@@ -516,7 +518,7 @@ private[spark] abstract class BasePythonRunner[IN, OUT](
       // Check whether the worker is ready to be re-used.
       if (stream.readInt() == SpecialLengths.END_OF_STREAM) {
         if (reuseWorker && releasedOrClosed.compareAndSet(false, true)) {
-          env.releasePythonWorker(pythonExec, envVars.asScala.toMap, worker)
+          env.releasePythonWorker(pythonExec, envVars.asScala.toMap, condaInstructions, worker)
         }
       }
       eos = true
@@ -564,7 +566,7 @@ private[spark] abstract class BasePythonRunner[IN, OUT](
             val taskName = s"${context.partitionId}.${context.attemptNumber} " +
               s"in stage ${context.stageId} (TID ${context.taskAttemptId})"
             logWarning(s"Incomplete task $taskName interrupted: Attempting to kill Python Worker")
-            env.destroyPythonWorker(pythonExec, envVars.asScala.toMap, worker)
+            env.destroyPythonWorker(pythonExec, envVars.asScala.toMap, condaInstructions, worker)
           } catch {
             case e: Exception =>
               logError("Exception when trying to kill worker", e)

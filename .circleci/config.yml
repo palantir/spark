@@ -197,7 +197,7 @@ jobs:
       - run:
           name: Run style tests
           command: dev/run-style-tests.py
-          no_output_timeout: 15m
+          no_output_timeout: 20m
 
   run-build-tests:
     # depends only on build-maven
@@ -322,6 +322,24 @@ jobs:
       - store_artifacts:
           path: python/unit-tests.log
 
+
+  run-r-tests:
+    # depends on build-sbt, but we only need the assembly jars
+    <<: *defaults
+    docker:
+      - image: palantirtechnologies/circle-spark-r:0.2.4
+    steps:
+      - *checkout-code
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install SparkR
+          command: R/install-dev.sh
+      - run: dev/run-r-tests.py
+      - store_test_results:
+          path: target/R
+
+
   run-scala-tests:
     <<: *test-defaults
     # project/CirclePlugin.scala does its own test splitting in SBT based on CIRCLE_NODE_INDEX, CIRCLE_NODE_TOTAL
@@ -430,6 +448,7 @@ jobs:
       - *restore-build-binaries-cache
       - run:
           command: dev/set_version_and_package.sh
+          no_output_timeout: 15m
       # This is potentially costly but we can't use the workspace as it would conflict with
       # compilation results from build-sbt
       - save_cache:
@@ -511,6 +530,10 @@ workflows:
           requires:
             - build-sbt
           <<: *all-branches-and-tags
+      - run-r-tests:
+          requires:
+            - build-sbt
+          <<: *all-branches-and-tags
       - build-maven-versioned:
           requires:
             - build-maven
@@ -529,5 +552,6 @@ workflows:
             - run-backcompat-tests
             - run-scala-tests
             - run-python-tests
+            - run-r-tests
             - build-maven-versioned
           <<: *deployable-branches-and-tags
