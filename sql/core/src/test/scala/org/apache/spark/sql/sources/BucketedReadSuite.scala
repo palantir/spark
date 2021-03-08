@@ -391,6 +391,19 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
           joinOperator.right.find(_.isInstanceOf[SortExec]).isDefined == sortRight,
           s"expected sort in the right child to be $sortRight but found\n${joinOperator.right}")
       }
+
+      // check answer with codegen enabled
+      withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "0",
+        SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "true") {
+        val t1 = spark.table("bucketed_table1")
+        val t2 = spark.table("bucketed_table2")
+        val joined = t1.join(t2, joinCondition(t1, t2), joinType)
+
+        // First check the result is corrected.
+        checkAnswer(
+          joined.sort("bucketed_table1.k", "bucketed_table2.k"),
+          df1.join(df2, joinCondition(df1, df2), joinType).sort("df1.k", "df2.k"))
+      }
     }
   }
 

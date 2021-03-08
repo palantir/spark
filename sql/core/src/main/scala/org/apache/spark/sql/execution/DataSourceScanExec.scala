@@ -153,7 +153,7 @@ case class FileSourceScanExec(
   // Note that some vals referring the file-based relation are lazy intentionally
   // so that this plan can be canonicalized on executor side too. See SPARK-23731.
   override lazy val supportsBatch: Boolean = {
-    relation.fileFormat.supportBatch(relation.sparkSession, schema)
+    scanMode == RegularMode && relation.fileFormat.supportBatch(relation.sparkSession, schema)
   }
 
   private lazy val scanMode: ScanMode =
