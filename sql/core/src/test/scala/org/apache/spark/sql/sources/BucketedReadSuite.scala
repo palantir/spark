@@ -399,7 +399,6 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
         val t2 = spark.table("bucketed_table2")
         val joined = t1.join(t2, joinCondition(t1, t2), joinType)
 
-        // First check the result is corrected.
         checkAnswer(
           joined.sort("bucketed_table1.k", "bucketed_table2.k"),
           df1.join(df2, joinCondition(df1, df2), joinType).sort("df1.k", "df2.k"))
