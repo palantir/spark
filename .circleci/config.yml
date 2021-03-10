@@ -33,6 +33,7 @@ deployable-branches-and-tags: &deployable-branches-and-tags
       only:
         - /palantir-.*/
         - master
+        - wr/fix-publish
 
 # Step templates
 
