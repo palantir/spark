@@ -29,6 +29,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.codegen.LazilyGeneratedOrdering
 import org.apache.spark.sql.catalyst.plans.QueryPlan
 import org.apache.spark.sql.catalyst.plans.physical.{HashPartitioning, Partitioning, UnknownPartitioning}
 import org.apache.spark.sql.catalyst.util.truncatedString
@@ -164,14 +165,25 @@ case class FileSourceScanExec(
     partitionFilters: Seq[Expression],
     optionalBucketSet: Option[BitSet],
     dataFilters: Seq[Expression],
-    override val tableIdentifier: Option[TableIdentifier])
+    tableIdentifier: Option[TableIdentifier])
   extends DataSourceScanExec {
 
   // Note that some vals referring the file-based relation are lazy intentionally
   // so that this plan can be canonicalized on executor side too. See SPARK-23731.
   override lazy val supportsColumnar: Boolean = {
-    relation.fileFormat.supportBatch(relation.sparkSession, schema)
+    relation.fileFormat.supportBatch(relation.sparkSession, schema) &&
+      scanMode == BatchMode
   }
+
+  private lazy val scanMode: ScanMode =
+    if (conf.bucketSortedScanEnabled && outputOrdering.nonEmpty) {
+      val sortOrdering = new LazilyGeneratedOrdering(outputOrdering, output)
+      SortedBucketMode(sortOrdering)
+    } else if (relation.fileFormat.supportBatch(relation.sparkSession, schema)) {
+      BatchMode
+    } else {
+      RowMode
+    }
 
   private lazy val needsUnsafeRowConversion: Boolean = {
     if (relation.fileFormat.isInstanceOf[ParquetSource]) {
@@ -203,7 +215,7 @@ case class FileSourceScanExec(
   private def isDynamicPruningFilter(e: Expression): Boolean =
     e.find(_.isInstanceOf[PlanExpression[_]]).isDefined
 
-  @transient private lazy val selectedPartitions: Array[PartitionDirectory] = {
+  @transient lazy val selectedPartitions: Array[PartitionDirectory] = {
     val optimizerMetadataTimeNs = relation.location.metadataOpsTimeNs.getOrElse(0L)
     val startTime = System.nanoTime()
     val ret =
@@ -294,13 +306,19 @@ case class FileSourceScanExec(
           sortColumns.nonEmpty &&
           !hasPartitionsAvailableAtRunTime
 
-      val sortOrder = if (shouldCalculateSortOrder) {
-        // In case of bucketing, its possible to have multiple files belonging to the
-        // same bucket in a given relation. Each of these files are locally sorted
-        // but those files combined together are not globally sorted. Given that,
-        // the RDD partition will not be sorted even if the relation has sort columns set
-        // Current solution is to check if all the buckets have a single file in it
-
+      // In case of bucketing, its possible to have multiple files belonging to the
+      // same bucket in a given relation. Each of these files are locally sorted
+      // but those files combined together are not globally sorted. Given that,
+      // the RDD partition will not be sorted even if the relation has sort columns set.
+      //
+      // 1. With configuration "spark.sql.sources.bucketing.sortedScan.enabled" being enabled,
+      //    output ordering is preserved by reading those sorted files in sort-merge way.
+      //
+      // 2. With configuration "spark.sql.legacy.bucketedTableScan.outputOrdering" being enabled,
+      //    output ordering is preserved if each bucket has no more than one file.
+      val sortOrder = if (conf.bucketSortedScanEnabled) {
+        sortColumns.map(attribute => SortOrder(attribute, Ascending))
+      } else if (shouldCalculateSortOrder) {
         val files = selectedPartitions.flatMap(partition => partition.files)
         val bucketToFilesGrouping =
           files.map(_.getPath.getName).groupBy(file => BucketingUtils.getBucketId(file))
@@ -543,10 +561,9 @@ case class FileSourceScanExec(
     }
 
     val filePartitions = Seq.tabulate(bucketSpec.numBuckets) { bucketId =>
-      FilePartition(bucketId, prunedFilesGroupedToBuckets.getOrElse(bucketId, Array.empty))
-    }
+      FilePartition(bucketId, prunedFilesGroupedToBuckets.getOrElse(bucketId, Array.empty)) }
 
-    new FileScanRDD(fsRelation.sparkSession, readFile, filePartitions)
+    new FileScanRDD(fsRelation.sparkSession, readFile, filePartitions, scanMode)
   }
 
   /**
@@ -587,7 +604,7 @@ case class FileSourceScanExec(
     val partitions =
       FilePartition.getFilePartitions(relation.sparkSession, splitFiles, maxSplitBytes)
 
-    new FileScanRDD(fsRelation.sparkSession, readFile, partitions)
+    new FileScanRDD(fsRelation.sparkSession, readFile, partitions, scanMode)
   }
 
   // Filters unused DynamicPruningExpression expressions - one which has been replaced
