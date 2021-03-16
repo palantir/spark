@@ -148,6 +148,21 @@ case class RowDataSourceScanExec(
 }
 
 /**
+ * The mode for scanning a list of file partitions.
+ *
+ * [[RegularMode]]: Scan files sequentially one by one, and scan each file batch by batch or row by row.
+ * [[SortedBucketMode]]: Scan files together at same time in a sort-merge way
+ *                       (for sorted bucket files only).
+ */
+sealed abstract class ScanMode
+
+case object RegularMode extends ScanMode
+
+case class SortedBucketMode(sortOrdering: Ordering[InternalRow]) extends ScanMode {
+  override def toString: String = "SortedBucketMode"
+}
+
+/**
  * Physical plan node for scanning data from HadoopFsRelations.
  *
  * @param relation The file-based relation to scan.
@@ -172,17 +187,15 @@ case class FileSourceScanExec(
   // so that this plan can be canonicalized on executor side too. See SPARK-23731.
   override lazy val supportsColumnar: Boolean = {
     relation.fileFormat.supportBatch(relation.sparkSession, schema) &&
-      scanMode == BatchMode
+      scanMode == RegularMode
   }
 
   private lazy val scanMode: ScanMode =
-    if (conf.bucketSortedScanEnabled && outputOrdering.nonEmpty) {
+    if (conf.bucketSortedScanEnabled && outputOrdering.nonEmpty && !singleFilePartitions) {
       val sortOrdering = new LazilyGeneratedOrdering(outputOrdering, output)
       SortedBucketMode(sortOrdering)
-    } else if (relation.fileFormat.supportBatch(relation.sparkSession, schema)) {
-      BatchMode
     } else {
-      RowMode
+      RegularMode
     }
 
   private lazy val needsUnsafeRowConversion: Boolean = {
@@ -192,6 +205,14 @@ case class FileSourceScanExec(
       false
     }
   }
+
+  private lazy val singleFilePartitions: Boolean = {
+    val files = selectedPartitions.flatMap(partition => partition.files)
+    val bucketToFilesGrouping =
+      files.map(_.getPath.getName).groupBy(file => BucketingUtils.getBucketId(file))
+    bucketToFilesGrouping.forall(p => p._2.length <= 1)
+  }
+
 
   override def vectorTypes: Option[Seq[String]] =
     relation.fileFormat.vectorTypes(
@@ -319,11 +340,6 @@ case class FileSourceScanExec(
       val sortOrder = if (conf.bucketSortedScanEnabled) {
         sortColumns.map(attribute => SortOrder(attribute, Ascending))
       } else if (shouldCalculateSortOrder) {
-        val files = selectedPartitions.flatMap(partition => partition.files)
-        val bucketToFilesGrouping =
-          files.map(_.getPath.getName).groupBy(file => BucketingUtils.getBucketId(file))
-        val singleFilePartitions = bucketToFilesGrouping.forall(p => p._2.length <= 1)
-
         if (singleFilePartitions) {
           // TODO Currently Spark does not support writing columns sorting in descending order
           // so using Ascending order. This can be fixed in future
@@ -359,7 +375,8 @@ case class FileSourceScanExec(
         "PartitionFilters" -> seqToString(partitionFilters),
         "PushedFilters" -> seqToString(pushedDownFilters),
         "DataFilters" -> seqToString(dataFilters),
-        "Location" -> locationDesc)
+        "Location" -> locationDesc,
+        "ScanMode" -> scanMode.toString)
 
     val withSelectedBucketsCount = relation.bucketSpec.map { spec =>
       val numSelectedBuckets = optionalBucketSet.map { b =>
@@ -563,7 +580,12 @@ case class FileSourceScanExec(
     val filePartitions = Seq.tabulate(bucketSpec.numBuckets) { bucketId =>
       FilePartition(bucketId, prunedFilesGroupedToBuckets.getOrElse(bucketId, Array.empty)) }
 
-    new FileScanRDD(fsRelation.sparkSession, readFile, filePartitions, scanMode)
+    scanMode match {
+      case SortedBucketMode(sortOrdering) =>
+        new FileSortedMergeScanRDD(fsRelation.sparkSession, readFile, filePartitions, sortOrdering)
+      case RegularMode =>
+        new FileScanRDD(fsRelation.sparkSession, readFile, filePartitions)
+    }
   }
 
   /**
@@ -604,7 +626,7 @@ case class FileSourceScanExec(
     val partitions =
       FilePartition.getFilePartitions(relation.sparkSession, splitFiles, maxSplitBytes)
 
-    new FileScanRDD(fsRelation.sparkSession, readFile, partitions, scanMode)
+    new FileScanRDD(fsRelation.sparkSession, readFile, partitions)
   }
 
   // Filters unused DynamicPruningExpression expressions - one which has been replaced

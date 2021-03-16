@@ -17,14 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources
 
-import java.io.{FileNotFoundException, IOException}
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable
-
 import org.apache.parquet.io.ParquetDecodingException
-
-import org.apache.spark.{Partition => RDDPartition, SparkUpgradeException, TaskContext}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.executor.InputMetrics
 import org.apache.spark.internal.Logging
@@ -33,6 +26,11 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.{QueryExecutionException, RowIterator}
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.NextIterator
+import org.apache.spark.{SparkUpgradeException, TaskContext, Partition => RDDPartition}
+
+import java.io.{FileNotFoundException, IOException}
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 /**
  * Holds common logic for iterators to scan files
@@ -166,51 +164,6 @@ abstract class BaseFileScanIterator(
   override def close(): Unit = {
     incTaskInputMetricsBytesRead()
     InputFileBlockHolder.unset()
-  }
-}
-
-/**
- * Iterator to scan files row by row
- */
-class FileRowScanIterator(
-  split: RDDPartition,
-  context: TaskContext,
-  ignoreCorruptFiles: Boolean,
-  ignoreMissingFiles: Boolean,
-  readFunction: PartitionedFile => Iterator[InternalRow])
-  extends BaseFileScanIterator(split, context, ignoreCorruptFiles, ignoreMissingFiles,
-    readFunction) {
-
-  override def next(): Object = {
-    val nextRow = currentIterator.next()
-
-    // Too costly to update every record
-    if (inputMetrics.recordsRead %
-      SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
-      incTaskInputMetricsBytesRead()
-    }
-    inputMetrics.incRecordsRead(1)
-    nextRow
-  }
-}
-
-/**
- * Iterator to scan files batch by batch
- */
-class FileBatchScanIterator(
-  split: RDDPartition,
-  context: TaskContext,
-  ignoreCorruptFiles: Boolean,
-  ignoreMissingFiles: Boolean,
-  readFunction: PartitionedFile => Iterator[InternalRow])
-  extends BaseFileScanIterator(split, context, ignoreCorruptFiles, ignoreMissingFiles,
-    readFunction) {
-
-  override def next(): Object = {
-    val nextBatch = currentIterator.next()
-    incTaskInputMetricsBytesRead()
-    inputMetrics.incRecordsRead(nextBatch.asInstanceOf[ColumnarBatch].numRows())
-    nextBatch
   }
 }
 

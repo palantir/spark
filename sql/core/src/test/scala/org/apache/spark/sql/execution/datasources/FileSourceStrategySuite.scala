@@ -20,18 +20,16 @@ package org.apache.spark.sql.execution.datasources
 import java.io._
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPOutputStream
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, Path, RawLocalFileSystem}
 import org.apache.hadoop.mapreduce.Job
-
 import org.apache.spark.SparkException
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
 import org.apache.spark.sql.catalyst.expressions.{Expression, ExpressionSet, PredicateHelper}
 import org.apache.spark.sql.catalyst.util
-import org.apache.spark.sql.execution.{DataSourceScanExec, FileSourceScanExec, SparkPlan}
+import org.apache.spark.sql.execution.{DataSourceScanExec, FileSourceScanExec, RegularMode, SparkPlan}
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2ScanRelation
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
@@ -290,8 +288,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     val fakeRDD = new FileScanRDD(
       spark,
       (file: PartitionedFile) => Iterator.empty,
-      Seq(partition),
-      RowMode
+      Seq(partition)
     )
 
     assertResult(Set("host0", "host1", "host2")) {
