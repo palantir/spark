@@ -165,7 +165,7 @@ case class FileSourceScanExec(
     partitionFilters: Seq[Expression],
     optionalBucketSet: Option[BitSet],
     dataFilters: Seq[Expression],
-    tableIdentifier: Option[TableIdentifier])
+    override val tableIdentifier: Option[TableIdentifier])
   extends DataSourceScanExec {
 
   // Note that some vals referring the file-based relation are lazy intentionally
@@ -215,7 +215,7 @@ case class FileSourceScanExec(
   private def isDynamicPruningFilter(e: Expression): Boolean =
     e.find(_.isInstanceOf[PlanExpression[_]]).isDefined
 
-  @transient lazy val selectedPartitions: Array[PartitionDirectory] = {
+  @transient private lazy val selectedPartitions: Array[PartitionDirectory] = {
     val optimizerMetadataTimeNs = relation.location.metadataOpsTimeNs.getOrElse(0L)
     val startTime = System.nanoTime()
     val ret =

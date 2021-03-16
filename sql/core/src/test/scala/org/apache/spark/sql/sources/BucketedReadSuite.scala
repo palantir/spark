@@ -391,8 +391,6 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils {
         SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "false") {
         val t1 = spark.table("bucketed_table1")
         val t2 = spark.table("bucketed_table2")
-        t1.collect()
-        t2.collect()
         val joined = t1.join(t2, joinCondition(t1, t2), joinType)
 
         // First check the result is corrected.
