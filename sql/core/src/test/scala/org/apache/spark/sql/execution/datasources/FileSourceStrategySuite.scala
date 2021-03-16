@@ -20,9 +20,11 @@ package org.apache.spark.sql.execution.datasources
 import java.io._
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPOutputStream
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, Path, RawLocalFileSystem}
 import org.apache.hadoop.mapreduce.Job
+
 import org.apache.spark.SparkException
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
