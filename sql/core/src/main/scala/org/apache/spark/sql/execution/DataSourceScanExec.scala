@@ -150,7 +150,8 @@ case class RowDataSourceScanExec(
 /**
  * The mode for scanning a list of file partitions.
  *
- * [[RegularMode]]: Scan files sequentially one by one, and scan each file batch by batch or row by row.
+ * [[RegularMode]]: Scan files sequentially one by one, and scan each file batch by batch,
+ *                  or row by row.
  * [[SortedBucketMode]]: Scan files together at same time in a sort-merge way
  *                       (for sorted bucket files only).
  */

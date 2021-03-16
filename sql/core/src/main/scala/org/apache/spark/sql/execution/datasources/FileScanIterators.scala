@@ -17,7 +17,14 @@
 
 package org.apache.spark.sql.execution.datasources
 
+import java.io.{FileNotFoundException, IOException}
+
+import scala.collection.JavaConverters._
+import scala.collection.mutable
+
 import org.apache.parquet.io.ParquetDecodingException
+
+import org.apache.spark.{Partition => RDDPartition, SparkUpgradeException, TaskContext}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.executor.InputMetrics
 import org.apache.spark.internal.Logging
@@ -26,11 +33,6 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.{QueryExecutionException, RowIterator}
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.NextIterator
-import org.apache.spark.{SparkUpgradeException, TaskContext, Partition => RDDPartition}
-
-import java.io.{FileNotFoundException, IOException}
-import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 /**
  * Holds common logic for iterators to scan files
