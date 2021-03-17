@@ -70,6 +70,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -137,6 +138,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -205,6 +207,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -223,6 +226,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (6) ColumnarToRow [codegen id : 2]
 Input [2]: [key#x, val#x]
@@ -284,6 +288,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 2]
 Input [2]: [key#x, val#x]
@@ -302,6 +307,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp2]
 PushedFilters: [IsNotNull(key)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (6) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -349,6 +355,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 2]
 Input [2]: [key#x, val#x]
@@ -359,6 +366,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp2]
 PushedFilters: [IsNotNull(key)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (4) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -408,6 +416,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), IsNotNull(val), GreaterThan(val,3)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -438,6 +447,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp2]
 PushedFilters: [IsNotNull(key), IsNotNull(val), EqualTo(val,2)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (6) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -484,6 +494,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp3]
 PushedFilters: [IsNotNull(val), GreaterThan(val,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (13) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -540,6 +551,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -566,6 +578,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp2]
 PushedFilters: [IsNotNull(val), GreaterThan(val,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (5) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -612,6 +625,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp3]
 PushedFilters: [IsNotNull(val), GreaterThan(val,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (12) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -661,6 +675,7 @@ Output: []
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input: []
@@ -684,6 +699,7 @@ Output [1]: [key#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<key:int>
+ScanMode: RegularMode
 
 (5) ColumnarToRow [codegen id : 1]
 Input [1]: [key#x]
@@ -739,6 +755,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,10)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 2]
 Input [2]: [key#x, val#x]
@@ -757,6 +774,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,10)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (6) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -811,6 +829,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,10)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -910,6 +929,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -954,6 +974,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp4]
 ReadSchema: struct<key:int,val:string>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]
@@ -1000,6 +1021,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp4]
 ReadSchema: struct<key:int,val:string>
+ScanMode: RegularMode
 
 (2) ColumnarToRow [codegen id : 1]
 Input [2]: [key#x, val#x]

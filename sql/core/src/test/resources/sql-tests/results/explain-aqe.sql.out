@@ -70,6 +70,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -138,6 +139,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -206,6 +208,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -221,6 +224,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,0)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (5) Filter
 Input [2]: [key#x, val#x]
@@ -282,6 +286,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -297,6 +302,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp2]
 PushedFilters: [IsNotNull(key)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (5) Filter
 Input [2]: [key#x, val#x]
@@ -344,6 +350,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Scan parquet default.explain_temp2
 Output [2]: [key#x, val#x]
@@ -351,6 +358,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp2]
 PushedFilters: [IsNotNull(key)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (3) Filter
 Input [2]: [key#x, val#x]
@@ -401,6 +409,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), IsNotNull(val), GreaterThan(val,3)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -440,6 +449,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -468,6 +478,7 @@ Output: []
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<>
+ScanMode: RegularMode
 
 (2) Project
 Output [1]: [(Subquery subquery#x, [id=#x] + Subquery subquery#x, [id=#x]) AS (scalarsubquery() + scalarsubquery())#x]
@@ -507,6 +518,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,10)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -522,6 +534,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,10)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (5) Filter
 Input [2]: [key#x, val#x]
@@ -581,6 +594,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,10)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) Filter
 Input [2]: [key#x, val#x]
@@ -614,6 +628,7 @@ Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 PushedFilters: [IsNotNull(key), GreaterThan(key,10)]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (8) Filter
 Input [2]: [key#x, val#x]
@@ -704,6 +719,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp1]
 ReadSchema: struct<key:int,val:int>
+ScanMode: RegularMode
 
 (2) HashAggregate
 Input [2]: [key#x, val#x]
@@ -749,6 +765,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp4]
 ReadSchema: struct<key:int,val:string>
+ScanMode: RegularMode
 
 (2) ObjectHashAggregate
 Input [2]: [key#x, val#x]
@@ -796,6 +813,7 @@ Output [2]: [key#x, val#x]
 Batched: true
 Location [not included in comparison]/{warehouse_dir}/explain_temp4]
 ReadSchema: struct<key:int,val:string>
+ScanMode: RegularMode
 
 (2) Sort
 Input [2]: [key#x, val#x]
