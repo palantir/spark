@@ -25,12 +25,10 @@ def require_minimum_pandas_version():
     from distutils.version import LooseVersion
     try:
         import pandas
-        have_pandas = True
-    except ImportError:
-        have_pandas = False
-    if not have_pandas:
+    except ImportError as error:
         raise ImportError("Pandas >= %s must be installed; however, "
-                          "it was not found." % minimum_pandas_version)
+                          "it was not found or an error was thrown by pandas"
+                          "on importing the library." % minimum_pandas_version, error)
     if LooseVersion(pandas.__version__) < LooseVersion(minimum_pandas_version):
         raise ImportError("Pandas >= %s must be installed; however, "
                           "your version was %s." % (minimum_pandas_version, pandas.__version__))
