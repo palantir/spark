@@ -32,7 +32,7 @@ def require_minimum_pandas_version():
         raised_error = error
     if not have_pandas:
         six.raise_from(ImportError("Pandas >= %s must be installed; however, "
-                       "it was not found." % minimum_pandas_version), error)
+                       "it was not found." % minimum_pandas_version), raised_error)
     if LooseVersion(pandas.__version__) < LooseVersion(minimum_pandas_version):
         raise ImportError("Pandas >= %s must be installed; however, "
                           "your version was %s." % (minimum_pandas_version, pandas.__version__))
