@@ -16,9 +16,9 @@ arrow-format/0.15.1//arrow-format-0.15.1.jar
 arrow-memory/0.15.1//arrow-memory-0.15.1.jar
 arrow-vector/0.15.1//arrow-vector-0.15.1.jar
 audience-annotations/0.5.0//audience-annotations-0.5.0.jar
-avro-ipc/1.10.1//avro-ipc-1.10.1.jar
-avro-mapred/1.10.1//avro-mapred-1.10.1.jar
-avro/1.10.1//avro-1.10.1.jar
+avro-ipc/1.10.2//avro-ipc-1.10.2.jar
+avro-mapred/1.10.2//avro-mapred-1.10.2.jar
+avro/1.10.2//avro-1.10.2.jar
 breeze-macros_2.12/1.0//breeze-macros_2.12-1.0.jar
 breeze_2.12/1.0//breeze_2.12-1.0.jar
 cats-kernel_2.12/2.0.0-M4//cats-kernel_2.12-2.0.0-M4.jar
