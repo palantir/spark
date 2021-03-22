@@ -54,7 +54,7 @@ def require_minimum_pyarrow_version():
         raised_error = error
     if not have_arrow:
         six.raise_from(ImportError("PyArrow >= %s must be installed; however, "
-                          "it was not found." % minimum_pyarrow_version, raised_error)
+                          "it was not found." % minimum_pyarrow_version), raised_error)
     if LooseVersion(pyarrow.__version__) < LooseVersion(minimum_pyarrow_version):
         raise ImportError("PyArrow >= %s must be installed; however, "
                           "your version was %s." % (minimum_pyarrow_version, pyarrow.__version__))
