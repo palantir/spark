@@ -9,7 +9,7 @@ Some highlights include:
 - predicate pushdown additions, including a patched version of Parquet
 - various misc bugfixes
 
-Artifacts are published to [bintray](https://bintray.com/palantir/releases/spark)
+Artifacts are published to [maven central](https://oss.sonatype.org/palantir/releases/spark)
 
 --------------------
 

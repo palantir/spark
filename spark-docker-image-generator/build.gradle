@@ -16,7 +16,8 @@
  */
 
 apply plugin: 'java-gradle-plugin'
-apply from: "${rootDir}/gradle/publish.gradle"
+apply plugin: 'com.palantir.external-publish'
+apply plugin: 'com.palantir.external-publish-dist'
 
 java {
     sourceCompatibility JavaVersion.VERSION_1_8
