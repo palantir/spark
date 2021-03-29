@@ -33,6 +33,7 @@ buildscript {
 
 apply plugin: 'com.palantir.baseline'
 apply plugin: 'com.palantir.git-version'
+apply plugin: 'com.palantir.external-publish'
 
 allprojects {
   group 'org.apache.spark'
