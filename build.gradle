@@ -41,6 +41,7 @@ allprojects {
 
   repositories {
     jcenter()
+    mavenCentral()
     maven { url "http://palantir.bintray.com/releases" }
   }
 }
