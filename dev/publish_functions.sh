@@ -24,7 +24,7 @@ publish_artifacts() {
   tmp_settings="tmp-settings.xml"
   echo "<settings><servers><server>" > $tmp_settings
   echo "<id>sonatype-palantir-release</id><username>$SONATYPE_USERNAME</username>" >> $tmp_settings
-  echo "<passphrase>$SONATYPE_PASSWORD</passphrase>" >> $tmp_settings
+  echo "<password>$SONATYPE_PASSWORD</password>" >> $tmp_settings
   echo "</server></servers></settings>" >> $tmp_settings
 
   ./build/mvn --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
