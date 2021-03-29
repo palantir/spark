@@ -23,8 +23,8 @@ set_version_and_install() {
 publish_artifacts() {
   tmp_settings="tmp-settings.xml"
   echo "<settings><servers><server>" > $tmp_settings
-  echo "<id>bintray-palantir-release</id><username>$BINTRAY_USERNAME</username>" >> $tmp_settings
-  echo "<password>$BINTRAY_PASSWORD</password>" >> $tmp_settings
+  echo "<id>sonatype-palantir-release</id><username>$SONATYPE_USERNAME</username>" >> $tmp_settings
+  echo "<passphrase>$SONATYPE_PASSWORD</passphrase>" >> $tmp_settings
   echo "</server></servers></settings>" >> $tmp_settings
 
   ./build/mvn --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
@@ -40,6 +40,6 @@ make_dist() {
 
 make_dist_and_deploy() {
   make_dist
-  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T "$file_name" "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
-  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST "https://api.bintray.com/content/palantir/releases/spark/${version}/publish"
+  curl -u $SONATYPE_USERNAME:$SONATYPE_PASSWORD -T "$file_name" "https://oss.sonatype.org/content/palantir/releases/spark/${version}/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
+  curl -u $SONATYPE_USERNAME:$SONATYPE_PASSWORD -X POST "https://oss.sonatype.org/content/palantir/releases/spark/${version}/publish"
 }

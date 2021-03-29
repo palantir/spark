@@ -484,10 +484,10 @@ jobs:
           key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
       - *restore-build-binaries-cache
 
-      - run: echo "user=$BINTRAY_USERNAME" > .credentials
-      - run: echo "password=$BINTRAY_PASSWORD" >> .credentials
-      - run: echo "realm=Bintray API Realm" >> .credentials
-      - run: echo "host=api.bintray.com" >> .credentials
+      - run: echo "user=$SONATYPE_USERNAME" > .credentials
+      - run: echo "password=$SONATYPE_PASSWORD" >> .credentials
+      - run: echo "realm=Sonatype API Realm" >> .credentials
+      - run: echo "host=oss.sonatype.org" >> .credentials
       - deploy:
           command: dev/publish.sh
       - store_artifacts:
