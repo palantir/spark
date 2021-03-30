@@ -16,22 +16,23 @@
  */
 
 apply plugin: 'java-gradle-plugin'
-apply from: "${rootDir}/gradle/publish.gradle"
+apply plugin: 'com.palantir.external-publish-jar'
+apply plugin: 'com.palantir.external-publish-custom'
 
 java {
     sourceCompatibility JavaVersion.VERSION_1_8
 }
 
 dependencies {
-  compile gradleApi()
-  compile 'org.apache.commons:commons-compress'
-  compile 'commons-io:commons-io'
-  compile 'com.palantir.sls.versions:sls-versions'
-  testCompile 'org.assertj:assertj-core'
-  testCompile 'org.mockito:mockito-core'
-  testCompile 'junit:junit'
-  testCompile 'com.spotify:docker-client'
-  testCompile gradleTestKit()
+  implementation gradleApi()
+  implementation 'org.apache.commons:commons-compress'
+  implementation 'commons-io:commons-io'
+  implementation 'com.palantir.sls.versions:sls-versions'
+  testImplementation 'org.assertj:assertj-core'
+  testImplementation 'org.mockito:mockito-core'
+  testImplementation 'junit:junit'
+  testImplementation 'com.spotify:docker-client'
+  testImplementation gradleTestKit()
 }
 
 task prepareDockerBundleDir(type: Zip) {
@@ -58,14 +59,14 @@ task prepareDockerBundleDir(type: Zip) {
 tasks.compileJava.dependsOn tasks.prepareDockerBundleDir
 tasks.idea.dependsOn tasks.prepareDockerBundleDir
 
-publishing {
-  publications {
-    dockerBundle(MavenPublication) {
-      artifactId 'spark-docker-resources'
-      artifact tasks.prepareDockerBundleDir
+externalPublishing {
+    publication('dockerBundle') {
+        artifactId 'spark-docker-resources'
+        artifact tasks.prepareDockerBundleDir
     }
-  }
+}
 
+publishing {
   repositories {
     maven {
       name = "mavenTest"
