@@ -266,9 +266,14 @@
     <maven.build.timestamp.format>yyyy-MM-dd HH:mm:ss z</maven.build.timestamp.format>
   </properties>
   <distributionManagement>
+    <snapshotRepository>
+      <id>sonatype-palantir-release</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
     <repository>
       <id>sonatype-palantir-release</id>
-      <url>https://oss.sonatype.org/maven/palantir/releases/spark/</url>
+      <!-- TODO(lmartini) make this https://oss.sonatype.org/service/local/staging/deploy/maven2/ -->
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </repository>
   </distributionManagement>
   <repositories>

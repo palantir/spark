@@ -40,6 +40,7 @@ make_dist() {
 
 make_dist_and_deploy() {
   make_dist
-  curl -u $SONATYPE_USERNAME:$SONATYPE_PASSWORD -T "$file_name" "https://oss.sonatype.org/content/palantir/releases/spark/${version}/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
-  curl -u $SONATYPE_USERNAME:$SONATYPE_PASSWORD -X POST "https://oss.sonatype.org/content/palantir/releases/spark/${version}/publish"
+  # TODO(lmartini): bintray for the curls
+  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T "$file_name" "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
+  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST "https://api.bintray.com/content/palantir/releases/spark/${version}/publish"
 }
