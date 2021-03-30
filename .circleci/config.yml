@@ -548,6 +548,7 @@ workflows:
           requires:
             - build-maven
             - build-sbt
+            - build-maven-versioned
             # Tests
             #- run-style-tests
             #- run-build-tests
@@ -555,5 +556,4 @@ workflows:
             #- run-scala-tests
             #- run-python-tests
             #- run-r-tests
-            #- build-maven-versioned
           <<: *deployable-branches-and-tags
