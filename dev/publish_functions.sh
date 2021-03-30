@@ -25,12 +25,9 @@ publish_artifacts() {
   echo "<settings><servers><server>" > $tmp_settings
   echo "<id>sonatype-palantir-release</id><username>$SONATYPE_USERNAME</username>" >> $tmp_settings
   echo "<password>$SONATYPE_PASSWORD</password>" >> $tmp_settings
-  echo "</server><server>" >> $tmp_settings
-  echo "<id>$GPG_SIGNING_KEY_ID</id>" >> $tmp_settings
-  echo "<password>$GPG_SIGNING_KEY_PASSWORD</password>" >> $tmp_settings
   echo "</server></servers></settings>" >> $tmp_settings
 
-  ./build/mvn --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
+  ./build/mvn --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" -Dgpg.passphrase=$GPG_SIGNING_KEY_PASSWORD deploy
 }
 
 make_dist() {
