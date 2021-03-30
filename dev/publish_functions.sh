@@ -10,12 +10,16 @@ get_version() {
 
 set_version_and_package() {
   version=$(get_version)
+  # TODO(lmartini): remove
+  version=${version}-SNAPSHOT
   ./build/mvn versions:set -DnewVersion="$version"
   ./build/mvn -DskipTests "${PALANTIR_FLAGS[@]}" package
 }
 
 set_version_and_install() {
   version=$(get_version)
+    # TODO(lmartini): remove
+  version=${version}-SNAPSHOT
   ./build/mvn versions:set -DnewVersion="$version"
   ./build/mvn -DskipTests "${PALANTIR_FLAGS[@]}" install
 }
