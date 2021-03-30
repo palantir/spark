@@ -267,7 +267,7 @@
   </properties>
   <distributionManagement>
     <snapshotRepository>
-      <id>sonatype-palantir-release</id>
+      <id>sonatype-palantir-snapshot</id>
       <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </snapshotRepository>
     <repository>
