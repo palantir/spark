@@ -79,6 +79,11 @@ private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
           .withName("submitted-files")
           .withNewSecret()
             .withSecretName(secretName)
+            // While we re-enable secret mounting for executors, the secret-name between drivers
+            // and executors might not match. When that happens, we prefer empty directories over
+            // failed pods. Thus marking optional.
+            // TODO(wraschkowski): Make non-optional once SMM upgrades its spark-submit
+            .withOptional(true)
             .endSecret()
           .endVolume()
         .endSpec()
