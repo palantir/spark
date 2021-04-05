@@ -27,7 +27,7 @@ import scala.collection.JavaConverters._
 import com.google.common.io.{BaseEncoding, Files}
 import io.fabric8.kubernetes.api.model.{ContainerBuilder, HasMetadata, PodBuilder, SecretBuilder}
 
-import org.apache.spark.deploy.k8s.{KubernetesConf, KubernetesDriverConf, SparkPod}
+import org.apache.spark.deploy.k8s.{KubernetesConf, KubernetesDriverConf, KubernetesExecutorConf, SparkPod}
 import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.submit.{JavaMainAppResource, PythonMainAppResource, RMainAppResource}
@@ -68,7 +68,7 @@ private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
    *
    * @return name of per-app secret resource from which to mount volume.
    */
-  protected val secretName = s"${secretNamePrefix()}-mounted-files"
+  protected val secretName: String
 
   override def configurePod(pod: SparkPod): SparkPod = {
     if (!enabled) return pod
@@ -95,23 +95,12 @@ private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
       .build()
     SparkPod(resolvedPod, resolvedContainer)
   }
-
-  /**
-   * Like [[KubernetesConf.getResourceNamePrefix()]] but unique per app, not per resource, because
-   * we want drivers and executors to share one resource for their mounted volume.
-   */
-  private def secretNamePrefix() =
-    s"${conf.appName}"
-      .trim
-      .toLowerCase(Locale.ROOT)
-      .replaceAll("\\s+", "-")
-      .replaceAll("\\.", "-")
-      .replaceAll("[^a-z0-9\\-]", "")
-      .replaceAll("-+", "-")
 }
 
 private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
   extends MountLocalFilesFeatureStep(conf) {
+
+  override protected val secretName: String = s"${conf.appId}-mounted-files"
 
   override def getAdditionalPodSystemProperties(): Map[String, String] = {
     if (!enabled) return Map.empty
@@ -168,7 +157,10 @@ private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf
   }
 }
 
-private[spark] class MountLocalExecutorFilesFeatureStep(conf: KubernetesConf)
-  extends MountLocalFilesFeatureStep(conf)
+private[spark] class MountLocalExecutorFilesFeatureStep(conf: KubernetesExecutorConf)
+  extends MountLocalFilesFeatureStep(conf) {
+
+  override protected val secretName: String = s"${conf.appId}-mounted-files"
+}
 
 

@@ -26,7 +26,7 @@ import io.fabric8.kubernetes.api.model.Secret
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.{SparkConf, SparkFunSuite}
-import org.apache.spark.deploy.k8s.{KubernetesDriverConf, SparkPod}
+import org.apache.spark.deploy.k8s.{KubernetesDriverConf, KubernetesExecutorConf, SparkPod}
 import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.submit.JavaMainAppResource
@@ -37,7 +37,8 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
   private var kubernetesConf: KubernetesDriverConf = _
   private var sparkFiles: Seq[String] = _
   private var localFiles: Seq[File] = _
-  private var stepUnderTest: MountLocalDriverFilesFeatureStep = _
+  private var driverStepUnderTest: MountLocalDriverFilesFeatureStep = _
+  private var executorStepUnderTest: MountLocalExecutorFilesFeatureStep = _
 
   before {
     val tempDir = Utils.createTempDir()
@@ -62,11 +63,14 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
       JavaMainAppResource(None),
       "main",
       Array.empty[String])
-    stepUnderTest = new MountLocalDriverFilesFeatureStep(kubernetesConf)
+    driverStepUnderTest = new MountLocalDriverFilesFeatureStep(kubernetesConf)
+
+    val executorConf = new KubernetesExecutorConf(sparkConf, "test-app", "executor-id", None)
+    executorStepUnderTest = new MountLocalExecutorFilesFeatureStep(executorConf)
   }
 
   test("Attaches a secret volume and secret name") {
-    val configuredPod = stepUnderTest.configurePod(SparkPod.initialPod())
+    val configuredPod = driverStepUnderTest.configurePod(SparkPod.initialPod())
     assert(configuredPod.pod.getSpec.getVolumes.size === 1)
     val volume = configuredPod.pod.getSpec.getVolumes.get(0)
     assert(volume.getName === "submitted-files")
@@ -82,8 +86,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
   }
 
   test("Attaches a secret volume and secret name on executor") {
-    val configuredPod = new MountLocalExecutorFilesFeatureStep(kubernetesConf)
-      .configurePod(SparkPod.initialPod())
+    val configuredPod = executorStepUnderTest.configurePod(SparkPod.initialPod())
     val volume = configuredPod.pod.getSpec.getVolumes.get(0)
     assert(volume.getName === "submitted-files")
     assert(volume.getSecret.getSecretName === "test-app-mounted-files")
@@ -98,7 +101,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
   }
 
   test("Maps submitted files in the system properties") {
-    val resolvedSystemProperties = stepUnderTest.getAdditionalPodSystemProperties()
+    val resolvedSystemProperties = driverStepUnderTest.getAdditionalPodSystemProperties()
     val expectedSystemProperties = Map(
       "spark.files" ->
         Seq(
@@ -111,7 +114,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
   }
 
   test("Additional Kubernetes resources includes the mounted files secret") {
-    val secrets = stepUnderTest.getAdditionalKubernetesResources()
+    val secrets = driverStepUnderTest.getAdditionalKubernetesResources()
     assert(secrets.size === 1)
     assert(secrets.head.isInstanceOf[Secret])
     val secret = secrets.head.asInstanceOf[Secret]
