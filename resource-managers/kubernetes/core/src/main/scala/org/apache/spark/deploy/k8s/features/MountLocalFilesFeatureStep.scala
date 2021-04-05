@@ -47,31 +47,19 @@ import org.apache.spark.util.Utils
  *
  * Files mounted here are copied into driver and executor working directories in the entrypoint.sh.
  */
-private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
-  extends MountLocalFilesFeatureStep(conf) {
-
-  override def allFiles: Seq[String] = {
-    Utils.stringToSeq(conf.sparkConf.get(FILES.key, "")) ++
-      (conf.mainAppResource match {
-        case JavaMainAppResource(_) => Nil
-        case PythonMainAppResource(res) => Seq(res)
-        case RMainAppResource(res) => Seq(res)
-      })
-  }
-}
-
-private[spark] class MountLocalExecutorFilesFeatureStep(conf: KubernetesConf)
-  extends MountLocalFilesFeatureStep(conf) {
-
-  override def allFiles: Seq[String] = Nil
-}
-
 private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
   extends KubernetesFeatureConfigStep {
 
-  private val enabled = conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)
+  /**
+   * Whether secret-based file mounting is enabled for local files added to {{spark.files}}.
+   * If disabled, local files are mounted using Spark's (non-Palantir) mechanism via an HCFS.
+   */
+  protected val enabled: Boolean = conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)
 
-  private val mountPath = conf.get(KUBERNETES_SECRET_FILE_MOUNT_PATH)
+  /**
+   * The path at which the secret-populated volume is mounted.
+   */
+  protected val mountPath: String = conf.get(KUBERNETES_SECRET_FILE_MOUNT_PATH)
 
   /**
    * Secret name needs to be the same for drivers and executors because both will have a volume
@@ -80,9 +68,7 @@ private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
    *
    * @return name of per-app secret resource from which to mount volume.
    */
-  private val secretName = s"${secretNamePrefix()}-mounted-files"
-
-  def allFiles: Seq[String]
+  protected val secretName = s"${secretNamePrefix()}-mounted-files"
 
   override def configurePod(pod: SparkPod): SparkPod = {
     if (!enabled) return pod
@@ -109,6 +95,23 @@ private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
       .build()
     SparkPod(resolvedPod, resolvedContainer)
   }
+
+  /**
+   * Like [[KubernetesConf.getResourceNamePrefix()]] but unique per app, not per resource, because
+   * we want drivers and executors to share one resource for their mounted volume.
+   */
+  private def secretNamePrefix() =
+    s"${conf.appName}"
+      .trim
+      .toLowerCase(Locale.ROOT)
+      .replaceAll("\\s+", "-")
+      .replaceAll("\\.", "-")
+      .replaceAll("[^a-z0-9\\-]", "")
+      .replaceAll("-+", "-")
+}
+
+private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
+  extends MountLocalFilesFeatureStep(conf) {
 
   override def getAdditionalPodSystemProperties(): Map[String, String] = {
     if (!enabled) return Map.empty
@@ -147,6 +150,15 @@ private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
     Seq(localFilesSecret)
   }
 
+  private def allFiles: Seq[String] = {
+    Utils.stringToSeq(conf.sparkConf.get(FILES.key, "")) ++
+      (conf.mainAppResource match {
+        case JavaMainAppResource(_) => Nil
+        case PythonMainAppResource(res) => Seq(res)
+        case RMainAppResource(res) => Seq(res)
+      })
+  }
+
   private def shouldMountFile(file: URI): Boolean = {
     Option(file.getScheme) match {
       case Some("file") => true
@@ -154,17 +166,9 @@ private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
       case _ => false
     }
   }
-
-  /**
-   * Like [[KubernetesConf.getResourceNamePrefix()]] but unique per app, not per resource, because
-   * we want drivers and executors to share one resource for their mounted volume.
-   */
-  private def secretNamePrefix() =
-    s"${conf.appName}"
-      .trim
-      .toLowerCase(Locale.ROOT)
-      .replaceAll("\\s+", "-")
-      .replaceAll("\\.", "-")
-      .replaceAll("[^a-z0-9\\-]", "")
-      .replaceAll("-+", "-")
 }
+
+private[spark] class MountLocalExecutorFilesFeatureStep(conf: KubernetesConf)
+  extends MountLocalFilesFeatureStep(conf)
+
+

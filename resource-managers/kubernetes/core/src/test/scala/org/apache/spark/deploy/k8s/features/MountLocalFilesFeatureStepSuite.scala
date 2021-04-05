@@ -81,6 +81,22 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
     assert(addedEnv.getValue === "/var/data/spark-submitted-files")
   }
 
+  test("Attaches a secret volume and secret name on executor") {
+    val configuredPod = new MountLocalExecutorFilesFeatureStep(kubernetesConf)
+      .configurePod(SparkPod.initialPod())
+    val volume = configuredPod.pod.getSpec.getVolumes.get(0)
+    assert(volume.getName === "submitted-files")
+    assert(volume.getSecret.getSecretName === "test-app-mounted-files")
+    assert(configuredPod.container.getVolumeMounts.size === 1)
+    val volumeMount = configuredPod.container.getVolumeMounts.get(0)
+    assert(volumeMount.getName === "submitted-files")
+    assert(volumeMount.getMountPath === "/var/data/spark-submitted-files")
+    assert(configuredPod.container.getEnv.size === 1)
+    val addedEnv = configuredPod.container.getEnv.get(0)
+    assert(addedEnv.getName === ENV_MOUNTED_FILES_FROM_SECRET_DIR)
+    assert(addedEnv.getValue === "/var/data/spark-submitted-files")
+  }
+
   test("Maps submitted files in the system properties") {
     val resolvedSystemProperties = stepUnderTest.getAdditionalPodSystemProperties()
     val expectedSystemProperties = Map(
