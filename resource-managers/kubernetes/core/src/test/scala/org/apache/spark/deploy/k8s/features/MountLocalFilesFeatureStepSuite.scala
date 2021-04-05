@@ -32,12 +32,12 @@ import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.submit.JavaMainAppResource
 import org.apache.spark.util.Utils
 
-class MountLocalDriverFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter {
+class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter {
 
   private var kubernetesConf: KubernetesDriverConf = _
   private var sparkFiles: Seq[String] = _
   private var localFiles: Seq[File] = _
-  private var stepUnderTest: MountLocalDriverFilesFeatureStep = _
+  private var stepUnderTest: MountLocalFilesFeatureStep = _
 
   before {
     val tempDir = Utils.createTempDir()
@@ -61,7 +61,7 @@ class MountLocalDriverFilesFeatureStepSuite extends SparkFunSuite with BeforeAnd
       JavaMainAppResource(None),
       "main",
       Array.empty[String])
-    stepUnderTest = new MountLocalDriverFilesFeatureStep(kubernetesConf)
+    stepUnderTest = new MountLocalFilesFeatureStep(kubernetesConf)
   }
 
   test("Attaches a secret volume and secret name") {

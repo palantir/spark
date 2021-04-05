@@ -44,7 +44,7 @@ import org.apache.spark.util.Utils
  * Spark's out-of-the-box solution is in [[BasicDriverFeatureStep]] and serves local files by
  * uploading them to an HCFS and serving them from there.
  */
-private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
+private[spark] class MountLocalFilesFeatureStep(conf: KubernetesDriverConf)
   extends KubernetesFeatureConfigStep {
 
   private val enabled = conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)
