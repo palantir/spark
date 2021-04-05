@@ -20,6 +20,7 @@ package org.apache.spark.deploy.k8s.features
 import java.io.File
 import java.net.URI
 import java.nio.file.Paths
+import java.util.Locale
 
 import scala.collection.JavaConverters._
 
@@ -51,7 +52,7 @@ private[spark] class MountLocalFilesFeatureStep(conf: KubernetesDriverConf)
 
   private val mountPath = conf.get(KUBERNETES_SECRET_FILE_MOUNT_PATH)
 
-  private val secretName = s"${conf.resourceNamePrefix}-mounted-files"
+  private val secretName = s"${secretNamePrefix()}-mounted-files"
 
   def allFiles: Seq[String] = {
     Utils.stringToSeq(conf.sparkConf.get(FILES.key, "")) ++
@@ -132,4 +133,14 @@ private[spark] class MountLocalFilesFeatureStep(conf: KubernetesDriverConf)
       case _ => false
     }
   }
+
+  // Like KubernetesConf#getResourceNamePrefix but unique per app, not per resource.
+  private def secretNamePrefix() =
+    s"${conf.appName}"
+      .trim
+      .toLowerCase(Locale.ROOT)
+      .replaceAll("\\s+", "-")
+      .replaceAll("\\.", "-")
+      .replaceAll("[^a-z0-9\\-]", "")
+      .replaceAll("-+", "-")
 }

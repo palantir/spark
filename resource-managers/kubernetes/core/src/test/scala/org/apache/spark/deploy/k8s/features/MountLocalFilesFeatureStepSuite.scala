@@ -52,6 +52,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
       "https://localhost:9000/file4.txt")
     localFiles = Seq(firstLocalFile, secondLocalFile)
     val sparkConf = new SparkConf(false)
+      .setAppName("test-app")
       .set("spark.files", sparkFiles.mkString(","))
       .set(KUBERNETES_SECRET_FILE_MOUNT_ENABLED, true)
       .set(KUBERNETES_SECRET_FILE_MOUNT_PATH, "/var/data/spark-submitted-files")
@@ -69,7 +70,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
     assert(configuredPod.pod.getSpec.getVolumes.size === 1)
     val volume = configuredPod.pod.getSpec.getVolumes.get(0)
     assert(volume.getName === "submitted-files")
-    assert(volume.getSecret.getSecretName === s"${kubernetesConf.resourceNamePrefix}-mounted-files")
+    assert(volume.getSecret.getSecretName === "test-app-mounted-files")
     assert(configuredPod.container.getVolumeMounts.size === 1)
     val volumeMount = configuredPod.container.getVolumeMounts.get(0)
     assert(volumeMount.getName === "submitted-files")
@@ -98,7 +99,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
     assert(secrets.size === 1)
     assert(secrets.head.isInstanceOf[Secret])
     val secret = secrets.head.asInstanceOf[Secret]
-    assert(secret.getMetadata.getName === s"${kubernetesConf.resourceNamePrefix}-mounted-files")
+    assert(secret.getMetadata.getName === "test-app-mounted-files")
     val secretData = secret.getData.asScala
     assert(secretData.size === 2)
     assert(decodeToUtf8(secretData("file1.txt")) === "a")
