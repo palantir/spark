@@ -35,7 +35,7 @@ import org.apache.spark.internal.config.FILES
 import org.apache.spark.util.Utils
 
 /**
- * Mount local files listed in `spark.files` into a volume on the driver.
+ * Mount local files listed in `spark.files` into a volume on drivers and executors.
  *
  * The volume is populated using a secret which in turn is populated with the base64-encoded
  * file contents. The volume is only mounted into drivers, not executors. That's because drivers
@@ -45,16 +45,10 @@ import org.apache.spark.util.Utils
  * Spark's out-of-the-box solution is in [[BasicDriverFeatureStep]] and serves local files by
  * uploading them to an HCFS and serving them from there.
  */
-private[spark] class MountLocalFilesFeatureStep(conf: KubernetesDriverConf)
-  extends KubernetesFeatureConfigStep {
+private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
+  extends MountLocalFilesFeatureStep(conf) {
 
-  private val enabled = conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)
-
-  private val mountPath = conf.get(KUBERNETES_SECRET_FILE_MOUNT_PATH)
-
-  private val secretName = s"${secretNamePrefix()}-mounted-files"
-
-  def allFiles: Seq[String] = {
+  override def allFiles: Seq[String] = {
     Utils.stringToSeq(conf.sparkConf.get(FILES.key, "")) ++
       (conf.mainAppResource match {
         case JavaMainAppResource(_) => Nil
@@ -62,6 +56,31 @@ private[spark] class MountLocalFilesFeatureStep(conf: KubernetesDriverConf)
         case RMainAppResource(res) => Seq(res)
       })
   }
+}
+
+private[spark] class MountLocalExecutorFilesFeatureStep(conf: KubernetesConf)
+  extends MountLocalFilesFeatureStep(conf) {
+
+  override def allFiles: Seq[String] = Nil
+}
+
+private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
+  extends KubernetesFeatureConfigStep {
+
+  private val enabled = conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)
+
+  private val mountPath = conf.get(KUBERNETES_SECRET_FILE_MOUNT_PATH)
+
+  /**
+   * Secret name needs to be the same for drivers and executors because both will have a volume
+   * populated by the secret, but Spark's k8s client will only store the secret configured on the
+   * driver. If the secret names don't match, executors will fail to mount the volume.
+   *
+   * @return name of per-app secret resource from which to mount volume.
+   */
+  private val secretName = s"${secretNamePrefix()}-mounted-files"
+
+  def allFiles: Seq[String]
 
   override def configurePod(pod: SparkPod): SparkPod = {
     if (!enabled) return pod
@@ -134,7 +153,10 @@ private[spark] class MountLocalFilesFeatureStep(conf: KubernetesDriverConf)
     }
   }
 
-  // Like KubernetesConf#getResourceNamePrefix but unique per app, not per resource.
+  /**
+   * Like [[KubernetesConf.getResourceNamePrefix()]] but unique per app, not per resource, because
+   * we want drivers and executors to share one resource for their mounted volume.
+   */
   private def secretNamePrefix() =
     s"${conf.appName}"
       .trim

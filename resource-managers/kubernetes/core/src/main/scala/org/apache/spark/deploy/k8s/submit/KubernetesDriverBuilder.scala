@@ -49,7 +49,7 @@ private[spark] class KubernetesDriverBuilder {
       new KerberosConfDriverFeatureStep(conf),
       new PodTemplateConfigMapStep(conf),
       new LocalDirsFeatureStep(conf),
-      new MountLocalFilesFeatureStep(conf))
+      new MountLocalDriverFilesFeatureStep(conf))
 
     val spec = KubernetesDriverSpec(
       initialPod,

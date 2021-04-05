@@ -37,7 +37,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
   private var kubernetesConf: KubernetesDriverConf = _
   private var sparkFiles: Seq[String] = _
   private var localFiles: Seq[File] = _
-  private var stepUnderTest: MountLocalFilesFeatureStep = _
+  private var stepUnderTest: MountLocalDriverFilesFeatureStep = _
 
   before {
     val tempDir = Utils.createTempDir()
@@ -62,7 +62,7 @@ class MountLocalFilesFeatureStepSuite extends SparkFunSuite with BeforeAndAfter 
       JavaMainAppResource(None),
       "main",
       Array.empty[String])
-    stepUnderTest = new MountLocalFilesFeatureStep(kubernetesConf)
+    stepUnderTest = new MountLocalDriverFilesFeatureStep(kubernetesConf)
   }
 
   test("Attaches a secret volume and secret name") {
