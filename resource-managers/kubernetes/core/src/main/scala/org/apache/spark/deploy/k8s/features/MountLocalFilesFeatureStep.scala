@@ -44,6 +44,8 @@ import org.apache.spark.util.Utils
  * This is a Palantir addition that works well for the small files we tend to add in `spark.files`.
  * Spark's out-of-the-box solution is in [[BasicDriverFeatureStep]] and serves local files by
  * uploading them to an HCFS and serving them from there.
+ *
+ * Files mounted here are copied into driver and executor working directories in the entrypoint.sh.
  */
 private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
   extends MountLocalFilesFeatureStep(conf) {

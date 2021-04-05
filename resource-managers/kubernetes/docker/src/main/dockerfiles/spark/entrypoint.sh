@@ -66,8 +66,11 @@ if ! [ -z ${HADOOP_CONF_DIR+x} ]; then
   SPARK_CLASSPATH="$HADOOP_CONF_DIR:$SPARK_CLASSPATH";
 fi
 
+# (Palantir) Copy files from secret-mounted volume into working directory
+# See org.apache.spark.deploy.k8s.features.MountLocalFilesFeatureStep
 if [ -n "$SPARK_MOUNTED_FILES_FROM_SECRET_DIR" ]; then
   cp -R "$SPARK_MOUNTED_FILES_FROM_SECRET_DIR/." .
+  echo "Copied secret-mounted files from $SPARK_MOUNTED_FILES_FROM_SECRET_DIR"
 fi
 
 case "$1" in
