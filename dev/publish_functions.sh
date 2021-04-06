@@ -8,6 +8,10 @@ get_version() {
   git describe --tags --first-parent
 }
 
+get_release_type() {
+  [ -n "${CIRCLE_TAG-}" ] && echo "release" || echo "snapshot"
+}
+
 set_version_and_package() {
   version=$(get_version)
   ./build/mvn versions:set -DnewVersion="$version"
@@ -21,13 +25,15 @@ set_version_and_install() {
 }
 
 publish_artifacts() {
+  # Set maven credentials
   tmp_settings="tmp-settings.xml"
   echo "<settings><servers><server>" > $tmp_settings
-  echo "<id>bintray-palantir-release</id><username>$BINTRAY_USERNAME</username>" >> $tmp_settings
-  echo "<password>$BINTRAY_PASSWORD</password>" >> $tmp_settings
+  echo "<id>internal-palantir-repository</id><username>$ARTIFACTORY_USERNAME</username>" >> $tmp_settings
+  echo "<password>$ARTIFACTORY_PASSWORD</password>" >> $tmp_settings
   echo "</server></servers></settings>" >> $tmp_settings
 
-  ./build/mvn --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
+  # We need to point at a different push repo based on the fact that it's a release or a snapshot
+  ./build/mvn -DaltDeploymentRepository=internal-palantir-repository::https://publish.artifactory.palantir.build/artifactory/internal-jar-fork-$(get_release_type) --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
 }
 
 make_dist() {
@@ -39,7 +45,7 @@ make_dist() {
 }
 
 make_dist_and_deploy() {
+  # The dist is a tar containing all needed to run spark. Used by pyspark-conda to extract python sources.
   make_dist
-  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -T "$file_name" "https://api.bintray.com/content/palantir/releases/spark/${version}/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
-  curl -u $BINTRAY_USERNAME:$BINTRAY_PASSWORD -X POST "https://api.bintray.com/content/palantir/releases/spark/${version}/publish"
+  curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD -T "$file_name" "https://publish.artifactory.palantir.build/artifactory/internal-dist-fork-$(get_release_type)/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
 }

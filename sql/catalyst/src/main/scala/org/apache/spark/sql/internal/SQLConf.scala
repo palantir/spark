@@ -2489,6 +2489,7 @@ object SQLConf {
       .version("3.0.0")
       .stringConf
       .createWithDefault(
+        // TODO(lmartini): add internal jar for hadoop when it moves over
         // TODO(palantir): Bintray is needed here because our Hadoop differs
         "https://maven-central.storage-download.googleapis.com/maven2/," +
         "http://dl.bintray.com/palantir/releases")

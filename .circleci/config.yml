@@ -32,7 +32,7 @@ deployable-branches-and-tags: &deployable-branches-and-tags
     branches:
       only:
         - /palantir-.*/
-        - master
+        - develop
 
 # Step templates
 
@@ -82,9 +82,7 @@ step_templates:
 
         mkdir -p ~/.ssh
 
-        echo 'github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==
-        bitbucket.org ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==
-        ' >> ~/.ssh/known_hosts
+        echo 'github.palantir.build ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCZqCCblwTe9+J3bttI7Hvm7rpFw330WIlsTxx6EFejUS3jqdxb2fYCrbutQCWJgyXEvrJqEu8D0tYwXklAEflUNajrGLdNt4e1HKuIcmH8FSN5Y6JioVBgew8COJUwj4IKOedXh67QV8qH8+OtkR0TkqSjXWx+p7Fynyl09indGyNswEgYfmOsWfTDFft2SwlwVg9DrMZn35b97kIXayDCv5JaTVgXYspVXEuoEd32lBFpM0fSoCBKxWMoAoKJbGtgxdisQ3kxigD2J3Z+lLBWB/j5T4ay5xceIvgyI/Cv+nQFWseEsKy72Q3M0Z9reyN5uUyzvQRrBCaxy+fE0Qex' >> ~/.ssh/known_hosts
 
         (umask 077; touch ~/.ssh/id_rsa)
         chmod 0600 ~/.ssh/id_rsa
@@ -484,10 +482,6 @@ jobs:
           key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
       - *restore-build-binaries-cache
 
-      - run: echo "user=$BINTRAY_USERNAME" > .credentials
-      - run: echo "password=$BINTRAY_PASSWORD" >> .credentials
-      - run: echo "realm=Bintray API Realm" >> .credentials
-      - run: echo "host=api.bintray.com" >> .credentials
       - deploy:
           command: dev/publish.sh
       - store_artifacts:
@@ -547,6 +541,7 @@ workflows:
           requires:
             - build-maven
             - build-sbt
+            - build-maven-versioned
             # Tests
             - run-style-tests
             - run-build-tests
@@ -554,5 +549,4 @@ workflows:
             - run-scala-tests
             - run-python-tests
             - run-r-tests
-            - build-maven-versioned
           <<: *deployable-branches-and-tags

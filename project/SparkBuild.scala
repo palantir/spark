@@ -225,6 +225,7 @@ object SparkBuild extends PomBuild {
 
     // Override SBT's default resolvers:
     resolvers := Seq(
+      // TODO(lmartini): add internal palantir once hadoop moves over
       Resolver.bintrayRepo("palantir", "releases"),
       // Google Mirror of Maven Central, placed first so that it's used instead of flaky Maven Central.
       // See https://storage-download.googleapis.com/maven-central/index.html for more info.

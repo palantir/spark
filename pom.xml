@@ -266,13 +266,14 @@
   </properties>
   <distributionManagement>
     <repository>
-      <id>bintray-palantir-release</id>
-      <url>https://api.bintray.com/maven/palantir/releases/spark/</url>
+      <!-- URL of the repository is passed in via -DaltDeploymentRepository from publish_functions.sh -->
+      <id>internal-palantir-repository</id>
     </repository>
   </distributionManagement>
   <repositories>
     <repository>
       <id>palantir</id>
+      <!-- // TODO(lmartini): Add internal jar mirror when hadoop/parquet move over -->
       <!-- This should be at top, it makes maven try the central repo first and then others and hence faster dep resolution -->
       <name>Palantir Maven Repository</name>
       <url>http://dl.bintray.com/palantir/releases</url>

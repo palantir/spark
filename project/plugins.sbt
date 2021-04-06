@@ -32,6 +32,7 @@ addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.9.2")
 
 addSbtPlugin("org.scalastyle" %% "scalastyle-sbt-plugin" % "1.0.0")
 
+// TODO(lmartini): Get from somewhere else
 // SPARK-29560 Only sbt-mima-plugin needs this repo
 resolvers += Resolver.url("bintray",
   new java.net.URL("https://dl.bintray.com/typesafe/sbt-plugins"))(Resolver.defaultIvyPatterns)
