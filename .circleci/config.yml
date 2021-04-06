@@ -420,6 +420,13 @@ jobs:
           key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
           paths: ~/.m2
 
+  circle-all:
+    docker:
+      - image: palantirtechnologies/circle-spark-r:0.2.4
+    resource_class: small
+    steps:
+      - run: {command: echo "All required jobs finished successfully"}
+
 workflows:
   version: 2
   build-test:
