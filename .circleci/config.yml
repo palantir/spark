@@ -243,16 +243,6 @@ jobs:
             - 'examples/target/scala-*/jars'
             - 'external/*/target/scala-*/*.jar'
 
-  run-spark-docker-gradle-plugin-tests:
-    <<: *test-defaults
-    resource_class: medium
-    steps:
-      - *checkout-code
-      - *restore-gradle-wrapper-cache
-      - *restore-gradle-cache
-      - setup_remote_docker: { docker_layer_caching: true }
-      - run: ./gradlew --info --parallel --continue --stacktrace test
-
   run-backcompat-tests:
     # depends on build-sbt
     <<: *defaults
@@ -446,8 +436,6 @@ workflows:
           <<: *all-branches-and-tags
       - build-sbt:
           <<: *all-branches-and-tags
-      - build-spark-docker-gradle-plugin:
-          <<: *all-branches-and-tags
       - run-backcompat-tests:
           requires:
             - build-sbt
@@ -455,10 +443,6 @@ workflows:
       - run-scala-tests:
           requires:
             - build-sbt
-          <<: *all-branches-and-tags
-      - run-spark-docker-gradle-plugin-tests:
-          requires:
-            - build-spark-docker-gradle-plugin
           <<: *all-branches-and-tags
       - run-python-tests:
           requires:
