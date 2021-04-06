@@ -39,10 +39,7 @@ step_templates:
         - v8-ivy-dependency-cache-{{ .Branch }}-
         - v8-ivy-dependency-cache-master-{{ checksum "pom.xml" }}
         - v8-ivy-dependency-cache-master-
-  restore-gradle-wrapper-cache: &restore-gradle-wrapper-cache
-    restore_cache: { key: 'gradle-wrapper-v2-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}' }
-  restore-gradle-cache: &restore-gradle-cache
-    restore_cache: { key: 'gradle-cache-v2-{{ checksum "versions.props" }}-{{ checksum "build.gradle" }}' }
+
   restore-home-sbt-cache: &restore-home-sbt-cache
     restore_cache:
       keys:
@@ -157,23 +154,6 @@ jobs:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
           paths:
             - ~/.m2
-      # And finally save the whole project directory
-      #- save_cache:
-      #    key: build-maven-{{ .Branch }}-{{ .BuildNum }}
-      #    paths: .
-  build-spark-docker-gradle-plugin:
-    <<: *defaults
-    steps:
-      - *checkout-code
-      - *restore-gradle-wrapper-cache
-      - *restore-gradle-cache
-      - run: ./gradlew --info --stacktrace check -x test
-      - save_cache:
-          key: 'gradle-wrapper-v2-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}'
-          paths: [ ~/.gradle/wrapper ]
-      - save_cache:
-          key: 'gradle-cache-v2-{{ checksum "versions.props" }}-{{ checksum "build.gradle" }}'
-          paths: [ ~/.gradle/caches ]
 
   run-style-tests:
     # depends only on build-maven
