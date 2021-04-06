@@ -36,6 +36,24 @@ publish_artifacts() {
   ./build/mvn -DaltDeploymentRepository=internal-palantir-repository::https://publish.artifactory.palantir.build/artifactory/internal-jar-fork-$(get_release_type) --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
 }
 
+publish_spark_docker_resources() {
+  ./dev/make-spark-docker-resources.sh
+  spark_docker_tmp_settings="spark-docker-settings.xml"
+  echo "<settings><servers><server>" > $spark_docker_tmp_settings
+  echo "<id>internal-palantir-repository</id><username>$ARTIFACTORY_USERNAME</username>" >> $spark_docker_tmp_settings
+  echo "<password>$ARTIFACTORY_PASSWORD</password>" >> $spark_docker_tmp_settings
+  echo "</server></servers></settings>" >> $spark_docker_tmp_settings
+  ./build/mvn deploy:deploy-file \
+    -DgroupId=org.apache.spark \
+    -DartifactId=spark-docker-resources \
+    -Dversion=$(get_version) \
+    -Dpackaging=zip \
+    -Dfile=docker-resources.zip \
+    -DrepositoryId=internal-palantir-repository \
+    -Durl=https://publish.artifactory.palantir.build/artifactory/internal-dist-fork-$(get_release_type) \
+    --settings $spark_docker_tmp_settings
+}
+
 make_dist() {
   version=$(get_version)
   hadoop_name="hadoop-palantir"

@@ -463,10 +463,8 @@ jobs:
       - image: palantirtechnologies/circle-spark-r:0.2.4
     steps:
       - *checkout-code
-      - *restore-gradle-wrapper-cache
-      - *restore-gradle-cache
       - deploy:
-          command: ./gradlew --parallel --continue --stacktrace --no-daemon bintrayUpload
+          command: dev/publish_docker_resources.sh
 
   deploy:
     <<: *defaults

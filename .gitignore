@@ -104,3 +104,7 @@ spark-warehouse/
 
 # For SBT
 .jvmopts
+
+# Spark-docker resources
+docker-resources.zip
+spark-docker-resources-*
