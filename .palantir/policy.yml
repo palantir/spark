@@ -1,0 +1,6 @@
+# Excavator auto-updates this file. Please contribute improvements to the central template:
+# https://github.palantir.build/foundry/standards/blob/develop/policy-bot/default.yml
+
+remote: foundry/standards
+path: policy-bot/default.yml
+ref: develop
