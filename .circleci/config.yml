@@ -269,7 +269,6 @@ jobs:
           path: /tmp/run-backcompat-tests.log
           destination: run-backcompat-tests.log
 
-
   run-python-tests:
     # depends on build-sbt, but we only need the assembly jars
     <<: *defaults
@@ -294,7 +293,6 @@ jobs:
       - store_artifacts:
           path: python/unit-tests.log
 
-
   run-r-tests:
     # depends on build-sbt, but we only need the assembly jars
     <<: *defaults
@@ -310,7 +308,6 @@ jobs:
       - run: dev/run-r-tests.py
       - store_test_results:
           path: target/R
-
 
   run-scala-tests:
     <<: *test-defaults
@@ -415,9 +412,6 @@ jobs:
       - image: palantirtechnologies/circle-spark-r:0.2.4
     steps:
       - *checkout-code
-      - restore_cache:
-          key: maven-dependency-cache-{{ checksum "pom.xml" }}
-      - *restore-build-binaries-cache
       - run:
           command: dev/set_version_and_package.sh
           no_output_timeout: 15m
@@ -429,6 +423,9 @@ jobs:
       - save_cache:
           key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
           paths: ~/.m2
+      - persist_to_workspace:
+          root: .
+          paths: 'local_deploy/'
 
   deploy-spark-docker-resources:
     <<: *defaults
@@ -517,8 +514,6 @@ workflows:
             - build-sbt
           <<: *all-branches-and-tags
       - build-maven-versioned:
-          requires:
-            - build-maven
           <<: *all-branches-and-tags
       - circle-all:
           requires:

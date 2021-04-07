@@ -13,9 +13,11 @@ get_release_type() {
 }
 
 set_version_and_package() {
+  # Create a local maven deploy such that publish can grab it and sync it with remote repository afterwards
+  mkdir local_deploy
   version=$(get_version)
   ./build/mvn versions:set -DnewVersion="$version"
-  ./build/mvn -DskipTests "${PALANTIR_FLAGS[@]}" package
+  ./build/mvn -DaltDeploymentRepository=staging-repository::file://local_deploy -DskipTests "${PALANTIR_FLAGS[@]}" deploy
 }
 
 set_version_and_install() {
@@ -32,8 +34,13 @@ publish_artifacts() {
   echo "<password>$ARTIFACTORY_PASSWORD</password>" >> $tmp_settings
   echo "</server></servers></settings>" >> $tmp_settings
 
+  # Push the local maven deploy created by set_version_and_package task
   # We need to point at a different push repo based on the fact that it's a release or a snapshot
-  ./build/mvn -DaltDeploymentRepository=internal-palantir-repository::https://publish.artifactory.palantir.build/artifactory/internal-jar-fork-$(get_release_type) --settings $tmp_settings -DskipTests "${PALANTIR_FLAGS[@]}" deploy
+  ./build/mvn org.codehaus.mojo:wagon-maven-plugin:2.0.2:merge-maven-repos \
+    -Dwagon.targetId=internal-palantir-repository \
+    -Dwagon.source=file://local_deploy \
+    -Dwagon.target=https://publish.artifactory.palantir.build/artifactory/internal-jar-fork-$(get_release_type) \
+    --settings $tmp_settings
 }
 
 publish_spark_docker_resources() {

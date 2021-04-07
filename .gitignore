@@ -83,6 +83,8 @@ work/
 dev/pr-deps
 docs/.jekyll-metadata
 docs/.jekyll-cache
+local_deploy/
+*.versionsBackup
 
 # For Hive
 TempStatsStore/
