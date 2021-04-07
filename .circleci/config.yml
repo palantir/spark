@@ -456,11 +456,33 @@ jobs:
       - deploy:
           command: dev/publish.sh
       - store_artifacts:
-          path: /tmp/make-dist.log
-          destination: make-dist.log
-      - store_artifacts:
           path: /tmp/publish_artifacts.log
           destination: publish_artifacts.log
+
+  deploy-dist:
+    # This task is dedicated to the dist publishing.
+    <<: *defaults
+    docker:
+      - image: palantirtechnologies/circle-spark-r:0.2.4
+    steps:
+      - restore_cache:
+          key: v1-maven-build-with-version-{{ .Branch }}-{{ .Revision }}
+      - restore_cache:
+          key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
+      - *restore-build-binaries-cache
+
+      - deploy:
+          command: dev/publish_dist.sh
+      - store_artifacts:
+          path: /tmp/make-dist.log
+          destination: make-dist.log
+
+  circle-all:
+    docker:
+      - image: palantirtechnologies/circle-spark-r:0.2.4
+    resource_class: small
+    steps:
+      - run: {command: echo "All required jobs finished successfully"}
 
 workflows:
   version: 2
@@ -498,9 +520,7 @@ workflows:
           requires:
             - build-maven
           <<: *all-branches-and-tags
-      - deploy-spark-docker-resources:
-          <<: *deployable-branches-and-tags
-      - deploy:
+      - circle-all:
           requires:
             - build-maven
             - build-sbt
@@ -512,4 +532,16 @@ workflows:
             - run-scala-tests
             - run-python-tests
             - run-r-tests
+          <<: *all-branches-and-tags
+      - deploy-spark-docker-resources:
+          requires:
+            - circle-all
+          <<: *deployable-branches-and-tags
+      - deploy:
+          requires:
+            - circle-all
+          <<: *deployable-branches-and-tags
+      - deploy-dist:
+          requires:
+            - circle-all
           <<: *deployable-branches-and-tags

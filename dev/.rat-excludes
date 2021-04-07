@@ -114,6 +114,7 @@ spark-warehouse
 circle.yml
 .credentials
 publish.sh
+publish_dist.sh
 publish-local.sh
 publish_docker_resources.sh
 publish_functions.sh
