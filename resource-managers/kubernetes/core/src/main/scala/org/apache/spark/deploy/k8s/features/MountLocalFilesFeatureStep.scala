@@ -20,13 +20,14 @@ package org.apache.spark.deploy.k8s.features
 import java.io.File
 import java.net.URI
 import java.nio.file.Paths
+import java.util.Locale
 
 import scala.collection.JavaConverters._
 
 import com.google.common.io.{BaseEncoding, Files}
 import io.fabric8.kubernetes.api.model.{ContainerBuilder, HasMetadata, PodBuilder, SecretBuilder}
 
-import org.apache.spark.deploy.k8s.{KubernetesConf, KubernetesDriverConf, SparkPod}
+import org.apache.spark.deploy.k8s.{KubernetesConf, KubernetesDriverConf, KubernetesExecutorConf, SparkPod}
 import org.apache.spark.deploy.k8s.Config._
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.deploy.k8s.submit.{JavaMainAppResource, PythonMainAppResource, RMainAppResource}
@@ -34,7 +35,7 @@ import org.apache.spark.internal.config.FILES
 import org.apache.spark.util.Utils
 
 /**
- * Mount local files listed in `spark.files` into a volume on the driver.
+ * Mount local files listed in `spark.files` into a volume on drivers and executors.
  *
  * The volume is populated using a secret which in turn is populated with the base64-encoded
  * file contents. The volume is only mounted into drivers, not executors. That's because drivers
@@ -43,24 +44,31 @@ import org.apache.spark.util.Utils
  * This is a Palantir addition that works well for the small files we tend to add in `spark.files`.
  * Spark's out-of-the-box solution is in [[BasicDriverFeatureStep]] and serves local files by
  * uploading them to an HCFS and serving them from there.
+ *
+ * Files mounted here are copied into driver and executor working directories in the entrypoint.sh.
  */
-private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
+private[spark] abstract class MountLocalFilesFeatureStep(conf: KubernetesConf)
   extends KubernetesFeatureConfigStep {
 
-  private val enabled = conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)
+  /**
+   * Whether secret-based file mounting is enabled for local files added to {{spark.files}}.
+   * If disabled, local files are mounted using Spark's (non-Palantir) mechanism via an HCFS.
+   */
+  protected val enabled: Boolean = conf.get(KUBERNETES_SECRET_FILE_MOUNT_ENABLED)
 
-  private val mountPath = conf.get(KUBERNETES_SECRET_FILE_MOUNT_PATH)
+  /**
+   * The path at which the secret-populated volume is mounted.
+   */
+  protected val mountPath: String = conf.get(KUBERNETES_SECRET_FILE_MOUNT_PATH)
 
-  private val secretName = s"${conf.resourceNamePrefix}-mounted-files"
-
-  def allFiles: Seq[String] = {
-    Utils.stringToSeq(conf.sparkConf.get(FILES.key, "")) ++
-      (conf.mainAppResource match {
-        case JavaMainAppResource(_) => Nil
-        case PythonMainAppResource(res) => Seq(res)
-        case RMainAppResource(res) => Seq(res)
-      })
-  }
+  /**
+   * Secret name needs to be the same for drivers and executors because both will have a volume
+   * populated by the secret, but Spark's k8s client will only store the secret configured on the
+   * driver. If the secret names don't match, executors will fail to mount the volume.
+   *
+   * @return name of per-app secret resource from which to mount volume.
+   */
+  protected val secretName: String
 
   override def configurePod(pod: SparkPod): SparkPod = {
     if (!enabled) return pod
@@ -71,6 +79,11 @@ private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf
           .withName("submitted-files")
           .withNewSecret()
             .withSecretName(secretName)
+            // While we re-enable secret mounting for executors, the secret-name between drivers
+            // and executors might not match. When that happens, we prefer empty directories over
+            // failed pods. Thus marking optional.
+            // TODO(wraschkowski): Make non-optional once SMM upgrades its spark-submit
+            .withOptional(true)
             .endSecret()
           .endVolume()
         .endSpec()
@@ -87,6 +100,12 @@ private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf
       .build()
     SparkPod(resolvedPod, resolvedContainer)
   }
+}
+
+private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf)
+  extends MountLocalFilesFeatureStep(conf) {
+
+  override protected val secretName: String = s"${conf.appId}-mounted-files"
 
   override def getAdditionalPodSystemProperties(): Map[String, String] = {
     if (!enabled) return Map.empty
@@ -125,6 +144,15 @@ private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf
     Seq(localFilesSecret)
   }
 
+  private def allFiles: Seq[String] = {
+    Utils.stringToSeq(conf.sparkConf.get(FILES.key, "")) ++
+      (conf.mainAppResource match {
+        case JavaMainAppResource(_) => Nil
+        case PythonMainAppResource(res) => Seq(res)
+        case RMainAppResource(res) => Seq(res)
+      })
+  }
+
   private def shouldMountFile(file: URI): Boolean = {
     Option(file.getScheme) match {
       case Some("file") => true
@@ -133,3 +161,11 @@ private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf
     }
   }
 }
+
+private[spark] class MountLocalExecutorFilesFeatureStep(conf: KubernetesExecutorConf)
+  extends MountLocalFilesFeatureStep(conf) {
+
+  override protected val secretName: String = s"${conf.appId}-mounted-files"
+}
+
+
