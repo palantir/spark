@@ -2,15 +2,13 @@
 
 set -euo pipefail
 
-get_version() {
-  git describe --tags --first-parent
-}
-
 # This script zips resources needed to have spark modules run in kubernetes.
-base_folder="spark-docker-resources-$(get_version)"
-mkdir -p ./$base_folder/kubernetes/dockerfiles/spark
-cp ./resource-managers/kubernetes/docker/src/main/dockerfiles/spark/Dockerfile ./$base_folder/kubernetes/dockerfiles/spark/Dockerfile.original
-cp ./resource-managers/kubernetes/docker/src/main/dockerfiles/spark/entrypoint.sh ./$base_folder/kubernetes/dockerfiles/spark
-cp -a bin ./$base_folder
-cp -a sbin ./$base_folder
-zip -r docker-resources.zip $base_folder
+docker_resources_temporary_folder="docker_resources_temporary_folder"
+mkdir -p ./$docker_resources_temporary_folder/kubernetes/dockerfiles/spark
+cp ./resource-managers/kubernetes/docker/src/main/dockerfiles/spark/Dockerfile ./$docker_resources_temporary_folder/kubernetes/dockerfiles/spark/Dockerfile.original
+cp ./resource-managers/kubernetes/docker/src/main/dockerfiles/spark/entrypoint.sh ./$docker_resources_temporary_folder/kubernetes/dockerfiles/spark
+cp -a bin $docker_resources_temporary_folder/bin
+cp -a sbin $docker_resources_temporary_folder/sbin
+# We have to get into the folder or the folder itself will be part of the zip
+(cd $docker_resources_temporary_folder && zip -r docker-resources.zip bin sbin kubernetes)
+mv $docker_resources_temporary_folder/docker-resources.zip docker-resources.zip

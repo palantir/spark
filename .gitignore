@@ -109,3 +109,4 @@ spark-warehouse/
 # Spark-docker resources
 docker-resources.zip
 spark-docker-resources-*
+docker_resources_temporary_folder
