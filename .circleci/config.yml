@@ -25,15 +25,6 @@ all-branches-and-tags: &all-branches-and-tags
     tags:
       only: /.*/
 
-deployable-branches-and-tags: &deployable-branches-and-tags
-  filters:
-    tags:
-      only: /[0-9]+(?:\.[0-9]+){2,}-palantir\.[0-9]+(?:\.[0-9]+)*/
-    branches:
-      only:
-        - /palantir-.*/
-        - master
-
 # Step templates
 
 step_templates:
@@ -48,10 +39,7 @@ step_templates:
         - v8-ivy-dependency-cache-{{ .Branch }}-
         - v8-ivy-dependency-cache-master-{{ checksum "pom.xml" }}
         - v8-ivy-dependency-cache-master-
-  restore-gradle-wrapper-cache: &restore-gradle-wrapper-cache
-    restore_cache: { key: 'gradle-wrapper-v2-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}' }
-  restore-gradle-cache: &restore-gradle-cache
-    restore_cache: { key: 'gradle-cache-v2-{{ checksum "versions.props" }}-{{ checksum "build.gradle" }}' }
+
   restore-home-sbt-cache: &restore-home-sbt-cache
     restore_cache:
       keys:
@@ -166,23 +154,6 @@ jobs:
           key: maven-dependency-cache-{{ checksum "pom.xml" }}
           paths:
             - ~/.m2
-      # And finally save the whole project directory
-      #- save_cache:
-      #    key: build-maven-{{ .Branch }}-{{ .BuildNum }}
-      #    paths: .
-  build-spark-docker-gradle-plugin:
-    <<: *defaults
-    steps:
-      - *checkout-code
-      - *restore-gradle-wrapper-cache
-      - *restore-gradle-cache
-      - run: ./gradlew --info --stacktrace check -x test
-      - save_cache:
-          key: 'gradle-wrapper-v2-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}'
-          paths: [ ~/.gradle/wrapper ]
-      - save_cache:
-          key: 'gradle-cache-v2-{{ checksum "versions.props" }}-{{ checksum "build.gradle" }}'
-          paths: [ ~/.gradle/caches ]
 
   run-style-tests:
     # depends only on build-maven
@@ -271,16 +242,6 @@ jobs:
             - 'assembly/target/scala-*/jars'
             - 'examples/target/scala-*/jars'
             - 'external/*/target/scala-*/*.jar'
-
-  run-spark-docker-gradle-plugin-tests:
-    <<: *test-defaults
-    resource_class: medium
-    steps:
-      - *checkout-code
-      - *restore-gradle-wrapper-cache
-      - *restore-gradle-cache
-      - setup_remote_docker: { docker_layer_caching: true }
-      - run: ./gradlew --info --parallel --continue --stacktrace test
 
   run-backcompat-tests:
     # depends on build-sbt
@@ -459,47 +420,16 @@ jobs:
           key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
           paths: ~/.m2
 
-  deploy-gradle:
-    <<: *defaults
+  circle-all:
     docker:
       - image: palantirtechnologies/circle-spark-r:0.2.4
+    resource_class: small
     steps:
-      - *checkout-code
-      - *restore-gradle-wrapper-cache
-      - *restore-gradle-cache
-      - deploy:
-          command: ./gradlew --parallel --continue --stacktrace --no-daemon bintrayUpload
-
-  deploy:
-    <<: *defaults
-    # Some part of the maven setup fails if there's no R, so we need to use the R image here
-    docker:
-      - image: palantirtechnologies/circle-spark-r:0.2.4
-    steps:
-      # This cache contains the whole project after version was set and mvn package was called
-      # Restoring first (and instead of checkout) as mvn versions:set mutates real source code...
-      - restore_cache:
-          key: v1-maven-build-with-version-{{ .Branch }}-{{ .Revision }}
-      - restore_cache:
-          key: v1-maven-dependency-cache-versioned-{{ checksum "pom.xml" }}
-      - *restore-build-binaries-cache
-
-      - run: echo "user=$BINTRAY_USERNAME" > .credentials
-      - run: echo "password=$BINTRAY_PASSWORD" >> .credentials
-      - run: echo "realm=Bintray API Realm" >> .credentials
-      - run: echo "host=api.bintray.com" >> .credentials
-      - deploy:
-          command: dev/publish.sh
-      - store_artifacts:
-          path: /tmp/make-dist.log
-          destination: make-dist.log
-      - store_artifacts:
-          path: /tmp/publish_artifacts.log
-          destination: publish_artifacts.log
+      - run: {command: echo "All required jobs finished successfully"}
 
 workflows:
   version: 2
-  build-test-deploy:
+  build-test:
     jobs:
       - build-maven:
           <<: *all-branches-and-tags
@@ -513,8 +443,6 @@ workflows:
           <<: *all-branches-and-tags
       - build-sbt:
           <<: *all-branches-and-tags
-      - build-spark-docker-gradle-plugin:
-          <<: *all-branches-and-tags
       - run-backcompat-tests:
           requires:
             - build-sbt
@@ -522,10 +450,6 @@ workflows:
       - run-scala-tests:
           requires:
             - build-sbt
-          <<: *all-branches-and-tags
-      - run-spark-docker-gradle-plugin-tests:
-          requires:
-            - build-spark-docker-gradle-plugin
           <<: *all-branches-and-tags
       - run-python-tests:
           requires:
@@ -539,14 +463,11 @@ workflows:
           requires:
             - build-maven
           <<: *all-branches-and-tags
-      - deploy-gradle:
-          requires:
-            - run-spark-docker-gradle-plugin-tests
-          <<: *deployable-branches-and-tags
-      - deploy:
+      - circle-all:
           requires:
             - build-maven
             - build-sbt
+            - build-maven-versioned
             # Tests
             - run-style-tests
             - run-build-tests
@@ -554,5 +475,4 @@ workflows:
             - run-scala-tests
             - run-python-tests
             - run-r-tests
-            - build-maven-versioned
-          <<: *deployable-branches-and-tags
+          <<: *all-branches-and-tags
