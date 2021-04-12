@@ -29,6 +29,7 @@ R/pkg/vignettes/sparkr-vignettes.html
 R/pkg/tests/fulltests/Rplots.pdf
 build/*.jar
 build/apache-maven*
+build/junit-reports/
 build/scala*
 build/zinc*
 cache
@@ -84,6 +85,7 @@ work/
 dev/pr-deps
 docs/.jekyll-metadata
 docs/.jekyll-cache
+versions.props
 
 # For Hive
 TempStatsStore/
