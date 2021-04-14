@@ -102,4 +102,20 @@
       <artifactId>spark-kubernetes_${scala.binary.version}</artifactId>
     </dependency>
   </dependencies>
+
+  <!--
+      We need to exclude this pom from deploy because we have to push it to a separate repository.
+      While the deploy will go to `x-jar-x`, the pom must go to `x-dist-x`, because that's where the dist is published
+  -->
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

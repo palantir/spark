@@ -66,6 +66,7 @@ make_dist() {
   hadoop_name="hadoop-palantir"
   artifact_name="spark-dist_2.12-${hadoop_name}"
   file_name="spark-dist-${version}-${hadoop_name}.tgz"
+  pom_file_name="dists/hadoop-palantir/pom.xml"
   ./dev/make-distribution.sh --name "hadoop-palantir" --tgz "$@" "${PALANTIR_FLAGS[@]}"
 }
 
@@ -73,4 +74,5 @@ make_dist_and_deploy() {
   # The dist is a tar containing all needed to run spark. Used by pyspark-conda to extract python sources.
   make_dist
   curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD -T "$file_name" "https://publish.artifactory.palantir.build/artifactory/internal-dist-fork-$(get_release_type)/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.tgz"
+  curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD -T "$pom_file_name" "https://publish.artifactory.palantir.build/artifactory/internal-dist-fork-$(get_release_type)/org/apache/spark/${artifact_name}/${version}/${artifact_name}-${version}.pom"
 }
