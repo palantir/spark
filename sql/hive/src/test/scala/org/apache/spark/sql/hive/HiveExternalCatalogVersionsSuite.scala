@@ -58,6 +58,11 @@ class HiveExternalCatalogVersionsSuite extends SparkSubmitTestUtils {
   // avoid downloading Spark of different versions in each run.
   private val sparkTestingDir = new File("/tmp/test-spark")
   private val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
+  val hiveVersion = if (SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_9)) {
+    "2.3.8"
+  } else {
+    "1.2.1"
+  }
 
   override def afterAll(): Unit = {
     try {
