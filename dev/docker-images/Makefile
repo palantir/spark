@@ -17,7 +17,7 @@
 
 .PHONY: all publish base python r
 
-VERSION=0.2.4
+VERSION=0.2.5
 BASE_IMAGE_NAME = "palantirtechnologies/circle-spark-base:${VERSION}"
 PYTHON_IMAGE_NAME = "palantirtechnologies/circle-spark-python:${VERSION}"
 R_IMAGE_NAME = "palantirtechnologies/circle-spark-r:${VERSION}"

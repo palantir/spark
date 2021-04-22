@@ -2,11 +2,12 @@ version: 2
 
 defaults: &defaults
   docker:
-    - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-base:0.2.4
+    - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-base:0.2.5
   resource_class: xlarge
   environment: &defaults-environment
     TERM: dumb
     BUILD_SBT_CACHE: "/home/circleci/build-sbt-cache"
+    APACHE_MIRROR: https://artifactory.palantir.build/artifactory/external-dist-apache
 
 test-defaults: &test-defaults
   <<: *defaults
@@ -124,7 +125,7 @@ jobs:
     <<: *defaults
     # Some part of the maven setup fails if there's no R, so we need to use the R image here
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
     steps:
       # Saves us from recompiling every time...
       # (And causes compilation failures.)
@@ -257,7 +258,7 @@ jobs:
     # depends on build-sbt, but we only need the assembly jars
     <<: *defaults
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-python:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-python:0.2.5
     parallelism: 2
     steps:
       - *checkout-code
@@ -281,7 +282,7 @@ jobs:
     # depends on build-sbt, but we only need the assembly jars
     <<: *defaults
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
     steps:
       - *checkout-code
       - attach_workspace:
@@ -392,7 +393,7 @@ jobs:
     <<: *defaults
     # Some part of the maven setup fails if there's no R, so we need to use the R image here
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
     steps:
       - *checkout-code
       - run:
@@ -413,7 +414,7 @@ jobs:
   deploy-spark-docker-resources:
     <<: *defaults
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
     steps:
       - *checkout-code
       - deploy:
@@ -423,7 +424,7 @@ jobs:
     <<: *defaults
     # Some part of the maven setup fails if there's no R, so we need to use the R image here
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
     steps:
       # This cache contains the whole project after version was set and mvn package was called
       # Restoring first (and instead of checkout) as mvn versions:set mutates real source code...
@@ -442,7 +443,7 @@ jobs:
     # This task is dedicated to the dist publishing.
     <<: *defaults
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
     steps:
       - restore_cache:
           key: v1-maven-build-with-version-{{ .Branch }}-{{ .Revision }}
@@ -457,10 +458,10 @@ jobs:
 
   circle-all:
     docker:
-      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.4
+      - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
     resource_class: small
     steps:
-      - run: {command: echo "All required jobs finished successfully"}
+      - run: { command: echo "All required jobs finished successfully" }
 
 workflows:
   version: 2

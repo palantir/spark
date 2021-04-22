@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM palantirtechnologies/circle-spark-base:0.2.4
+FROM palantirtechnologies/circle-spark-base:0.2.5
 
 # Install pyenv
 RUN curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash
@@ -24,7 +24,7 @@ ENV PATH="$CIRCLE_HOME/.pyenv/shims:$CIRCLE_HOME/.pyenv/bin:$PATH"
 RUN mkdir -p $(pyenv root)/versions \
   && ln -s $CONDA_ROOT $(pyenv root)/versions/our-miniconda \
   && $CONDA_BIN create -y -n python2 -c anaconda -c conda-forge python==2.7.18 pyarrow==0.15.1 pandas==0.23.2 nomkl \
-  && $CONDA_BIN create -y -n python3 -c anaconda -c conda-forge python=3.6 pyarrow==0.15.1 pandas==0.23.2 nomkl \
+  && $CONDA_BIN create -y -n python3 -c anaconda -c conda-forge python=3.6 pyarrow==1.0.1 pandas==0.23.2 nomkl \
   && $CONDA_BIN clean --all
 
 RUN pyenv global our-miniconda/envs/python2 our-miniconda/envs/python3 \

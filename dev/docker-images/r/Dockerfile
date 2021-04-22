@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM palantirtechnologies/circle-spark-base:0.2.4
+FROM palantirtechnologies/circle-spark-base:0.2.5
 
 # Install R and SparkR dependencies
 # Rscript -e "install.packages(c('knitr', 'rmarkdown', 'devtools', 'testthat', 'e1071', 'survival'), repos='https://cloud.r-project.org/')"
