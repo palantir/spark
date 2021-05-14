@@ -1,11 +1,13 @@
 # Palantir Distribution of Apache Spark
 
-This repository, (ported from https://github.com/palantir/spark), contains a fork of Apache Spark.  It includes a number of changes that are not yet on the Apache master branch that are useful at Palantir.
+This repository, (ported from https://github.com/palantir/spark), contains a fork of Apache Spark. It includes a number of changes that are not yet on the Apache master branch that are useful at Palantir.
 
 Some highlights include:
 
 - predicate pushdown additions, including a patched version of Parquet
 - various misc bugfixes
+
+This fork can be used to bring in changes from upstream Spark and publish versions to internal Palantir Artifactory. The open-source Spark fork must be maintained in sync with this repository in order to have external visibility on our Spark changes.
 
 Artifacts are published to [internal-jar-fork-release](https://artifactory.palantir.build/artifactory/internal-jar-fork-release/)
 Spark distribution is published to [internal-dist-fork-release](https://artifactory.palantir.build/artifactory/internal-dist-fork-release/)
