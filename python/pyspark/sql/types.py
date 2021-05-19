@@ -490,6 +490,18 @@ class StructType(DataType):
         self._needConversion = [f.needConversion() for f in self]
         self._needSerializeAnyField = any(self._needConversion)
 
+        # TODO(wraschkowski): Remove once we drop support for Python 3.5 and lower
+        #
+        # This is Palantir's. When this flag is set, rows created with named arguments
+        # are have their fields re-ordered such that they match the struct names / schema.
+        # E.g. if this struct's names are ['b','a'], then Row(a='a',b='b') becomes in ('b','a').
+        #
+        # For Spark 3.1 we want to deprecate any reordering, but to do so safely we need to check
+        # for out-of-order named arguments and ask users to reorder by hand. But hand reordering
+        # isn't an option in Python <3.6 because it doesn't preserve kwargs order.
+        self._coerce_rows_enabled = \
+            os.environ.get("PYSPARK_COERCE_ROWS_TO_SCHEMA", 'false').lower() == 'true'
+
     def add(self, field, data_type=None, nullable=True, metadata=None):
         """
         Construct a StructType by adding new elements to it, to define the schema.
@@ -601,6 +613,9 @@ class StructType(DataType):
             if isinstance(obj, dict):
                 return tuple(f.toInternal(obj.get(n)) if c else obj.get(n)
                              for n, f, c in zip(self.names, self.fields, self._needConversion))
+            elif isinstance(obj, Row) and self._coerce_rows_enabled:
+                return tuple(f.toInternal(obj[n]) if c else obj[n]
+                             for n, f, c in zip(self.names, self.fields, self._needConversion))
             elif isinstance(obj, (tuple, list)):
                 return tuple(f.toInternal(v) if c else v
                              for f, v, c in zip(self.fields, obj, self._needConversion))
@@ -613,7 +628,8 @@ class StructType(DataType):
         else:
             if isinstance(obj, dict):
                 return tuple(obj.get(n) for n in self.names)
-            elif isinstance(obj, Row) and getattr(obj, "__from_dict__", False):
+            elif isinstance(obj, Row) \
+                    and (getattr(obj, "__from_dict__", False) or self._coerce_rows_enabled):
                 return tuple(obj[n] for n in self.names)
             elif isinstance(obj, (list, tuple)):
                 return tuple(obj)
