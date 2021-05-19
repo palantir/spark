@@ -18,6 +18,7 @@
 
 import array
 import ctypes
+import contextlib
 import datetime
 import os
 import pickle
@@ -994,6 +995,64 @@ class DataTypeVerificationTests(unittest.TestCase):
         self.assertEqual(r, expected)
         self.assertEqual(repr(r), "Row(b=1, a=2)")
         Row._row_field_sorting_enabled = sorting_enabled_tmp
+
+
+class PalantirTests(unittest.TestCase):
+
+    @unittest.skipIf(sys.version < "3", "Reordering non-serializable fields always happens on Py2")
+    def test_coerce_rows_to_schema_without_serialization(self):
+        # If field sorting is enabled, pyspark re-orders values w/o our flag
+        with PalantirTests.row_field_sorting(False):
+            # Sanity check that order is wrong without
+            row = Row(a="a", b="b")
+            schema = StructType([StructField('b', StringType()), StructField('a', StringType())])
+            self.assertNotEqual(schema.toInternal(row), ("b", "a"))
+
+            with PalantirTests.env(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
+                schema_with_coercion = \
+                    StructType([StructField('b', StringType()), StructField('a', StringType())])
+                self.assertEquals(schema_with_coercion.toInternal(row), ("b", "a"))
+
+    def test_coerce_rows_to_schema_needing_serialization(self):
+        from datetime import date
+
+        # Sanity check that order is wrong without, schema needs serialization because of date type
+        schema = StructType([StructField('b', StringType()), StructField('a', DateType())])
+        with self.assertRaises(AttributeError):
+            # Putting 'str' into date field
+            schema.toInternal(Row(a=date(2021, 5, 19), b="b"))
+
+        with PalantirTests.row_field_sorting(False), \
+                PalantirTests.env(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
+            schema_with_coercion1 = \
+                StructType([StructField('b', StringType()), StructField('a', StringType())])
+            row1 = Row(a=date(2021, 5, 19), b="b")
+            self.assertEquals(schema_with_coercion1.toInternal(row1), ("b", date(2021, 5, 19)))
+
+        with PalantirTests.row_field_sorting(True), \
+                PalantirTests.env(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
+            schema_with_coercion2 = \
+                StructType([StructField('b', StringType()), StructField('a', StringType())])
+            row2 = Row(a=date(2021, 5, 19), b="b")
+            self.assertEquals(schema_with_coercion2.toInternal(row2), ("b", date(2021, 5, 19)))
+
+    @staticmethod
+    @contextlib.contextmanager
+    def row_field_sorting(enabled):
+        old_conf = Row._row_field_sorting_enabled
+        Row._row_field_sorting_enabled = enabled
+        yield
+        Row._row_field_sorting_enabled = old_conf
+
+    @staticmethod
+    @contextlib.contextmanager
+    def env(**kwargs):
+        old_env = dict(os.environ)
+        os.environ.update(kwargs)
+        yield
+        for key in kwargs:
+            del os.environ[key]
+        os.environ.update(old_env)
 
 
 if __name__ == "__main__":
