@@ -1,15 +1,14 @@
 # Palantir Distribution of Apache Spark
 
-[![Download](https://api.bintray.com/packages/palantir/releases/spark/images/download.svg)](https://bintray.com/palantir/releases/spark/_latestVersion)
-
-This repository, located at https://github.com/palantir/spark, contains a fork of Apache Spark.  It includes a number of changes that are not yet on the Apache master branch that are useful at Palantir.
+This repository, located at https://github.com/palantir/spark, contains a fork of Apache Spark. It includes a number of changes that are not yet on the Apache master branch that are useful at Palantir.
 
 Some highlights include:
 
 - predicate pushdown additions, including a patched version of Parquet
 - various misc bugfixes
 
-Artifacts are published to [bintray](https://bintray.com/palantir/releases/spark)
+Note that publishing has been disabled from this repo, that now acts as read-only mirror of the Palantir internal fork of Spark.
+Older versions were published to [bintray](https://bintray.com/palantir/releases/spark).
 
 --------------------
 
