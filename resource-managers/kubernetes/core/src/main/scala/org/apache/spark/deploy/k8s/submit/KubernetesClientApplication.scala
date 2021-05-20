@@ -189,6 +189,7 @@ private[spark] class Client(
       .withNewMetadata()
         .withName(configMapName)
         .endMetadata()
+      .withImmutable(true)
       .addToData(SPARK_CONF_FILE_NAME, propertiesWriter.toString)
       .build()
   }

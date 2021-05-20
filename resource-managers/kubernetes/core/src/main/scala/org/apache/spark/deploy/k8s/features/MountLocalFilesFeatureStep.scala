@@ -139,6 +139,7 @@ private[spark] class MountLocalDriverFilesFeatureStep(conf: KubernetesDriverConf
       .withNewMetadata()
         .withName(secretName)
         .endMetadata()
+      .withImmutable(true)
       .withData(localFileBase64Contents.asJava)
       .build()
     Seq(localFilesSecret)
