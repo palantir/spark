@@ -500,7 +500,15 @@ class StructType(DataType):
         # for out-of-order named arguments and ask users to reorder by hand. But hand reordering
         # isn't an option in Python <3.6 because it doesn't preserve kwargs order.
         self._coerce_rows_enabled = \
-            os.environ.get("PYSPARK_COERCE_ROWS_TO_SCHEMA", 'false').lower() == 'true'
+            os.environ.get("PYSPARK_COERCE_ROWS_TO_SCHEMA", "false").lower() == "true"
+
+        # TODO(wraschkowski): Remove once we remediated potential corruptions after shipping Spark 3
+        #
+        # This is Palantir's. When this flag is set and rows converted to a schema, as e.g. in
+        # `createDataFrame`, we check if a silent corruption could have occurred in previous jobs.
+        # See `_check_row_schema_corruption` for more context.
+        self._should_check_row_schema_corruption = \
+            os.environ.get("PYSPARK_CHECK_ROW_SCHEMA_CORRUPTION", "false").lower() == "true"
 
     def add(self, field, data_type=None, nullable=True, metadata=None):
         """
@@ -608,6 +616,9 @@ class StructType(DataType):
         if obj is None:
             return
 
+        if self._should_check_row_schema_corruption and isinstance(obj, Row):
+            self._check_row_schema_corruption(obj)
+
         if self._needSerializeAnyField:
             # Only calling toInternal function for fields that need conversion
             if isinstance(obj, dict):
@@ -652,6 +663,118 @@ class StructType(DataType):
         else:
             values = obj
         return _create_row(self.names, values)
+
+    def _check_row_schema_corruption(self, row):
+        """
+        Check and raise if changed row field ordering could have caused corruption in previous jobs.
+
+        When moving our fork to Spark 3 we introduced a silent behavior change in the order of row
+        values. When creating dataframes from rows, this could have caused values to go into the
+        wrong columns. Previously, when assigning a `Row(b=2,a=1)` to schema `"a INT, b INT"`, we
+        made sure that the right values go into the right columns, even if the order of values in
+        the row differed from the order of columns in the schema. That was different from upstream.
+
+        After removing the old behavior, we reverted to using upstream Spark 3's behavior of not
+        alphabetically sorting named arguments of rows. So `Row(b=2,a=1)` would be read as `(2,1)`.
+        And we then, for a period, enabled sorting (via `PYSPARK_ROW_FIELD_SORTING_ENABLED`) which
+        caused the above row to be read as `Row(1,2)`. Both of these were changes relative to the
+        previous behavior in our fork. In some cases that change could have been silent and this
+        check is to detect those cases.
+
+        Various circumstances affect whether corruption could have occurred (more detail inline):
+
+          * Spark 3 applies some automatic order correction in certain conditions, i.e. making sure
+            values go into the right columns based on the name. That depends on the schema types,
+            the Python version, and whether row field sorting is enabled. When those conditions
+            are met we wouldn't have seen corruption.
+          * When re-ordering happens, the most likely outcome is that the values in the new order
+            don't match the schema types. That would have caused a type error and prevented
+            corrupt data from being written.
+          * Coincidentally, it's possible that corruption didn't occur because the new order
+            happens to match the schema. E.g. when the schema names are alphabetically sorted,
+            row field sorting would happen to be correct.
+
+        """
+        # TODO(wraschkowski): Remove this check after completing remediation
+
+        # Was row created with named arguments (kwargs)
+        if not hasattr(row, "__fields__"):
+            # __fields__ is only set in Row.__new__ when created with kwargs
+            return
+        # Does row contain all schema fields? If not, re-ordering in Spark 2 could not have worked,
+        # because for schema `'a INT'` and `Row(b=1)`, we would have failed on `Row(b=1)['a']`.
+        if not set(self.names).issubset(row.__fields__):
+            return
+        # In Python versions with non-deterministic kwargs order, Spark always sorts kwargs when
+        # creating rows. That means we don't need to check for corruption without sorting.
+        always_sorted_kwargs = sys.version_info[:2] < (3, 6)
+        # For sorted kwargs and non-serializable schema types, Spark 3 reorders row values to match
+        # the schema (else-branch in StructType.toInternal). Serializable types are dates and
+        # timestamps, so e.g. 'a INT, b STRING' on Python 2 will always be reordered correctly.
+        if always_sorted_kwargs and not self._needSerializeAnyField:
+            return
+
+        # Create type verifier that validates obj types against this struct/schema. The same is used
+        # is used by Spark in `createDataFrame`.
+        type_verifier = _make_type_verifier(self)
+
+        # The verifier raises errors on mismatch; we catch to get a bool instead.
+        def matches_schema(obj):
+            try:
+                type_verifier(obj)
+                return True
+            except (TypeError, ValueError):
+                return False
+
+        # Check if corruption would have happened when row field sorting was enabled, i.e. if
+        # `PYSPARK_ROW_FIELD_SORTING_ENABLED` was set to `TRUE`.
+        def is_wrong_with_row_field_sorting():
+            # For non-serializable types (ints, strings, etc.), Spark will reorder row values to
+            # match the schema.
+            if not self._needSerializeAnyField:
+                return False
+            # If the alphabetical order of kwargs matches the schema fields the order would
+            # have been correct.
+            sorted_fields = sorted(row.__fields__)
+            if sorted_fields == self.names:
+                return False
+            # If types in sorted order match the schema, we would have written values in the wrong
+            # columns. Otherwise the write would fail and no corruption happen.
+            return matches_schema(tuple(row[field] for field in sorted_fields))
+
+        # Check if corruption would have happened with row field sorting disabled.
+        def is_wrong_without_row_field_sorting():
+            if row.__fields__ == self.names:
+                # The order of kwargs matches the schema, so the order would have been correct.
+                return False
+            # Check if we could have written values in the wrong columns.
+            return matches_schema(tuple(row))
+
+        corrupt_with_sorting = is_wrong_with_row_field_sorting()
+        corrupt_without_sorting = not always_sorted_kwargs and is_wrong_without_row_field_sorting()
+        if corrupt_with_sorting or corrupt_without_sorting:
+            raise PalantirRowSchemaMismatch(
+                row, self,
+                when_sorted=corrupt_with_sorting, when_unsorted=corrupt_without_sorting)
+
+
+class PalantirRowSchemaMismatch(Exception):
+    """Error thrown when a potential schema mismatch could have occurred silently."""
+    # TODO(wraschkowski): Remove, see `StructType._check_row_schema_corruption` for context
+
+    def __init__(self, row, schema, when_sorted, when_unsorted):
+        super(PalantirRowSchemaMismatch, self).__init__(
+            "Detected potential mismatch between schema and named arguments in row: {0} and {1}."
+            "\nAs work-around, use positional instead of named arguments and ensure that the order "
+            "of values matches the schema.\nE.g. for schema ['a','b'] change Row(b=2,a=1) to "
+            "Row(1,2).\nIf that's not possible, please file support ticket with Palantir."
+            .format(schema.simpleString(), row))
+        self.row = row
+        self.schema = schema
+        self.when_sorted = when_sorted
+        """Whether mismatch would occur when the row field sorting is enabled."""
+        self.when_unsorted = when_unsorted
+        """Whether mismatch would occur when the row field sorting is disabled."""
 
 
 class UserDefinedType(DataType):

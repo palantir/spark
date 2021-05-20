@@ -997,18 +997,21 @@ class DataTypeVerificationTests(unittest.TestCase):
         Row._row_field_sorting_enabled = sorting_enabled_tmp
 
 
-class PalantirTests(unittest.TestCase):
+class RowSchemaCoercionTests(unittest.TestCase):
 
-    @unittest.skipIf(sys.version < "3", "Reordering non-serializable fields always happens on Py2")
+    @unittest.skipIf(
+        sys.version_info[:2] < (3, 6),
+        "Reordering non-serializable fields always happens on Py2")
     def test_coerce_rows_to_schema_without_serialization(self):
+        assert sys.version_info[:2] >= (3, 6), "Python version used in test should be 3.6+"
         # If field sorting is enabled, pyspark re-orders values w/o our flag
-        with PalantirTests.row_field_sorting(False):
+        with row_field_sorting(False):
             # Sanity check that order is wrong without
             row = Row(a="a", b="b")
             schema = StructType([StructField('b', StringType()), StructField('a', StringType())])
             self.assertNotEqual(schema.toInternal(row), ("b", "a"))
 
-            with PalantirTests.env(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
+            with env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
                 schema_with_coercion = \
                     StructType([StructField('b', StringType()), StructField('a', StringType())])
                 self.assertEquals(schema_with_coercion.toInternal(row), ("b", "a"))
@@ -1022,37 +1025,170 @@ class PalantirTests(unittest.TestCase):
             # Putting 'str' into date field
             schema.toInternal(Row(a=date(2021, 5, 19), b="b"))
 
-        with PalantirTests.row_field_sorting(False), \
-                PalantirTests.env(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
             schema_with_coercion1 = \
                 StructType([StructField('b', StringType()), StructField('a', StringType())])
             row1 = Row(a=date(2021, 5, 19), b="b")
             self.assertEquals(schema_with_coercion1.toInternal(row1), ("b", date(2021, 5, 19)))
 
-        with PalantirTests.row_field_sorting(True), \
-                PalantirTests.env(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
+        with row_field_sorting(True), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
             schema_with_coercion2 = \
                 StructType([StructField('b', StringType()), StructField('a', StringType())])
             row2 = Row(a=date(2021, 5, 19), b="b")
             self.assertEquals(schema_with_coercion2.toInternal(row2), ("b", date(2021, 5, 19)))
 
-    @staticmethod
-    @contextlib.contextmanager
-    def row_field_sorting(enabled):
-        old_conf = Row._row_field_sorting_enabled
-        Row._row_field_sorting_enabled = enabled
-        yield
-        Row._row_field_sorting_enabled = old_conf
 
-    @staticmethod
-    @contextlib.contextmanager
-    def env(**kwargs):
-        old_env = dict(os.environ)
-        os.environ.update(kwargs)
-        yield
-        for key in kwargs:
-            del os.environ[key]
-        os.environ.update(old_env)
+class RowSchemaCorruptionCheckTests(ReusedSQLTestCase):
+
+    def test_toInternal_calls_check(self):
+        from pyspark.sql.types import PalantirRowSchemaMismatch
+
+        with env_overrides(PYSPARK_CHECK_ROW_SCHEMA_CORRUPTION="true"):
+            schema = schema_from_ddl('b INT, a DATE')
+            with self.assertRaises(PalantirRowSchemaMismatch):
+                schema.toInternal(Row(a=1, b=datetime.date(2021, 5, 19)))
+
+        with env_overrides(PYSPARK_CHECK_ROW_SCHEMA_CORRUPTION="false"):
+            schema = schema_from_ddl('b INT, a DATE')
+            schema.toInternal(Row(a=1, b=datetime.date(2021, 5, 19)))
+
+    @unittest.skipUnless(
+        sys.version_info[:2] >= (3, 6), "Test 3.6+ when kwargs are only sorted when env var is set")
+    def test_row_schema_corruption_check_py3(self):
+        date_val = datetime.date(2021, 5, 19)
+        int_val = 1
+        str_val = '1'  # Spark should be strict and not mistake strings for ints
+
+        with row_field_sorting(False):
+            for schema, row, raise_sorted, raise_unsorted in [
+                # Schema names alphabetically sorted
+                ('a DATE, b DATE', Row(a=date_val, b=date_val), False, False),
+                ('a DATE, b DATE', Row(b=date_val, a=date_val), True, False),
+                ('a INT, b INT', Row(a=int_val, b=int_val), False, False),
+                ('a INT, b INT', Row(b=int_val, a=int_val), False, True),
+                ('a INT, b DATE', Row(a=int_val, b=date_val), False, False),
+                ('a INT, b DATE', Row(b=date_val, a=int_val), False, False),
+                ('a INT, b STRING', Row(a=int_val, b=str_val), False, False),
+                ('a INT, b STRING', Row(b=str_val, a=int_val), False, False),
+                # Schema names out-of-order
+                ('b DATE, a DATE', Row(a=date_val, b=date_val), True, False),
+                ('b DATE, a DATE', Row(b=date_val, a=date_val), True, False),
+                ('b INT, a INT', Row(a=int_val, b=int_val), False, True),
+                ('b INT, a INT', Row(b=int_val, a=int_val), False, False),
+                ('b INT, a DATE', Row(a=date_val, b=int_val), False, False),
+                ('b INT, a DATE', Row(b=int_val, a=date_val), False, False),
+                ('b INT, a STRING', Row(a=str_val, b=int_val), False, False),
+                ('b INT, a STRING', Row(b=int_val, a=str_val), False, False),
+                # Multiple cols
+                ('b INT, a STRING, c INT', Row(c=int_val, a=str_val, b=int_val), False, True),
+                ('b INT, a STRING, c INT', Row(a=str_val, c=int_val, b=int_val), False, False),
+                ('b DATE, a DATE, c DATE', Row(c=date_val, a=date_val, b=date_val), True, True),
+                # # One col
+                ('a INT', Row(a=int_val), False, False),
+                # Nested types
+                ('a ARRAY<DATE>, b ARRAY<DATE>', Row(a=(date_val,), b=(date_val,)), False, False),
+                ('b ARRAY<DATE>, a ARRAY<DATE>', Row(a=(date_val,), b=(date_val,)), True, False),
+                ('a ARRAY<DATE>, b ARRAY<DATE>', Row(b=(date_val,), a=(date_val,)), False, True),
+                ('b ARRAY<STRING>, a ARRAY<STRING>', Row(b=(str_val,), a=(str_val,)), False, False),
+                ('a ARRAY<STRING>, b ARRAY<DATE>', Row(b=(date_val,), a=(str_val,)), False, False),
+                # Invalid inputs
+                ('a INT', Row(a=str_val), False, False),
+                ('a INT, b INT', Row(a=str_val), False, False),
+                ('a INT', Row(a=str_val, b=str_val), False, False),
+                # Named arguments don't match
+                ('a INT, b INT', Row(c=int_val, d=int_val), False, False),
+                # Row without kwargs
+                ('a INT, b INT', Row(1, 2), False, False),
+            ]:
+                with self.subTest(schema=schema, row=row):
+                    self.assertSchemaCheck(schema, row, raise_sorted, raise_unsorted)
+
+    @unittest.skipUnless(
+        sys.version_info[:2] < (3, 6), "Test below 3.6 when kwargs are always sorted")
+    def test_row_schema_corruption_check_py2(self):
+        date_val = datetime.date(2021, 5, 19)
+        int_val = 1
+        str_val = '1'  # Spark should be strict and not mistake strings for ints
+
+        for schema, row, raise_sorted, raise_unsorted in [
+            # Schema names alphabetically sorted
+            ('a DATE, b DATE', Row(a=date_val, b=date_val), False, False),
+            ('a DATE, b DATE', Row(b=date_val, a=date_val), False, False),
+            ('a INT, b INT', Row(a=int_val, b=int_val), False, False),
+            ('a INT, b INT', Row(b=int_val, a=int_val), False, False),
+            ('a INT, b DATE', Row(a=int_val, b=date_val), False, False),
+            ('a INT, b DATE', Row(b=date_val, a=int_val), False, False),
+            ('a INT, b STRING', Row(a=int_val, b=str_val), False, False),
+            ('a INT, b STRING', Row(b=str_val, a=int_val), False, False),
+            # Schema names out-of-order
+            ('b DATE, a DATE', Row(a=date_val, b=date_val), True, False),
+            ('b DATE, a DATE', Row(b=date_val, a=date_val), True, False),
+            ('b INT, a INT', Row(a=int_val, b=int_val), False, False),
+            ('b INT, a INT', Row(b=int_val, a=int_val), False, False),
+            ('b INT, a DATE', Row(a=date_val, b=int_val), False, False),
+            ('b INT, a DATE', Row(b=int_val, a=date_val), False, False),
+            ('b INT, a STRING', Row(a=str_val, b=int_val), False, False),
+            ('b INT, a STRING', Row(b=int_val, a=str_val), False, False),
+            # Multiple cols
+            ('b INT, a STRING, c INT', Row(c=int_val, a=str_val, b=int_val), False, False),
+            ('b INT, a STRING, c INT', Row(a=str_val, c=int_val, b=int_val), False, False),
+            ('b DATE, a DATE, c DATE', Row(c=date_val, a=date_val, b=date_val), True, False),
+            # One col
+            ('a INT', Row(a=int_val), False, False),
+            # Nested
+            ('a ARRAY<DATE>, b ARRAY<DATE>', Row(a=(date_val,), b=(date_val,)), False, False),
+            ('b ARRAY<DATE>, a ARRAY<DATE>', Row(a=(date_val,), b=(date_val,)), True, False),
+            ('b ARRAY<STRING>, a ARRAY<STRING>', Row(b=(str_val,), a=(str_val,)), False, False),
+            ('b ARRAY<STRING>, a ARRAY<STRING>', Row(b=(str_val,), a=(str_val,)), False, False),
+            ('a ARRAY<STRING>, b ARRAY<DATE>', Row(b=(date_val,), a=(str_val,)), False, False),
+            # Invalid inputs
+            ('a INT', Row(a=str_val), False, False),
+            ('a INT, b INT', Row(a=str_val), False, False),
+            ('a INT', Row(a=str_val, b=str_val), False, False),
+            # Named arguments don't match
+            ('a DATE', Row(b=date_val), False, False),
+            # Row without kwargs
+            ('a INT, b INT', Row(1, 2), False, False),
+        ]:
+            self.assertSchemaCheck(schema, row, raise_sorted, raise_unsorted)
+
+    def assertSchemaCheck(self, schema_ddl, row, raise_sorted, raise_unsorted):
+        from pyspark.sql.types import PalantirRowSchemaMismatch
+
+        schema = schema_from_ddl(schema_ddl) if isinstance(schema_ddl, str) else schema_ddl
+
+        if raise_sorted or raise_unsorted:
+            with self.assertRaises(PalantirRowSchemaMismatch) as cm:
+                schema._check_row_schema_corruption(row)
+            cm.exception.schema = schema
+            cm.exception.row = row
+            cm.exception.sorted = raise_sorted
+            cm.exception.unsorted = raise_unsorted
+        else:
+            schema._check_row_schema_corruption(row)
+
+
+@contextlib.contextmanager
+def row_field_sorting(enabled):
+    old_conf = Row._row_field_sorting_enabled
+    Row._row_field_sorting_enabled = enabled
+    yield
+    Row._row_field_sorting_enabled = old_conf
+
+
+@contextlib.contextmanager
+def env_overrides(**kwargs):
+    old_env = dict(os.environ)
+    os.environ.update(kwargs)
+    yield
+    for key in kwargs:
+        del os.environ[key]
+    os.environ.update(old_env)
+
+
+def schema_from_ddl(ddl):
+    from pyspark.sql.types import _parse_datatype_string
+    return _parse_datatype_string(ddl)
 
 
 if __name__ == "__main__":
