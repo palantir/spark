@@ -130,10 +130,10 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     require(condaChannelUrls.nonEmpty, "Can't have an empty list of conda channel URLs")
     val name = "conda-env"
 
-    // must link in /tmp to reduce path length in case baseDir is very long...
+    // must link in a temp directory to reduce path length in case baseDir is very long...
     // If baseDir path is too long, this breaks conda's 220 character limit for binary replacement.
     // Don't even try to use java.io.tmpdir - yarn sets this to a very long path
-    val linkedBaseDir = Utils.createTempDir("/tmp", "conda").toPath.resolve("real")
+    val linkedBaseDir = Utils.createTempDir(getTempDir, "conda").toPath.resolve("real")
     logInfo(s"Creating symlink $linkedBaseDir -> $baseDir")
     Files.createSymbolicLink(linkedBaseDir, Paths.get(baseDir))
 
@@ -173,10 +173,10 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
         "via spark.conda.bootstrapPackageUrlsUserInfo.")
     val name = "conda-env"
 
-    // must link in /tmp to reduce path length in case baseDir is very long...
+    // must link in a temp directory to reduce path length in case baseDir is very long...
     // If baseDir path is too long, this breaks conda's 220 character limit for binary replacement.
     // Don't even try to use java.io.tmpdir - yarn sets this to a very long path
-    val linkedBaseDir = Utils.createTempDir("/tmp", "conda").toPath.resolve("real")
+    val linkedBaseDir = Utils.createTempDir(getTempDir, "conda").toPath.resolve("real")
     logInfo(s"Creating symlink $linkedBaseDir -> $baseDir")
     Files.createSymbolicLink(linkedBaseDir, Paths.get(baseDir))
 
@@ -309,6 +309,13 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
       + f"$exitCode%nCommand was: $command%nStdout was:%n$out%nStderr was:%n$err")
     }
     out.toString
+  }
+
+  def getTempDir: String = {
+    sys.env.get("TMPDIR")
+      .orElse(sys.env.get("TEMP"))
+      .orElse(sys.env.get("TMP"))
+      .getOrElse("/tmp")
   }
 }
 

@@ -767,7 +767,7 @@ class PalantirRowSchemaMismatch(Exception):
             "Detected potential mismatch between schema and named arguments in row: {0} and {1}."
             "\nAs work-around, use positional instead of named arguments and ensure that the order "
             "of values matches the schema.\nE.g. for schema ['a','b'] change Row(b=2,a=1) to "
-            "Row(1,2).\nIf that's not possible, please file support ticket with Palantir."
+            "Row(1,2). If that's not possible, please file a support ticket with Palantir."
             .format(schema.simpleString(), row))
         self.row = row
         self.schema = schema
