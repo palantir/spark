@@ -26,7 +26,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.math.max
 import scala.util.control.NonFatal
 
-import com.palantir.logsafe.SafeArg
+import com.palantir.logsafe.{SafeArg, UnsafeArg}
 
 import org.apache.spark._
 import org.apache.spark.TaskState.TaskState
@@ -459,13 +459,14 @@ private[spark] class TaskSetManager(
         // val timeTaken = clock.getTime() - startTime
         val taskName = s"task ${info.id} in stage ${taskSet.id}"
         safeLogInfo("Starting task",
-          SafeArg.of("task", info.id),
+          SafeArg.of("taskId", taskId),
+          SafeArg.of("attemptNumber", attemptNum),
           SafeArg.of("partitionId", task.partitionId),
-          SafeArg.of("stageId", taskSet.id),
-          SafeArg.of("host", host),
-          SafeArg.of("executor", info.executorId),
+          SafeArg.of("stageId", stageId),
           SafeArg.of("taskLocality", taskLocality),
-          SafeArg.of("serializedTaskSize", serializedTask.limit()))
+          SafeArg.of("serializedTaskSize", serializedTask.limit()),
+          UnsafeArg.of("host", host),
+          UnsafeArg.of("executor", info.executorId))
 
         val extraResources = sched.resourcesReqsPerTask.map { taskReq =>
           val rName = taskReq.resourceName
