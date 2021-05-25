@@ -466,7 +466,7 @@ private[spark] class TaskSetManager(
           SafeArg.of("taskLocality", taskLocality),
           SafeArg.of("serializedTaskSize", serializedTask.limit()),
           UnsafeArg.of("host", host),
-          UnsafeArg.of("executor", info.executorId))
+          SafeArg.of("executorId", info.executorId))
 
         val extraResources = sched.resourcesReqsPerTask.map { taskReq =>
           val rName = taskReq.resourceName
