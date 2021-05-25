@@ -26,9 +26,11 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.math.max
 import scala.util.control.NonFatal
 
+import com.palantir.logsafe.{SafeArg, UnsafeArg}
+
 import org.apache.spark._
 import org.apache.spark.TaskState.TaskState
-import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.internal.{config, Logging, SafeLogging}
 import org.apache.spark.internal.config._
 import org.apache.spark.resource.ResourceInformation
 import org.apache.spark.scheduler.SchedulingMode._
@@ -56,7 +58,7 @@ private[spark] class TaskSetManager(
     val taskSet: TaskSet,
     val maxTaskFailures: Int,
     blacklistTracker: Option[BlacklistTracker] = None,
-    clock: Clock = new SystemClock()) extends Schedulable with Logging {
+    clock: Clock = new SystemClock()) extends Schedulable with Logging with SafeLogging {
 
   private val conf = sched.sc.conf
 
@@ -456,8 +458,15 @@ private[spark] class TaskSetManager(
         // a good proxy to task serialization time.
         // val timeTaken = clock.getTime() - startTime
         val taskName = s"task ${info.id} in stage ${taskSet.id}"
-        logInfo(s"Starting $taskName (TID $taskId, $host, executor ${info.executorId}, " +
-          s"partition ${task.partitionId}, $taskLocality, ${serializedTask.limit()} bytes)")
+        safeLogInfo("Starting task",
+          SafeArg.of("taskId", taskId),
+          SafeArg.of("attemptNumber", attemptNum),
+          SafeArg.of("partitionId", task.partitionId),
+          SafeArg.of("stageId", stageId),
+          SafeArg.of("taskLocality", taskLocality),
+          SafeArg.of("serializedTaskSize", serializedTask.limit()),
+          SafeArg.of("executorId", info.executorId),
+          UnsafeArg.of("host", host))
 
         val extraResources = sched.resourcesReqsPerTask.map { taskReq =>
           val rName = taskReq.resourceName
