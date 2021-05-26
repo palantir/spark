@@ -624,7 +624,8 @@ class StructType(DataType):
             if isinstance(obj, dict):
                 return tuple(f.toInternal(obj.get(n)) if c else obj.get(n)
                              for n, f, c in zip(self.names, self.fields, self._needConversion))
-            elif isinstance(obj, Row) and self._coerce_rows_enabled:
+            elif isinstance(obj, Row) and getattr(obj, "__from_dict__", False) \
+                    and self._coerce_rows_enabled:
                 return tuple(f.toInternal(obj[n]) if c else obj[n]
                              for n, f, c in zip(self.names, self.fields, self._needConversion))
             elif isinstance(obj, (tuple, list)):
@@ -639,8 +640,7 @@ class StructType(DataType):
         else:
             if isinstance(obj, dict):
                 return tuple(obj.get(n) for n in self.names)
-            elif isinstance(obj, Row) \
-                    and (getattr(obj, "__from_dict__", False) or self._coerce_rows_enabled):
+            elif isinstance(obj, Row) and getattr(obj, "__from_dict__", False):
                 return tuple(obj[n] for n in self.names)
             elif isinstance(obj, (list, tuple)):
                 return tuple(obj)
@@ -1655,6 +1655,9 @@ class Row(tuple):
             else:
                 row = tuple.__new__(cls, list(kwargs.values()))
                 row.__fields__ = list(kwargs.keys())
+                # Palantir-specific: Setting '__from_dict__' tells StructType to
+                # re-order values from kwargs when assigning rows to a schema.
+                row.__from_dict__ = True
 
             return row
         else:

@@ -999,22 +999,14 @@ class DataTypeVerificationTests(unittest.TestCase):
 
 class RowSchemaCoercionTests(unittest.TestCase):
 
-    @unittest.skipIf(
-        sys.version_info[:2] < (3, 6),
-        "Reordering non-serializable fields always happens on Py2")
     def test_coerce_rows_to_schema_without_serialization(self):
-        assert sys.version_info[:2] >= (3, 6), "Python version used in test should be 3.6+"
-        # If field sorting is enabled, pyspark re-orders values w/o our flag
-        with row_field_sorting(False):
-            # Sanity check that order is wrong without
-            row = Row(a="a", b="b")
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
             schema = StructType([StructField('b', StringType()), StructField('a', StringType())])
-            self.assertNotEqual(schema.toInternal(row), ("b", "a"))
+            self.assertEquals(schema.toInternal(Row(a="a", b="b")), ("b", "a"))
 
-            with env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
-                schema_with_coercion = \
-                    StructType([StructField('b', StringType()), StructField('a', StringType())])
-                self.assertEquals(schema_with_coercion.toInternal(row), ("b", "a"))
+        with row_field_sorting(True), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
+            schema = StructType([StructField('b', StringType()), StructField('a', StringType())])
+            self.assertEquals(schema.toInternal(Row(a="a", b="b")), ("b", "a"))
 
     def test_coerce_rows_to_schema_needing_serialization(self):
         from datetime import date
@@ -1036,6 +1028,12 @@ class RowSchemaCoercionTests(unittest.TestCase):
                 StructType([StructField('b', StringType()), StructField('a', StringType())])
             row2 = Row(a=date(2021, 5, 19), b="b")
             self.assertEquals(schema_with_coercion2.toInternal(row2), ("b", date(2021, 5, 19)))
+
+    def test_coerce_rows_with_positional_arguments(self):
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            schema_with_date = \
+                StructType([StructField('b', StringType()), StructField('a', DateType())])
+            schema_with_date.toInternal(Row('b', datetime.date(2021, 5, 19)))
 
 
 class RowSchemaCorruptionCheckTests(ReusedSQLTestCase):

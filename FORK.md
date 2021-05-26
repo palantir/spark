@@ -15,6 +15,8 @@
 * [SPARK-20001](https://issues.apache.org/jira/browse/SPARK-20001) ([SPARK-13587](https://issues.apache.org/jira/browse/SPARK-13587)) - Support PythonRunner executing inside a Conda env (and R)
 * [SPARK-21195](https://issues.apache.org/jira/browse/SPARK-21195) - Automatically register new metrics from sources and wire default registry
 * `spark.sql.parquet.outputTimestampType` defaults to `INT64 (TIMESTAMP_MICROS)`
+* In PySpark, when populating a dataframe from rows created with named arguments, values are re-ordered
+  to match the schema when the `PYSPARK_COERCE_ROWS_TO_SCHEMA` environment variable is set (#54 and #59).
 
 # Added
 * [palantir/spark#381](https://github.com/palantir/spark/pull/381) Gradle plugin to easily create custom docker images for use with k8s
@@ -24,6 +26,3 @@
   * [palantir/spark#678](https://github.com/palantir/spark/issues/678) TODO: Revert 679 once we move off of python 2
 * Filter rLibDir by exists so that daemon.R references the correct file [(#460)](https://github.com/palantir/spark/pull/460)
 * Add pre-installed conda configuration and use to find rlib directory [(#700)](https://github.com/palantir/spark/pull/700)  
-
-
-
