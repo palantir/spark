@@ -1035,6 +1035,12 @@ class RowSchemaCoercionTests(unittest.TestCase):
                 StructType([StructField('b', StringType()), StructField('a', DateType())])
             schema_with_date.toInternal(Row('b', datetime.date(2021, 5, 19)))
 
+    def test_verify_of_unordered_row_passes(self):
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            schema = \
+                StructType([StructField('a', StringType()), StructField('b', DateType())])
+            _make_type_verifier(schema)(Row(b=datetime.date(2021, 5, 19), a='a'))
+
 
 class RowSchemaCorruptionCheckTests(ReusedSQLTestCase):
 
