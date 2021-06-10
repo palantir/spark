@@ -108,6 +108,9 @@ trait CheckAnalysis extends PredicateHelper {
       case InsertIntoStatement(u: UnresolvedRelation, _, _, _, _) =>
         failAnalysis(s"Table not found: ${u.multipartIdentifier.quoted}")
 
+      case u: UnresolvedHint =>
+        u.failAnalysis(s"Hint not found: ${u.name}")
+
       case u: UnresolvedV2Relation if isView(u.originalNameParts) =>
         u.failAnalysis(
           s"Invalid command: '${u.originalNameParts.quoted}' is a view not a table.")
