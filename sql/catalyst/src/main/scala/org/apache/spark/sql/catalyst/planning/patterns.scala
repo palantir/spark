@@ -47,24 +47,9 @@ trait OperationHelper {
           .map(Alias(_, a.name)(a.exprId, a.qualifier)).getOrElse(a)
     }
   }
-}
 
-/**
- * A pattern that matches any number of project or filter operations on top of another relational
- * operator.  All filter operators are collected and their conditions are broken up and returned
- * together with the top project operator.
- * [[org.apache.spark.sql.catalyst.expressions.Alias Aliases]] are in-lined/substituted if
- * necessary.
- */
-object PhysicalOperation extends OperationHelper with PredicateHelper {
-
-  def unapply(plan: LogicalPlan): Option[ReturnType] = {
-    val (fields, filters, child, _) = collectProjectsAndFilters(plan)
-    Some((fields.getOrElse(child.output), filters, child))
-  }
-
-  private def hasOversizedRepeatedAliases(fields: Seq[Expression],
-                                          aliases: Map[Attribute, Expression]): Boolean = {
+  protected def hasOversizedRepeatedAliases(fields: Seq[Expression],
+                                            aliases: Map[Attribute, Expression]): Boolean = {
     // Count how many times each alias is used in the fields.
     // If an alias is only used once, we can safely substitute it without increasing the overall
     // tree size
@@ -81,6 +66,21 @@ object PhysicalOperation extends OperationHelper with PredicateHelper {
       referenceCounts.getOrElse(attribute, 0) > 1 &&
         expression.treeSize > SQLConf.get.maxRepeatedAliasSize
     })
+  }
+}
+
+/**
+ * A pattern that matches any number of project or filter operations on top of another relational
+ * operator.  All filter operators are collected and their conditions are broken up and returned
+ * together with the top project operator.
+ * [[org.apache.spark.sql.catalyst.expressions.Alias Aliases]] are in-lined/substituted if
+ * necessary.
+ */
+object PhysicalOperation extends OperationHelper with PredicateHelper {
+
+  def unapply(plan: LogicalPlan): Option[ReturnType] = {
+    val (fields, filters, child, _) = collectProjectsAndFilters(plan)
+    Some((fields.getOrElse(child.output), filters, child))
   }
 
   /**
@@ -155,7 +155,8 @@ object ScanOperation extends OperationHelper with PredicateHelper {
           case Some((_, filters, other, aliases)) =>
             // Follow CollapseProject and only keep going if the collected Projects
             // do not have common non-deterministic expressions.
-            if (!hasCommonNonDeterministic(fields, aliases)) {
+            if (!hasCommonNonDeterministic(fields, aliases)
+              && !hasOversizedRepeatedAliases(fields, aliases)) {
               val substitutedFields =
                 fields.map(substitute(aliases)).asInstanceOf[Seq[NamedExpression]]
               Some((Some(substitutedFields), filters, other, collectAliases(substitutedFields)))
