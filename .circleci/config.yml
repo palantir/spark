@@ -46,10 +46,6 @@ step_templates:
         - v8-ivy-dependency-cache-{{ .Branch }}-
         - v8-ivy-dependency-cache-master-{{ checksum "pom.xml" }}
         - v8-ivy-dependency-cache-master-
-  restore-home-sbt-cache: &restore-home-sbt-cache
-    restore_cache:
-      keys:
-        - v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
   restore-build-sbt-cache: &restore-build-sbt-cache
     restore_cache:
       key: v2-build-sbt-{{ .Branch }}-{{ .Revision }}
@@ -202,7 +198,6 @@ jobs:
               rsync --info=stats2,misc1,flist0 -a --link-dest="$BUILD_SBT_CACHE" "$BUILD_SBT_CACHE/" .
             fi
       - *restore-ivy-cache
-      - *restore-home-sbt-cache
       - run:
           name: Download all external dependencies for the test configuration (which extends compile) and ensure we update first
           command: dev/sbt test:externalDependencyClasspath oldDeps/test:externalDependencyClasspath
@@ -217,9 +212,6 @@ jobs:
       - store_artifacts:
           path: /tmp/build-apache-spark.log
           destination: build-apache-spark.log
-      - save_cache:
-          key: v2-home-sbt-{{ checksum "build/sbt" }}-{{ checksum "project/target/streams/$global/update/$global/streams/update_cache_2.10/inputs" }}
-          paths: ~/.sbt
       # Also hard link all the things so we can save it as a cache and restore it in future builds
       - run:
           name: "Hard link all the files under ***/target directories to $BUILD_SBT_CACHE, excluding jars"
@@ -247,7 +239,6 @@ jobs:
       - attach_workspace:
           at: .
       - *restore-ivy-cache
-      - *restore-home-sbt-cache
       - run: |
           dev/run-backcompat-tests.py | tee /tmp/run-backcompat-tests.log
       - store_artifacts:
@@ -283,6 +274,14 @@ jobs:
     <<: *defaults
     docker:
       - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
+    environment:
+      # Match environment used upstream
+      # https://github.com/apache/spark/blob/b74260f67fa53b91ffb800636f17d112abbdb5c0/.github/workflows/build_and_test.yml#L296-L299
+      TZ: UTC
+      _R_CHECK_SYSTEM_CLOCK_: "FALSE"
+      # Disable CRAN submission checks
+      # https://stackoverflow.com/q/23829978
+      _R_CHECK_CRAN_INCOMING_: "FALSE"
     steps:
       - *checkout-code
       - attach_workspace:
@@ -291,13 +290,13 @@ jobs:
           name: Install SparkR
           command: R/install-dev.sh
       - run: dev/run-r-tests.py
-      - store_test_results:
-          path: target/R
+      - store_artifacts:
+          path: R/SparkR.Rcheck/
 
   run-scala-tests:
     <<: *test-defaults
     # project/CirclePlugin.scala does its own test splitting in SBT based on CIRCLE_NODE_INDEX, CIRCLE_NODE_TOTAL
-    parallelism: 8
+    parallelism: 16
     # Spark runs a lot of tests in parallel, we need 16 GB of RAM for this
     resource_class: xlarge
     steps:
@@ -312,7 +311,6 @@ jobs:
       - *link-in-build-sbt-cache
       # ---
       - *restore-ivy-cache
-      - *restore-home-sbt-cache
       - restore_cache:
           keys:
             - v1-test-results-{{ .Branch }}-{{ .BuildNum }}
@@ -359,8 +357,7 @@ jobs:
           name: Run all tests
           command: ./dev/run-scala-tests.py \
             | tee -a "/tmp/run-scala-tests.log"
-          no_output_timeout: 20m
-
+          no_output_timeout: 30m
       - store_artifacts:
           path: /tmp/run-scala-tests.log
           destination: run-scala-tests.log

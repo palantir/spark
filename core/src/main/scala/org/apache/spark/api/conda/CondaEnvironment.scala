@@ -20,9 +20,13 @@ import java.io.File
 import java.net.URI
 import java.nio.file.Path
 import java.util.{Map => JMap}
-import javax.ws.rs.core.UriBuilder
 
 import scala.collection.mutable
+
+// Using internal JerseyUriBuilder to avoid classpath conflicts when using javax UriBuilder
+// Those conflicts come up in integration tests which put Jersey 1.x on the classpath which
+// doesn't implement UriBuilder. https://stackoverflow.com/a/30177448
+import org.glassfish.jersey.uri.internal.JerseyUriBuilder
 
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
@@ -158,9 +162,9 @@ object CondaEnvironment {
   /** A channel URI that might have credentials set. */
   private[CondaEnvironment] case class AuthenticatedChannel(url: String) extends AnyVal {
     def split(): ChannelWithCreds = {
-      val uri = UriBuilder.fromUri(url).build()
+      val uri = new JerseyUriBuilder().uri(url).build()
       ChannelWithCreds(
-        UnauthenticatedChannel(UriBuilder.fromUri(uri).userInfo(null).build()),
+        UnauthenticatedChannel(new JerseyUriBuilder().uri(uri).userInfo(null).build()),
         Option(uri.getUserInfo))
     }
   }
@@ -175,7 +179,8 @@ object CondaEnvironment {
       : Seq[AuthenticatedChannel] = {
     channels.map { channel =>
       val authenticatedUrl = userInfos.get(channel)
-        .map(userInfo => UriBuilder.fromUri(channel.uri).userInfo(userInfo).build().toString)
+        .map(userInfo =>
+          new JerseyUriBuilder().uri(channel.uri).userInfo(userInfo).build().toString)
         .getOrElse(channel.uri.toString)
       AuthenticatedChannel(authenticatedUrl)
     }

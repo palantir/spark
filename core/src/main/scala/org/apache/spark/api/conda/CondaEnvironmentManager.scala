@@ -22,7 +22,6 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.attribute.PosixFilePermission
 import java.util.regex.Pattern
-import javax.ws.rs.core.UriBuilder
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -34,6 +33,10 @@ import scala.sys.process.ProcessIO
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.google.common.collect.ImmutableSet
+// Using internal JerseyUriBuilder to avoid classpath conflicts when using javax UriBuilder
+// Those conflicts come up in integration tests which put Jersey 1.x on the classpath which
+// doesn't implement UriBuilder. https://stackoverflow.com/a/30177448
+import org.glassfish.jersey.uri.internal.JerseyUriBuilder
 import org.json4s.JsonAST.JValue
 import org.json4s.jackson.Json4sScalaModule
 import org.json4s.jackson.JsonMethods
@@ -183,7 +186,11 @@ final class CondaEnvironmentManager(condaBinaryPath: String,
     // Authenticate URLs if we have a UserInfo argument
     val finalCondaPackageUrls = if (condaPackageUrlsUserInfo.isDefined) {
       condaPackageUrls.map { packageUrl =>
-        UriBuilder.fromUri(packageUrl).userInfo(condaPackageUrlsUserInfo.get).build().toString
+        new JerseyUriBuilder()
+          .uri(packageUrl)
+          .userInfo(condaPackageUrlsUserInfo.get)
+          .build()
+          .toString
       }
     } else {
       condaPackageUrls
@@ -351,7 +358,7 @@ object CondaEnvironmentManager extends Logging {
    * <code>UriBuilder</code> can safely alter URI components without throwing exceptions.
    */
   private[conda] def dropUserInfo(uri: String): String = {
-    UriBuilder.fromUri(uri).userInfo(null).build().toString
+    new JerseyUriBuilder().uri(uri).userInfo(null).build().toString
   }
 
   def fromConf(sparkConf: SparkConf): CondaEnvironmentManager = {

@@ -250,6 +250,11 @@ object CirclePlugin extends AutoPlugin {
     // > show unsafe/circle:fullClasspath
     fullClasspath := (fullClasspath in Test).value,
 
+    // Bump memory used for tests, otherwise they occasionally OOM
+    javaOptions += "-Xmx4g",
+    // Enable forking such that javaOptions are applied when running tests
+    fork := true,
+
     copyTestReportsToCircle := {
       val log = streams.value.log
       val reportsDir = target.value / "test-reports"
