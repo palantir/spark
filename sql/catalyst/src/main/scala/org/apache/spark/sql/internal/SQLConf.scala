@@ -2556,6 +2556,23 @@ object SQLConf {
     .booleanConf
     .createWithDefault(false)
 
+  // Palantir-specific config
+  val LEGACY_IGNORE_METADATA_FOR_REBASE_MODE_IN_READ =
+    buildConf("spark.sql.legacy.ignoreMetadataForRebaseModeInRead")
+      .internal()
+      .doc("(This is a Palantir-added config.) Forces configured rebase mode in read regardless " +
+        "of file metadata. When reading Parquet or Avro files, Spark might encounter dates or " +
+        "times that are interpreted differently between Spark 2 and 3 calendars. Depending on " +
+        "the legacy behavior configured in spark.sql.legacy.parquet.datetimeRebaseModeInWrite, " +
+        "Spark will either fail, take values as-is, or rebase values from the old calendar into " +
+        "the new. However, this config is ignored when reading files that contain the Spark " +
+        "version or Spark legacy write mode in the metadata " +
+        "(see DataSourceUtils#datetimeRebaseMode). In those instances, use this config to force " +
+        "the legacy mode overriding of metadata.")
+      .version("3.0.2-palantir.14")
+      .booleanConf
+      .createWithDefault(false)
+
   val LEGACY_PARQUET_REBASE_MODE_IN_WRITE =
     buildConf("spark.sql.legacy.parquet.datetimeRebaseModeInWrite")
       .internal()

@@ -93,6 +93,15 @@ object DataSourceUtils {
     if (Utils.isTesting && SQLConf.get.getConfString("spark.test.forceNoRebase", "") == "true") {
       return LegacyBehaviorPolicy.CORRECTED
     }
+
+    // This is additional Palantir logic: When deriving the rebase mode we might want to ignore
+    // file metadata if it leads to the wrong rebase mode being applied. For instance our fork
+    // on Spark 2 was falsely writing '3.0.0' as Spark version in file metadata, based on which
+    // Spark 3 would use 'corrected' mode even if configured otherwise.
+    if(SQLConf.get.getConf(SQLConf.LEGACY_IGNORE_METADATA_FOR_REBASE_MODE_IN_READ)) {
+      return LegacyBehaviorPolicy.withName(modeByConfig)
+    }
+
     // If there is no version, we return the mode specified by the config.
     Option(lookupFileMeta(SPARK_VERSION_METADATA_KEY)).map { version =>
       // Files written by Spark 2.4 and earlier follow the legacy hybrid calendar and we need to
