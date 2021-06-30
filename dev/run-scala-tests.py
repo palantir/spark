@@ -17,14 +17,30 @@
 # limitations under the License.
 #
 
+import argparse
+
 from test_functions import *
 
 
+def parse_opts():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--modules', nargs='*', default='root')
+    parser.add_argument('--excluded-tags', nargs='*')
+    parser.add_argument('--included-tags', nargs='*')
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
+    opts = parse_opts()
     env = get_build_environment()
     extra_profiles = get_hadoop_profiles(env.hadoop_version)
-    mtt = modules_to_test(env)
+    test_modules = [m for m in modules.all_modules if m.name in opts.modules]
 
-    # run the test suites
+    assert len(test_modules) == len(opts.modules), "Requested module not found"
+
     run_scala_tests(
-        env.build_tool, extra_profiles, mtt.test_modules, mtt.excluded_tags, included_tags=[])
+        env.build_tool,
+        extra_profiles,
+        test_modules,
+        opts.excluded_tags or [],
+        opts.included_tags or [])

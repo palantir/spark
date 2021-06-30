@@ -431,13 +431,6 @@ def run_scala_tests_maven(test_profiles):
 def run_scala_tests_sbt(test_modules, test_profiles):
     sbt_test_goals = list(itertools.chain.from_iterable(m.sbt_test_goals for m in test_modules))
 
-    if 'CIRCLE_TEST_REPORTS' in os.environ:
-        # The test task in the circle configuration runs only the appropriate test for the current
-        # circle node, then copies the results to CIRCLE_TEST_REPORTS.
-        # We are not worried about running only the `test_modules`, since we always run the whole
-        # suite in circle anyway.
-        sbt_test_goals = ['circle:test']
-
     if not sbt_test_goals:
         return
 
