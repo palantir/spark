@@ -405,7 +405,7 @@ case class DataSource(
       case (format: FileFormat, _) =>
         val useCatalogFileIndex = sparkSession.sqlContext.conf.manageFilesourcePartitions &&
           catalogTable.isDefined && catalogTable.get.tracksPartitionsInCatalog &&
-          catalogTable.get.dataSchema.nonEmpty
+          catalogTable.get.partitionColumnNames.nonEmpty
         val (fileCatalog, dataSchema, partitionSchema) = if (useCatalogFileIndex) {
           val defaultTableSize = sparkSession.sessionState.conf.defaultSizeInBytes
           val index = fileIndexFactory.create(
