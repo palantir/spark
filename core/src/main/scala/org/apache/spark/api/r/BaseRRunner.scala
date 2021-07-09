@@ -264,7 +264,6 @@ private[r] object BaseRRunner {
   // This daemon currently only works on UNIX-based systems now, so we should
   // also fall back to launching workers (worker.R) directly.
   private[this] var errThread: BufferedStreamThread = _
-  private[this] var daemonChannel: DataOutputStream = _
 
   private lazy val authHelper = {
     val conf = Option(SparkEnv.get).map(_.conf).getOrElse(new SparkConf())
@@ -345,10 +344,15 @@ private[r] object BaseRRunner {
    */
   def createRWorker(condaSetupInstructions: Option[CondaSetupInstructions], port: Int)
   : BufferedStreamThread = {
-    val useDaemon = SparkEnv.get.conf.getBoolean("spark.sparkr.use.daemon", true)
+    val env = SparkEnv.get
+    val useDaemon = env.conf.getBoolean("spark.sparkr.use.daemon", true)
     if (!Utils.isWindows && useDaemon) {
       synchronized {
-        if (daemonChannel == null) {
+        // PALANTIR: we pair the R daemon with the spark env rather than with the base runner,
+        // such that the daemon lives as long as env does.
+        // This allows us to use local directories as place to store conda env.
+        // See more in https://github.com/palantir/spark/pull/261
+        if (!env.rDaemonExists()) {
           // we expect one connections
           val serverSocket = new ServerSocket(0, 1, InetAddress.getByName("localhost"))
           val daemonPort = serverSocket.getLocalPort
@@ -358,19 +362,17 @@ private[r] object BaseRRunner {
           val sock = serverSocket.accept()
           try {
             authHelper.authClient(sock)
-            daemonChannel = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream))
+            env.setRDaemonChannel(
+              new DataOutputStream(new BufferedOutputStream(sock.getOutputStream)))
           } finally {
             serverSocket.close()
           }
         }
         try {
-          daemonChannel.writeInt(port)
-          daemonChannel.flush()
+          env.createRWorkerFromDaemon(port)
         } catch {
           case e: IOException =>
             // daemon process died
-            daemonChannel.close()
-            daemonChannel = null
             errThread = null
             // fail the current task, retry by scheduler
             throw e

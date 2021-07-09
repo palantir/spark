@@ -25,5 +25,6 @@
 * [palantir/spark#600](https://github.com/palantir/spark/pull/600) K8s local deploy mode
 * Support Arrow-serialization of Python 2 strings [(#679)](https://github.com/palantir/spark/pull/679)
   * [palantir/spark#678](https://github.com/palantir/spark/issues/678) TODO: Revert 679 once we move off of python 2
+* Add conda support for R ([palantir/spark#261](https://github.com/palantir/spark/pull/261) & [palantir/spark#79](https://github.palantir.build/foundry/spark/pull/79))
 * Filter rLibDir by exists so that daemon.R references the correct file [(#460)](https://github.com/palantir/spark/pull/460)
 * Add pre-installed conda configuration and use to find rlib directory [(#700)](https://github.com/palantir/spark/pull/700)  
