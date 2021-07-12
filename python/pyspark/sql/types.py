@@ -1303,6 +1303,17 @@ def _create_converter(dataType):
         if obj is None:
             return
 
+        # TODO(wraschkowski): Remove once we drop support for Python 3.5 and lower
+        #
+        # Palantir: Ensure that when converting rows coming out of RDDs the values are
+        # reordered to match the schema. See StructType._coerce_rows_enabled.
+        if isinstance(obj, Row) and getattr(obj, "__from_dict__", False) \
+                and dataType._coerce_rows_enabled:
+            if convert_fields:
+                return tuple([conv(obj[name]) for name, conv in zip(names, converters)])
+            else:
+                return tuple([obj[name] for name in names])
+
         if isinstance(obj, (tuple, list)):
             if convert_fields:
                 return tuple(conv(v) for v, conv in zip(obj, converters))

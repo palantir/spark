@@ -997,7 +997,7 @@ class DataTypeVerificationTests(unittest.TestCase):
         Row._row_field_sorting_enabled = sorting_enabled_tmp
 
 
-class RowSchemaCoercionTests(unittest.TestCase):
+class RowSchemaCoercionTests(ReusedSQLTestCase):
 
     def test_coerce_rows_to_schema_without_serialization(self):
         with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="TRUE"):
@@ -1040,6 +1040,89 @@ class RowSchemaCoercionTests(unittest.TestCase):
             schema = \
                 StructType([StructField('a', StringType()), StructField('b', DateType())])
             _make_type_verifier(schema)(Row(b=datetime.date(2021, 5, 19), a='a'))
+
+    def test_coerce_rows_in_createDataFrame(self):
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            df = self.spark.createDataFrame([Row(a='a', b='b'), Row(b='b', a='a')])
+            self.assertEquals(df.collect(), [('a', 'b'), ('a', 'b')])
+
+        with row_field_sorting(True), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            df = self.spark.createDataFrame([Row(a='a', b='b'), Row(b='b', a='a')])
+            self.assertEquals(df.collect(), [('a', 'b'), ('a', 'b')])
+
+    @unittest.skipIf(sys.version_info[:2] < (3, 6), "Python 2 always sorts rows")
+    def test_coerce_rows_from_rdd(self):
+        def get_unordered_rows(_):
+            # Disable row field sorting on executor
+            with row_field_sorting(False):
+                assert not Row._row_field_sorting_enabled, "Row field sorting is enabled"
+                yield Row(a=1, b=2)
+                yield Row(b=2, a=1)
+
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="false"):
+            df_from_rdd = self.sc.parallelize(range(1)) \
+                .flatMap(get_unordered_rows) \
+                .toDF()
+            # Sanity check: Incorrect values before enabling schema coercion
+            self.assertEquals(df_from_rdd.collect(), [
+                Row(a=1, b=2),
+                Row(a=2, b=1)])
+
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            df_from_rdd = self.sc.parallelize(range(1)) \
+                .flatMap(get_unordered_rows) \
+                .toDF()
+            # Values are correct with coercion enabled
+            self.assertEquals(df_from_rdd.collect(), [
+                Row(a=1, b=2),
+                Row(a=1, b=2)])
+
+    def test_coerce_rows_from_rdd_with_row_field_sorting_enabled(self):
+        def get_rows(_):
+            with row_field_sorting(True):
+                yield Row(a=1, b=2)
+                yield Row(b=2, a=1)
+
+        with row_field_sorting(True), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            rdd = self.sc.parallelize(range(1)).flatMap(get_rows)
+            self.assertEquals(rdd.toDF().collect(), [(1, 2), (1, 2)])
+            self.assertEquals(rdd.toDF('a int, b int').collect(), [(1, 2), (1, 2)])
+            self.assertEquals(rdd.toDF('b int, a int').collect(), [(2, 1), (2, 1)])
+            self.assertEquals(rdd.toDF('b int').collect(), [(2,), (2,)])
+
+    def test_coerce_rows_from_rdd_with_row_field_sorting_disabled(self):
+        def get_rows(_):
+            with row_field_sorting(False):
+                yield Row(a=1, b=2)
+                yield Row(b=2, a=1)
+
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            rdd = self.sc.parallelize(range(1)).flatMap(get_rows)
+            self.assertEquals(rdd.toDF().collect(), [(1, 2), (1, 2)])
+            self.assertEquals(rdd.toDF('a int, b int').collect(), [(1, 2), (1, 2)])
+            self.assertEquals(rdd.toDF('b int, a int').collect(), [(2, 1), (2, 1)])
+            self.assertEquals(rdd.toDF('b int').collect(), [(2,), (2,)])
+
+    def test_coerce_rows_from_rdd_with_type_that_needs_serialization(self):
+        def get_rows(_):
+            with row_field_sorting(False), env_overrides(PYSPARK_ROW_FIELD_SORTING_ENABLED="false"):
+                yield Row(a=1, b=datetime.date(2021, 1, 1))
+                yield Row(b=datetime.date(2021, 1, 1), a=1)
+
+        with row_field_sorting(False), env_overrides(PYSPARK_COERCE_ROWS_TO_SCHEMA="true"):
+            rdd = self.sc.parallelize(range(1)).flatMap(get_rows)
+            self.assertEquals(
+                rdd.toDF().collect(),
+                [(1, datetime.date(2021, 1, 1)), (1, datetime.date(2021, 1, 1))])
+            self.assertEquals(
+                rdd.toDF('a int, b date').collect(),
+                [(1, datetime.date(2021, 1, 1)), Row(1, datetime.date(2021, 1, 1))])
+            self.assertEquals(
+                rdd.toDF('b date, a int').collect(),
+                [(datetime.date(2021, 1, 1), 1), (datetime.date(2021, 1, 1), 1)])
+            self.assertEquals(
+                rdd.toDF('b date').collect(),
+                [(datetime.date(2021, 1, 1),), (datetime.date(2021, 1, 1),)])
 
 
 class RowSchemaCorruptionCheckTests(ReusedSQLTestCase):

@@ -17,7 +17,7 @@
 * [SPARK-21195](https://issues.apache.org/jira/browse/SPARK-21195) - Automatically register new metrics from sources and wire default registry
 * `spark.sql.parquet.outputTimestampType` defaults to `INT64 (TIMESTAMP_MICROS)`
 * In PySpark, when populating a dataframe from rows created with named arguments, values are re-ordered
-  to match the schema when the `PYSPARK_COERCE_ROWS_TO_SCHEMA` environment variable is set (#54, #59, and #61).
+  to match the schema when the `PYSPARK_COERCE_ROWS_TO_SCHEMA` environment variable is set (#54, #59, #61, and #81).
 
 # Added
 * [palantir/spark#381](https://github.com/palantir/spark/pull/381) Gradle plugin to easily create custom docker images for use with k8s
