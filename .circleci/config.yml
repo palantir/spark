@@ -354,10 +354,6 @@ jobs:
                 ;;
             esac
 
-            # Hive and SQL tests become flaky when running in parallel as they're too intense
-            # See https://github.com/apache/spark/blob/e7e016192f882cfb430d706c2099e58e1bcc014c/.github/workflows/build_and_test.yml#L135-L137
-            if [[ "$MODULES_TO_TEST" == "hive" ]] || [[ "$MODULES_TO_TEST" == "sql" ]]; then export SERIAL_SBT_TESTS=1; fi
-
             ./dev/run-scala-tests.py \
               --modules $MODULES_TO_TEST \
               --included-tags $INCLUDED_TAGS \
