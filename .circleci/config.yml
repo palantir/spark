@@ -292,7 +292,7 @@ jobs:
 
   run-scala-tests:
     <<: *test-defaults
-    parallelism: 7
+    parallelism: 9
     # Spark runs a lot of tests in parallel, we need 16 GB of RAM for this
     resource_class: xlarge
     steps:
@@ -328,26 +328,36 @@ jobs:
                 INCLUDED_TAGS=""
                 ;;
               2)
-                MODULES_TO_TEST="streaming sql-kafka-0-10 streaming-kafka-0-10 mllib-local mllib yarn mesos kubernetes hadoop-cloud spark-ganglia-lgpl"
+                MODULES_TO_TEST="streaming sql-kafka-0-10 streaming-kafka-0-10"
                 EXCLUDED_TAGS=""
                 INCLUDED_TAGS=""
                 ;;
               3)
+                MODULES_TO_TEST="mllib-local mllib"
+                EXCLUDED_TAGS=""
+                INCLUDED_TAGS=""
+                ;;
+              4)
+                MODULES_TO_TEST="yarn mesos kubernetes hadoop-cloud spark-ganglia-lgpl"
+                EXCLUDED_TAGS=""
+                INCLUDED_TAGS=""
+                ;;
+              5)
                 MODULES_TO_TEST="hive"
                 EXCLUDED_TAGS=""
                 INCLUDED_TAGS="org.apache.spark.tags.SlowHiveTest"
                 ;;
-              4)
+              6)
                 MODULES_TO_TEST="hive"
                 EXCLUDED_TAGS="org.apache.spark.tags.SlowHiveTest"
                 INCLUDED_TAGS=""
                 ;;
-              5)
+              7)
                 MODULES_TO_TEST="sql"
                 EXCLUDED_TAGS=""
                 INCLUDED_TAGS="org.apache.spark.tags.ExtendedSQLTest"
                 ;;
-              6)
+              8)
                 MODULES_TO_TEST="sql"
                 EXCLUDED_TAGS="org.apache.spark.tags.ExtendedSQLTest"
                 INCLUDED_TAGS=""
