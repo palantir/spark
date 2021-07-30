@@ -23,12 +23,13 @@ if sys.version >= '3':
     long = int
     from functools import reduce
     from html import escape as html_escape
+    from collections.abc import Iterable
 else:
     from itertools import imap as map
     from cgi import escape as html_escape
+    from collections import Iterable
 
 import warnings
-
 from pyspark import copy_func, since, _NoValue
 from pyspark.rdd import RDD, _load_from_socket, _local_iterator_from_socket, \
     ignore_unicode_prefix
@@ -1666,6 +1667,10 @@ class DataFrame(PandasMapOpsMixin, PandasConversionMixin):
         |  5|    80|Alice|
         +---+------+-----+
         """
+        if subset is not None and (
+                not isinstance(subset, Iterable) or isinstance(subset, str)):
+            raise TypeError("Parameter 'subset' must be a list of columns")
+
         if subset is None:
             jdf = self._jdf.dropDuplicates()
         else:
