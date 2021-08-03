@@ -26,7 +26,7 @@ all-branches-and-tags: &all-branches-and-tags
 deployable-branches-and-tags: &deployable-branches-and-tags
   filters:
     tags:
-      only: /[0-9]+(?:\.[0-9]+){2,}-palantir\.[0-9]+(?:\.[0-9]+)*/
+      only: /[0-9]+(?:\.[0-9]+){2,}-palantir\.[0-9]+(?:\.[0-9]+)*(?:-rc[0-9]+)?/
     branches:
       only:
         - /palantir-.*/
@@ -423,7 +423,7 @@ jobs:
           root: .
           paths: 'local_deploy/'
 
-  deploy-spark-docker-resources:
+  publish-spark-docker-resources:
     <<: *defaults
     docker:
       - image: hub.docker.palantir.build/palantirtechnologies/circle-spark-r:0.2.5
@@ -432,7 +432,7 @@ jobs:
       - deploy:
           command: dev/publish_docker_resources.sh
 
-  deploy:
+  publish:
     <<: *defaults
     # Some part of the maven setup fails if there's no R, so we need to use the R image here
     docker:
@@ -451,7 +451,7 @@ jobs:
           path: /tmp/publish_artifacts.log
           destination: publish_artifacts.log
 
-  deploy-dist:
+  publish-dist:
     # This task is dedicated to the dist publishing.
     <<: *defaults
     docker:
@@ -477,7 +477,7 @@ jobs:
 
 workflows:
   version: 2
-  build-test-deploy:
+  build-test-publish:
     jobs:
       - build-maven:
           <<: *all-branches-and-tags
@@ -522,15 +522,15 @@ workflows:
             - run-python-tests
             - run-r-tests
           <<: *all-branches-and-tags
-      - deploy-spark-docker-resources:
+      - publish-spark-docker-resources:
           requires:
             - circle-all
           <<: *deployable-branches-and-tags
-      - deploy:
+      - publish:
           requires:
             - circle-all
           <<: *deployable-branches-and-tags
-      - deploy-dist:
+      - publish-dist:
           requires:
             - circle-all
           <<: *deployable-branches-and-tags
