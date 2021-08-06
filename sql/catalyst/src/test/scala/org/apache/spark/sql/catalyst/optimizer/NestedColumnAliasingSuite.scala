@@ -164,7 +164,7 @@ class NestedColumnAliasingSuite extends SchemaPruningTest {
       comparePlans(optimized, expected)
     }
     val expectedUnion =
-      contact.select('name).union(contact.select('name.as('name)))
+      contact.select('name).union(contact.select('name))
         .select(GetStructField('name, 1, Some("middle"))).analyze
     comparePlans(optimizedUnion, expectedUnion)
   }

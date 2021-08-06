@@ -48,7 +48,7 @@ trait AnalysisTest extends PlanTest {
     catalog.createGlobalTempView("TaBlE4", TestRelations.testRelation4, overrideIfExists = true)
     catalog.createGlobalTempView("TaBlE5", TestRelations.testRelation5, overrideIfExists = true)
     new Analyzer(catalog, conf) {
-      override val extendedResolutionRules = EliminateSubqueryAliases +: extendedAnalysisRules
+      override val extendedResolutionRules = extendedAnalysisRules
     }
   }
 
@@ -62,7 +62,7 @@ trait AnalysisTest extends PlanTest {
       caseSensitive: Boolean = true): Unit = {
     val analyzer = getAnalyzer(caseSensitive)
     val actualPlan = analyzer.executeAndCheck(inputPlan, new QueryPlanningTracker)
-    comparePlans(actualPlan, expectedPlan)
+    comparePlans(EliminateSubqueryAliases(actualPlan), expectedPlan)
   }
 
   protected override def comparePlans(

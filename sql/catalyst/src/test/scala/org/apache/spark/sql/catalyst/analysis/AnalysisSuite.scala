@@ -620,8 +620,8 @@ class AnalysisSuite extends AnalysisTest with Matchers {
     val project1 = Project(Seq(UnresolvedAttribute("a")), testRelation)
     val project2 = Project(Seq(UnresolvedAttribute("a")), testRelation2)
     val flatMapGroupsInPandas = FlatMapCoGroupsInPandas(
-      Seq(UnresolvedAttribute("a")),
-      Seq(UnresolvedAttribute("a")),
+      1,
+      1,
       pythonUdf,
       output,
       project1,
@@ -699,7 +699,7 @@ class AnalysisSuite extends AnalysisTest with Matchers {
 
   test("CTE with non-existing column alias") {
     assertAnalysisError(parsePlan("WITH t(x) AS (SELECT 1) SELECT * FROM t WHERE y = 1"),
-      Seq("cannot resolve '`y`' given input columns: [x]"))
+      Seq("cannot resolve '`y`' given input columns: [t.x]"))
   }
 
   test("CTE with non-matching column alias") {
