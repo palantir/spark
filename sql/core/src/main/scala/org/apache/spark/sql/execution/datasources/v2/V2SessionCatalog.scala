@@ -49,6 +49,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
   // This class is instantiated by Spark, so `initialize` method will not be called.
   override def initialize(name: String, options: CaseInsensitiveStringMap): Unit = {}
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchNamespaceException]
   override def listTables(namespace: Array[String]): Array[Identifier] = {
     namespace match {
       case Array(db) =>
@@ -61,6 +63,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     }
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchTableException]
   override def loadTable(ident: Identifier): Table = {
     val catalogTable = try {
       catalog.getTableMetadata(ident.asTableIdentifier)
@@ -76,6 +80,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     catalog.refreshTable(ident.asTableIdentifier)
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[TableAlreadyExistsException]
   override def createTable(
       ident: Identifier,
       schema: StructType,
@@ -112,6 +118,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     loadTable(ident)
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchTableException]
   override def alterTable(
       ident: Identifier,
       changes: TableChange*): Table = {
@@ -156,6 +164,9 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     }
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchTableException]
+  @throws[TableAlreadyExistsException]
   override def renameTable(oldIdent: Identifier, newIdent: Identifier): Unit = {
     if (tableExists(newIdent)) {
       throw new TableAlreadyExistsException(newIdent)
@@ -191,6 +202,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     catalog.listDatabases().map(Array(_)).toArray
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchNamespaceException]
   override def listNamespaces(namespace: Array[String]): Array[Array[String]] = {
     namespace match {
       case Array() =>
@@ -202,6 +215,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     }
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchNamespaceException]
   override def loadNamespaceMetadata(namespace: Array[String]): util.Map[String, String] = {
     namespace match {
       case Array(db) =>
@@ -212,6 +227,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     }
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NamespaceAlreadyExistsException]
   override def createNamespace(
       namespace: Array[String],
       metadata: util.Map[String, String]): Unit = namespace match {
@@ -227,6 +244,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
       throw new IllegalArgumentException(s"Invalid namespace name: ${namespace.quoted}")
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchNamespaceException]
   override def alterNamespace(namespace: Array[String], changes: NamespaceChange*): Unit = {
     namespace match {
       case Array(db) =>
@@ -248,6 +267,8 @@ class V2SessionCatalog(catalog: SessionCatalog, conf: SQLConf)
     }
   }
 
+  // TODO(lmartini): This is Palantir-specific, throws needed for the catalog migration.
+  @throws[NoSuchNamespaceException]
   override def dropNamespace(namespace: Array[String]): Boolean = namespace match {
     case Array(db) if catalog.databaseExists(db) =>
       if (catalog.listTables(db).nonEmpty) {

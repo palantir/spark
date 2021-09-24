@@ -28,3 +28,4 @@
 * Add conda support for R ([palantir/spark#261](https://github.com/palantir/spark/pull/261) & [palantir/spark#79](https://github.palantir.build/foundry/spark/pull/79))
 * Filter rLibDir by exists so that daemon.R references the correct file [(#460)](https://github.com/palantir/spark/pull/460)
 * Add pre-installed conda configuration and use to find rlib directory [(#700)](https://github.com/palantir/spark/pull/700)  
+* Add throws definitions to signatures of V2SessionCatalog methods [palantir/spark#95](https://github.palantir.build/foundry/spark/pull/95)
