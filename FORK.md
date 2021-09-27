@@ -29,3 +29,4 @@
 * Filter rLibDir by exists so that daemon.R references the correct file [(#460)](https://github.com/palantir/spark/pull/460)
 * Add pre-installed conda configuration and use to find rlib directory [(#700)](https://github.com/palantir/spark/pull/700)  
 * Add throws definitions to signatures of V2SessionCatalog methods [palantir/spark#95](https://github.palantir.build/foundry/spark/pull/95)
+* [SPARK-35174](https://issues.apache.org/jira/browse/SPARK-35174) - Avoid opening watch when waitAppCompletion is false
