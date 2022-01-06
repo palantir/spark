@@ -1,3 +1,7 @@
+> :warning: **Palantirians**: If you want to contribute to Palantir's Spark fork, do so in the [internal repository](https://pl.ntr/spark).
+> This repo is a public mirror for when we want to share and discuss implementation externally.
+
+
 # Palantir Distribution of Apache Spark
 
 This repository, located at https://github.com/palantir/spark, contains a fork of Apache Spark. It includes a number of changes that are not yet on the Apache master branch that are useful at Palantir.
