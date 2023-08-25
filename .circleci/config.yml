@@ -446,15 +446,4 @@ workflows:
             - build-maven
           <<: *all-branches-and-tags
       - circle-all:
-          requires:
-            - build-maven
-            - build-sbt
-            - build-maven-versioned
-            # Tests
-            - run-style-tests
-            - run-build-tests
-            - run-backcompat-tests
-            - run-scala-tests
-            - run-python-tests
-            - run-r-tests
           <<: *all-branches-and-tags
