@@ -1,5 +1,7 @@
-> :warning: **Palantirians**: If you want to contribute to Palantir's Spark fork, do so in the [internal repository](https://pl.ntr/spark).
-> This repo is a public mirror updated only when we want to share and discuss implementation externally.
+> :warning: Publishing from this repository has been deprecated and the Palantir fork of spark has been moved internally. This now acts as read-only mirror of the Palantir internal fork of Spark, and it is not updated synchronously.
+Older versions of palantir/spark were published to [bintray](https://bintray.com/palantir/releases/spark).
+> > **Palantirians**: If you want to contribute to Palantir's Spark fork, do so in the [internal repository](https://pl.ntr/spark).
+This repo is a public mirror updated only when we want to share and discuss implementation externally.
 
 # Palantir Distribution of Apache Spark
 
@@ -10,8 +12,6 @@ Some highlights include:
 - predicate pushdown additions, including a patched version of Parquet
 - various misc bugfixes
 
-Note that publishing has been disabled from this repo, that now acts as read-only mirror of the Palantir internal fork of Spark.
-Older versions were published to [bintray](https://bintray.com/palantir/releases/spark).
 
 --------------------
 
