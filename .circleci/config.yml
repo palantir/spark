@@ -408,3 +408,53 @@ jobs:
     resource_class: small
     steps:
       - run: {command: echo "All required jobs finished successfully"}
+
+workflows:
+  version: 2
+  build-test:
+    jobs:
+      - build-maven:
+          <<: *all-branches-and-tags
+      - run-style-tests:
+          requires:
+            - build-maven
+          <<: *all-branches-and-tags
+      - run-build-tests:
+          requires:
+            - build-maven
+          <<: *all-branches-and-tags
+      - build-sbt:
+          <<: *all-branches-and-tags
+      - run-backcompat-tests:
+          requires:
+            - build-sbt
+          <<: *all-branches-and-tags
+      - run-scala-tests:
+          requires:
+            - build-sbt
+          <<: *all-branches-and-tags
+      - run-python-tests:
+          requires:
+            - build-sbt
+          <<: *all-branches-and-tags
+      - run-r-tests:
+          requires:
+            - build-sbt
+          <<: *all-branches-and-tags
+      - build-maven-versioned:
+          requires:
+            - build-maven
+          <<: *all-branches-and-tags
+      - circle-all:
+          requires:
+            - build-maven
+            - build-sbt
+            - build-maven-versioned
+            # Tests
+            - run-style-tests
+            - run-build-tests
+            - run-backcompat-tests
+            - run-scala-tests
+            - run-python-tests
+            - run-r-tests
+          <<: *all-branches-and-tags
